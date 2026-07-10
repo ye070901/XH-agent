@@ -17,8 +17,8 @@ venv/
 .DS_Store
 Thumbs.db
 
-# Docker
-data/
+# ChromaDB 向量数据
+data/chroma/
 
 # 前端
 frontend/node_modules/
