@@ -187,70 +187,134 @@ assert "步骤" in result["content"] or "```bash" in result["content"]
 
 ---
 
-## 👤 角色3 — 前端辅助 + 文档 + 演示
+## 👤 角色3 — 前端开发（副）
 
-**辅助角色8：** 前端 UI 调整
-**负责产出：** README 启动说明 + 演示分镜脚本
+**和角色8 的关系：** 同一个人写整个前端太累。你们两个分——角色8 写左半（输入表单 + API 调用），你写右半（结果展示 + Markdown 渲染 + 错误处理）。
 
-### 任务 3.1: 帮角色8 调前端（预计 3-4 小时，分散在 7/17-22）
+**文件：** `frontend/streamlit/app.py`（和角色8 同一个文件，各自写各自的段落）
 
-**具体步骤：**
-1. 先让角色8 把前端跑起来 → 你打开 http://localhost:8501
-2. **检查 UI 文案：**
-   - 每个输入框前面的标签是对的吗？
-   - 中文是否通顺？
-   - 学历下拉选项是否显示的是中文（不是 high_school 这种英文 key）
-3. **检查展示效果：**
-   - 诊断结果的"知识掌握度"进度条颜色合理吗？
-   - 知识盲区展开后文字清晰吗？
-   - Markdown 资源渲染正常吗？（代码块有没有高亮？）
-4. **在不同条件下测：**
-   - 浏览器窗口缩小到一半 → 布局不乱
-   - 生成失败时（后端没启动）→ 前端不白屏，有提示文字
-5. **记录问题：** 每发现一个 UI 问题 → 截图 → 发给角色8 → 修复后你再确认
+### 任务 3.1: 搭结果展示区（预计 3 小时，7/17-20）
+
+**目标：** 负责主区域的两个 tab——学情诊断展示 + 学习资源展示。
+
+**在 app.py 里你要写的代码：**
+
+1. **Tab 1: 学情诊断展示（1.5 小时）**
+
+   角色8 负责把 API 返回的 `result` 存到 `st.session_state.result`。你负责从 `st.session_state.result` 里取数据来展示。
+
+   要展示的内容：
+   ```python
+   # 从 session 里拿数据
+   diagnosis = st.session_state.result.get("diagnosis", {})
+
+   # 顶部三个指标卡片
+   col1, col2, col3 = st.columns(3)
+   with col1:
+       st.metric("学习风格", diagnosis.get("learning_style", "未知"))
+   with col2:
+       st.metric("推荐难度", diagnosis.get("recommended_difficulty", "未知"))
+   with col3:
+       gaps = diagnosis.get("skill_gaps", [])
+       st.metric("知识盲区", f"{len(gaps)} 个")
+
+   # 整体画像
+   st.subheader("📝 整体画像")
+   st.write(diagnosis.get("summary", "暂无"))
+
+   # 知识盲区——用 expander 展开
+   st.subheader("🎯 知识盲区")
+   for gap in diagnosis.get("skill_gaps", []):
+       priority = gap.get("priority", "?")
+       icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(priority, "⚪")
+       with st.expander(f"{icon} [{priority}] {gap.get('topic', '未知')}"):
+           st.write(f"当前水平: {gap.get('current_level', 0):.1f} → 目标: {gap.get('target_level', 1.0):.1f}")
+           st.write(f"原因: {gap.get('reason', '')}")
+
+   # 知识掌握度——用 progress bar
+   st.subheader("🗺️ 知识掌握度")
+   knowledge_map = diagnosis.get("knowledge_map", {})
+   for topic, info in knowledge_map.items():
+       level = info.get("level", 0) if isinstance(info, dict) else info
+       st.progress(level, text=f"{topic}: {level:.0%}")
+   ```
+
+2. **Tab 2: 学习资源展示（1 小时）**
+
+   ```python
+   resources = st.session_state.result.get("resources", [])
+   rtype_icon = {"lecture": "📖", "guide": "🛠️", "quiz": "✏️"}
+
+   for i, res in enumerate(resources):
+       rtype = res.get("resource_type", "lecture")
+       title = res.get("title", f"资源 {i+1}")
+       icon = rtype_icon.get(rtype, "📄")
+
+       with st.expander(f"{icon} {title}", expanded=(i == 0)):
+           content = res.get("content", "")
+           if content:
+               st.markdown(content)  # 这里要求 Markdown 中的代码块能正常渲染
+           else:
+               st.info("暂无内容")
+   ```
+
+3. **Markdown 渲染验证（30 分钟）**
+
+   生成的内容是 Markdown 格式。用 `st.markdown()` 渲染后，检查：
+   - `# 标题` 是不是正确显示为标题
+   - ` ```python ``` ` 代码块是不是有语法高亮
+   - `- 列表` 是不是显示为圆点列表
+   - `**加粗**` 是不是真的加粗了
+   - 如果渲染不对，查 Streamlit 文档看看 `st.markdown()` 怎么调参数
 
 ---
 
-### 任务 3.2: 写 README 启动说明（预计 2 小时）
+### 任务 3.2: 写错误处理 + 状态提示（预计 1.5 小时，7/21-22）
 
-**文件：** `README.md`
+**目标：** 后端没启动、请求超时、返回空数据——这三种情况前端都不能白屏。
 
-**要写清楚：**
-1. **前提条件：** Python 3.10+ 怎么装？Git 怎么装？在哪里下载？
-2. **克隆仓库：** `git clone ...` → `cd XH-agent`
-3. **配置：** 复制 `.env.example` → `.env`，填 API Key（不填也能跑演示模式）
-4. **启动方式 A：** 双击 `start.bat`（推荐）
-5. **启动方式 B：** 手动启动（两个命令）
-6. **打开浏览器：** http://localhost:8501
-7. **怎么用：** 左边填信息 → 点生成 → 右边看结果
-8. **常见问题：**
-   - 端口被占用怎么办？
-   - `pip install` 报错怎么办？
-   - 前端白屏怎么办？
+**要写的代码：**
 
-**参考格式：** 每一步都用一个 `###` 小标题 + 一段说明 + 代码块（如果需要输命令）+ 截图位置标注
+1. **后端连接状态检测：**
+   ```python
+   # 页面底部显示连接状态
+   import requests
+   try:
+       health = requests.get("http://localhost:8000/health", timeout=2)
+       st.caption(f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')}")
+   except Exception:
+       st.caption("🔴 后端未连接 — 请先启动: python -m uvicorn src.api.main:app --port 8000")
+   ```
+
+2. **生成失败时的错误提示（和角色8 配合）：**
+   角色8 发起 `POST /api/generate` 请求。如果他请求失败，你需要展示友好的错误信息。
+   ```python
+   # 和角色8 约定：请求失败时他设置 st.session_state.result = None
+   # 然后你检查：
+   if st.session_state.get("result") is None and st.session_state.get("generated"):
+       st.error("❌ 生成失败")
+       st.info("请检查：1) 后端是否已启动  2) API Key 是否已配置")
+   ```
+
+3. **空数据提示：**
+   ```python
+   if not st.session_state.get("result"):
+       st.info("👈 在左侧填写学习者信息，点击「生成个性化学习资源」开始")
+   ```
 
 ---
 
-### 任务 3.3: 写演示分镜脚本（预计 1.5 小时）
+### 任务 3.3: 协助联调 + 测试（预计 2 小时，7/23-24）
 
-**目标：** 7/31 验收时，照着这个脚本演示系统。
+1. 联调当天（7/23），角色8 写表单和 API 调用，你写结果展示——两人同时改同一个文件的不同段落
+2. 用 Git 协调：角色8 改完 commit → 你 pull → 你改完 commit → 角色8 pull
+3. 测试 3 种资源类型的展示是否都正常
+4. 测试 Markdown 中的中文是否乱码
 
-**格式：**
-
-| 时间 | 画面 | 操作 | 旁白 |
-|------|------|------|------|
-| 0:00 | 启动系统 | 双击 start.bat | "这是我们的领域知识个性化生成系统" |
-| 0:30 | 前端页面 | 打开浏览器 | "左侧是学习者信息输入区" |
-| 1:00 | 输入第一组 | 填"张三，本科，计算机，想学 LangGraph" | "我们输入第一组学习者信息" |
-| 1:30 | 生成结果 | 点击生成按钮 | "Agent 1 首先诊断学习者的知识结构" |
-| 2:00 | 诊断结果 | 展开知识盲区 | "可以看到，系统识别出了 5 个知识盲区" |
-| ... | ... | ... | ... |
-
-**要求：**
-- 至少安排 3 组学习者对比演示（证明不同输入产生不同结果）
-- 总时长控制在 5 分钟以内
-- 旁白自然，不要太书面
+**和角色8 的分工界线：**
+- 角色8：侧边栏表单 + 生成按钮 + `requests.post` 调用 API + 把结果存到 `st.session_state`
+- 你：主区域两个 tab + Markdown 渲染 + 错误处理 + 状态提示
+- 互不踩对方的地盘，合起来就是一个完整的页面
 
 ---
 
