@@ -1,40 +1,39 @@
-# CLAUDE.md — 角色6：审核裁判 Agent（主） — 辩论协议
+# CLAUDE.md — 角色6：测试负责人 + Phase 2 辩论方案
 
-## 你的模块
+## 你的任务（MVP 阶段）
 
-`backend/src/agents/audit.py` + `backend/src/debate/engine.py`
+MVP 不放 Agent 3。你的工作是确保系统质量 + 为 Phase 2 铺路。
 
-## 你要做的事情
+## MVP 要做什么
 
-1. 完善 `AuditAgent` 的事实抽取和对抗验证 prompt
-2. 实现 `DebateEngine` 的完整多轮辩论逻辑（**不要降级成 retry！**）
-3. 实现 Agent 3 发起质询的逻辑（`generate_challenges`）
-4. 实现 Agent 3 评估 Agent 2 辩护的逻辑（`evaluate_defense`）
-5. 实现共识判定策略（什么情况算共识？什么情况继续辩？什么情况 escalate？）
+1. **测试角色2 的演示模式（7/17-18）**
+   - 不配 API Key 测 5 次诊断 + 5 次生成
+   - 验证模拟数据不是空 `{}`，且不同输入真的返回不同内容
+   - 对比配 Key vs 不配 Key 的返回格式一致性
 
-## 你的接口
+2. **写批量测试脚本（7/22）**
+   - 文件：新建 `backend/tests/test_mvp.py`
+   - 用 `requests` 调 `/api/generate`，加 assert 断言
+   - 角色7 用你这个脚本执行测试
 
-- `AuditAgent.process(state)` → 审核报告
-- `DebateEngine.run(resource, audit, chunks, gen_agent, aud_agent)` → 辩论记录
+3. **出 MVP 测试报告（7/24）**
+   - 文件：新建 `docs/MVP_TEST_REPORT.md`
+   - 包含：测试概览、逐组结果、发现的问题、给 Phase 2 的建议
 
-## 辩论协议（你的核心工作）
+4. **设计 Phase 2 辩论协议草案（7/24-25）**
+   - 阅读 `backend/src/agents/audit.py`（参考旧版了解 Agent 3 怎么工作）
+   - 回答 6 个问题：
+     1. Agent 3 怎么提取"可验证的断言"？
+     2. 质询需要包含什么信息？
+     3. Agent 2 的辩护怎么算有效？
+     4. 怎么判断"达成了共识"？
+     5. 3 轮未共识 → escalate 之后怎么办？
+     6. 辩论协议的状态机怎么画？
 
-```
-第 N 轮:
-  Agent 3 发起质询 (证据: KB 中与断言矛盾的原文)
-      ↓
-  Agent 2 回应: accept_challenge(修正) / rebut(反驳) / concede(承认)
-      ↓
-  Agent 3 评估: defense_accepted? remaining_concerns?
-      ↓
-  共识达成 → 通过
-  未共识 → 下一轮（最多3轮）
-  3轮未共识 → escalate（标记 unresolved_claims）
-```
+**详细步骤见：** `docs/MVP_TASKS.md` — 角色6 部分
 
-## 关键约束
+## 和角色7 的配合
 
-- **辩论不是 retry。** 不是"审核不过→重新生成"。是逐条对抗验证。
-- 每次质询必须附带 KB 证据（没有证据的质疑是无效的）
-- Agent 2 的辩护引用 KB 原文才算有效，只说"我认为..."不算
-- 这是评审最关注的技术亮点，做到位 = 25 分创新分稳了
+- 你写测试框架 → 角色7 执行测试
+- 你设计辩论协议草案 → 角色7 补充
+- Phase 2 你会是主力——MVP 先把方案想清楚

@@ -1,37 +1,35 @@
-# CLAUDE.md — 角色3：知识库工程师
+# CLAUDE.md — 角色3：前端辅助 + 文档 + 演示
 
-## 你的模块
+## 你的任务（MVP 阶段）
 
-`backend/src/knowledge/store.py` — ChromaDB 向量存储 + RAG
+MVP 不做本地知识库。你辅助角色8 做前端 + 写项目文档 + 准备演示。
 
-## 你要做的事情
+## MVP 要做什么
 
-1. 完善 `KnowledgeBase` 的 ChromaDB 集成
-2. 爬取/收集大模型应用开发领域的文档（LangChain/LlamaIndex/OpenAI/Anthropic 官方文档）
-3. 实现语义分块策略（按标题层级 + 代码块边界）
-4. 测试检索质量（手动验证：搜"RAG pipeline"，前 5 个结果是否相关）
-5. 准备 ≥1 个垂直领域的专业知识库切片（提交材料用）
+1. **帮角色8 调前端（7/17-22）**
+   - 角色8 写前端的时候，你负责"挑毛病"
+   - 检查 UI 文案是否通顺、展示效果是否合理
+   - 在不同浏览器窗口大小下测试布局不乱
+   - 生成失败时前端不白屏
 
-## 你的接口
+2. **写 README 启动说明（7/18-21）**
+   - 文件：更新 `README.md`
+   - 要写清楚：前提条件、怎么克隆、怎么配置、怎么启动、常见问题
+   - 目标是"第一次用的人照着 README 就能跑起来"
 
-- `knowledge_base.add_document(doc_id, title, content) -> list[dict]`
-- `knowledge_base.search(query, top_k=10) -> list[dict]`
+3. **写演示分镜脚本（7/22-25）**
+   - 文件：新建 `docs/DEMO_SCRIPT.md`
+   - 表格格式：时间 | 画面 | 操作 | 旁白
+   - 安排 3 组学习者对比演示，总长 5 分钟
+   - 7/31 验收时照着这个脚本演示
 
-## 检索结果的格式
+**详细步骤见：** `docs/MVP_TASKS.md` — 角色3 部分
 
-```python
-{
-    "doc_id": str,
-    "doc_title": str,
-    "chunk_index": int,
-    "content": str,
-    "relevance_score": float
-}
-```
+## 和角色8 的配合
 
-## 关键约束
+- 角色8 专注写前端代码 → 你专注检查和反馈
+- 你发现一个 UI 问题 → 截图 → 发给角色8 → 修完后你确认
 
-- 知识库质量决定 Agent 2 和 Agent 3 的上限
-- 至少准备 20 篇高质量文档（官方文档 > 博客 > 教程）
-- 每条 doc 需要明确的标题和来源
-- Agent 2 依赖你的检索结果生成内容，Agent 3 用你的检索结果验证
+## Phase 2 你的角色会变
+
+MVP 你主要做前端辅助和文档。Phase 2 会回到知识库方向（RAG 检索 + 向量库），但那是 8 月的事。
