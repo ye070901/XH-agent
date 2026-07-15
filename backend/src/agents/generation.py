@@ -2,31 +2,31 @@
 Agent 2: 领域知识生成 Agent
 ══════════════════════════════════
 负责: 角色5 实现
-输入: state["diagnosis_result"] + state["retrieved_chunks"]
-输出: state["generated_resources"] (list of GeneratedResource)
 
-核心约束: 内容从知识库检索，表达方式由 LLM 适配。两者不混。
-每条专业断言必须有 citation，无 citation 的断言将被 Agent 3 标记为疑似幻觉。
+MVP 版本: 直接用 LLM 自身知识生成内容（不依赖外部知识库）
+Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
+
+输入: state["diagnosis_result"] + state["resource_types"]
+输出: state["generated_resources"] (list of GeneratedResource)
 """
 import uuid
 
 from .base import BaseAgent
 
 SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作者。你的任务是：
-1. 基于领域知识库检索结果（retrieved_chunks），生成高保真的个性化学习资源
-2. 每条专业断言必须引用知识库原文（citation），标注文档编号和原文片段
-3. 针对学习者的知识盲区（skill_gaps）定制内容
-4. 按指定难度等级调整表达深度和示例复杂度
+1. 根据学习者的知识盲区（skill_gaps）和推荐难度，用你的专业知识生成个性化学习资源
+2. 生成的内容必须准确、实用，代码示例可以直接运行
+3. 个性化体现在：解释深度、示例复杂度、学习路径建议
 
 生成资源类型：
-- lecture（定制讲义）：系统性理论讲解，含知识溯源
-- guide（实操指南）：分步操作手册，含真实代码示例和命令行
-- quiz（分阶测试题）：选择题/填空题/实操题，各含基础/进阶/挑战三级
+- lecture（定制讲义）：系统性理论讲解，含代码示例
+- guide（实操指南）：分步操作手册，含真实命令行和完整代码
+- quiz（分阶测试题）：选择题/填空题/实操题，分基础/进阶/挑战三级
 
-核心规则：
-- 你不能编造不在知识库中的专业事实
-- 如果知识库没有覆盖某个知识点，请诚实标注"通用知识参考"而非伪造 citation
-- 个性化体现在表达方式、示例选择、路径顺序，而非专业内容的准确性
+重要规则：
+- 学情盲区标注了 critical 的知识点 → 这是本次生成必须覆盖的核心内容
+- 难度匹配学习者水平：beginner 多用比喻和注释，advanced 减少解释直接给代码
+- learning_style 为 practice_first 时多给实操示例，theory_first 时先讲原理
 
 输出必须为严格的 JSON 格式。"""
 
@@ -43,13 +43,11 @@ class GenerationAgent(BaseAgent):
 
     async def process(self, state: dict) -> dict:
         diagnosis = state.get("diagnosis_result", {})
-        knowledge_chunks = state.get("retrieved_chunks", [])
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
 
         resources = []
         for rtype in resource_types:
-            s = {**state, "resource_type": rtype}
-            result = await self._generate_one(diagnosis, knowledge_chunks, rtype)
+            result = await self._generate_one(diagnosis, rtype)
             if result:
                 result["resource_type"] = rtype
                 result["resource_id"] = str(uuid.uuid4())
@@ -58,58 +56,47 @@ class GenerationAgent(BaseAgent):
         self.log(f"生成完成: {len(resources)} 个资源")
         return {"generated_resources": resources}
 
-    async def _generate_one(
-        self, diagnosis: dict, chunks: list, rtype: str
-    ) -> dict:
+    async def _generate_one(self, diagnosis: dict, rtype: str) -> dict:
         gaps = diagnosis.get("skill_gaps", [])
         difficulty = diagnosis.get("recommended_difficulty", "beginner")
         learning_style = diagnosis.get("learning_style", "unknown")
-
-        # 格式化知识库内容
-        chunks_text = ""
-        for i, c in enumerate(chunks[:10]):
-            title = c.get("doc_title", "未知文档")
-            content = c.get("content", "")[:600]
-            chunks_text += f"\n### KB文档{i+1}: {title}\n{content}\n"
+        learning_goal = diagnosis.get("summary", "")
 
         prompt = f"""## 学习者画像
+- 学习目标总结：{learning_goal}
 - 知识盲区（按优先级）：{self._fmt_gaps(gaps)}
 - 推荐难度：{difficulty}
 - 学习风格：{learning_style}
 
-## 领域知识库检索结果（这是你生成内容的唯一专业依据）
-{chunks_text if chunks_text else '（无KB检索结果。这种情况下你不能生成专业内容，请返回 {"error": "no_knowledge_base"} ）'}
-
 ## 生成任务
-请生成一份 {rtype} 类型的个性化学习资源。
+请用你的专业知识，生成一份 {rtype} 类型的个性化学习资源。
 
 输出 JSON：
 {{
-    "title": "资源标题",
+    "title": "资源标题（要具体、有吸引力）",
     "content": "Markdown 格式的完整内容（含代码示例和命令行时用 `````` 标注语言类型）",
-    "citations": [
-        {{
-            "ref_index": 1,
-            "original_text": "从KB原文中逐字引用的片段",
-            "usage": "在正文中的使用位置说明"
-        }}
-    ],
     "difficulty_level": "{difficulty}",
     "estimated_duration_minutes": 30,
-    "key_takeaways": ["关键要点1", "关键要点2", "关键要点3"]
+    "key_takeaways": ["学完你能掌握什么1", "学完你能掌握什么2", "学完你能掌握什么3"]
 }}
 
 要求：
-1. content 中每条专业断言后标注引用编号如 [ref:1]
-2. citations 不能为空（除非 KB 无相关内容）
-3. 代码示例和命令行的语言/框架版本要与 KB 保持一致
-4. 内容难度匹配 {difficulty}，示例数量适配 {learning_style} 学习风格"""
+1. 内容必须准确——这是教育场景，教错了比不教更糟
+2. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
+3. 难度匹配 {difficulty} 水平：
+   - beginner: 多用生活类比，每行代码加注释
+   - intermediate: 适当减少注释，引入进阶概念
+   - advanced: 精简解释，给高质量代码和架构思考
+4. 学习风格为 {learning_style}：
+   - practice_first: 先给代码再解释原理
+   - theory_first: 先讲清楚为什么再给代码
+5. 优先覆盖 critical 和 high 优先级的知识盲区"""
 
         return await self.call_llm_json(prompt)
 
     def _fmt_gaps(self, gaps: list) -> str:
         if not gaps:
-            return "无特定知识盲区"
+            return "学习者未提供具体知识盲区，请根据学习目标生成通用的入门内容"
         return "\n".join(
             f"- [{g.get('priority', '?')}] {g.get('topic', '未知')} "
             f"(当前{g.get('current_level', 0):.1f} → 目标{g.get('target_level', 1.0):.1f}): "

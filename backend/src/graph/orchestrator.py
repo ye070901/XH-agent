@@ -1,15 +1,14 @@
-"""MVP 工作流 — 2 Agent 顺序执行: 诊断 → 检索 → 生成。Agent 3 后面再加。"""
+"""MVP 工作流 — 2 Agent 顺序执行: 诊断 → 生成（LLM自身知识）。Agent 3 后面再加。"""
 import uuid
 
 from loguru import logger
 
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation import GenerationAgent
-from ..knowledge.store import knowledge_base
 
 
 class AgentWorkflow:
-    """2 Agent 工作流引擎 — MVP 版本"""
+    """2 Agent 工作流引擎 — MVP 版本（不需要知识库）"""
 
     def __init__(self):
         self._diagnosis = None
@@ -33,7 +32,7 @@ class AgentWorkflow:
         learner_data: dict = None,
         resource_types: list[str] = None,
     ) -> dict:
-        """运行 MVP 工作流: 诊断 → 检索 → 生成"""
+        """MVP: diagnose → generate，两步完成"""
         if task_id == "":
             task_id = str(uuid.uuid4())
         if learner_data is None:
@@ -45,33 +44,20 @@ class AgentWorkflow:
             "task_id": task_id,
             "learner_data": learner_data,
             "resource_types": resource_types,
+            "retrieved_chunks": [],  # MVP 不使用外部知识库，LLM 自身知识生成
             "status": "starting",
             "agent_log": [],
         }
 
         # Step 1: 学情诊断
-        logger.info(f"[MVP] Step 1/3: 学情诊断")
+        logger.info(f"[MVP] Step 1/2: 学情诊断")
         state["status"] = "diagnosing"
         result = await self.diagnosis.process(state)
         state.update(result)
         state["agent_log"].append({"agent": "diagnosis", "status": "done"})
 
-        # Step 2: 知识检索
-        logger.info(f"[MVP] Step 2/3: 知识检索")
-        state["status"] = "retrieving"
-        diagnosis = state.get("diagnosis_result", {})
-        skill_gaps = diagnosis.get("skill_gaps", [])
-        query = " ".join([g.get("topic", "") for g in skill_gaps[:3]])
-        try:
-            chunks = await knowledge_base.search(query, top_k=10)
-        except Exception as e:
-            logger.warning(f"[MVP] 检索失败，降级为空知识库: {e}")
-            chunks = []
-        state["retrieved_chunks"] = chunks
-        state["agent_log"].append({"agent": "retriever", "status": "done", "chunks": len(chunks)})
-
-        # Step 3: 资源生成
-        logger.info(f"[MVP] Step 3/3: 资源生成")
+        # Step 2: 知识生成（LLM 自身知识，不检索外部知识库）
+        logger.info(f"[MVP] Step 2/2: 知识生成（LLM自身知识）")
         state["status"] = "generating"
         result = await self.generation.process(state)
         state.update(result)
