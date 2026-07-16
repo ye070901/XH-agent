@@ -1,18 +1,20 @@
-"""MVP 工作流 — 2 Agent 顺序执行: 诊断 → 生成（LLM自身知识）。Agent 3 后面再加。"""
+"""工作流引擎 — 3 Agent 顺序执行: 诊断 → 生成 → 审核。Agent 3 只审不修。"""
 import uuid
 
 from loguru import logger
 
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation import GenerationAgent
+from ..agents.audit import AuditAgent
 
 
 class AgentWorkflow:
-    """2 Agent 工作流引擎 — MVP 版本（不需要知识库）"""
+    """3 Agent 工作流引擎"""
 
     def __init__(self):
         self._diagnosis = None
         self._generation = None
+        self._audit = None
 
     @property
     def diagnosis(self):
@@ -26,13 +28,18 @@ class AgentWorkflow:
             self._generation = GenerationAgent()
         return self._generation
 
+    @property
+    def audit(self):
+        if self._audit is None:
+            self._audit = AuditAgent()
+        return self._audit
+
     async def run(
         self,
         task_id: str = "",
         learner_data: dict = None,
         resource_types: list[str] = None,
     ) -> dict:
-        """MVP: diagnose → generate，两步完成"""
         if task_id == "":
             task_id = str(uuid.uuid4())
         if learner_data is None:
@@ -44,20 +51,19 @@ class AgentWorkflow:
             "task_id": task_id,
             "learner_data": learner_data,
             "resource_types": resource_types,
-            "retrieved_chunks": [],  # MVP 不使用外部知识库，LLM 自身知识生成
             "status": "starting",
             "agent_log": [],
         }
 
-        # Step 1: 学情诊断
-        logger.info(f"[MVP] Step 1/2: 学情诊断")
+        # Step 1: Agent 1 学情诊断
+        logger.info("[工作流] Step 1/3: 学情诊断")
         state["status"] = "diagnosing"
         result = await self.diagnosis.process(state)
         state.update(result)
         state["agent_log"].append({"agent": "diagnosis", "status": "done"})
 
-        # Step 2: 知识生成（LLM 自身知识，不检索外部知识库）
-        logger.info(f"[MVP] Step 2/2: 知识生成（LLM自身知识）")
+        # Step 2: Agent 2 知识生成
+        logger.info("[工作流] Step 2/3: 知识生成")
         state["status"] = "generating"
         result = await self.generation.process(state)
         state.update(result)
@@ -67,10 +73,15 @@ class AgentWorkflow:
             "count": len(result.get("generated_resources", [])),
         })
 
+        # Step 3: Agent 3 内容审核（只审不修）
+        logger.info("[工作流] Step 3/3: 内容审核")
+        state["status"] = "auditing"
+        result = await self.audit.process(state)
+        state.update(result)
+        state["agent_log"].append({"agent": "audit", "status": "done"})
+
         state["status"] = "completed"
-        logger.info(f"[MVP] 完成 — 生成了 {len(state.get('generated_resources', []))} 个资源")
         return state
 
 
-# 全局单例
 workflow_engine = AgentWorkflow()
