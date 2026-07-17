@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [dev]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install ruff pytest pytest-asyncio pydantic
+        working-directory: backend
+
+      - name: Ruff lint
+        run: ruff check src/
+        working-directory: backend
+
+      - name: Ruff format check
+        run: ruff format --check src/
+        working-directory: backend
+
+      - name: Contract check
+        run: python scripts/check_contracts.py
+
+      - name: Tests
+        run: python -m pytest tests/ -v
+        working-directory: backend
