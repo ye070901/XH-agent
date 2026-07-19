@@ -1,0 +1,62 @@
+[
+  {
+    "resource_index": 0,
+    "resource_type": "article",
+    "verdict": "approved",
+    "issues": [
+      {
+        "severity": "info",
+        "detail": "建议补充闭包的实际应用场景（如工厂函数、回调封装），帮助理解使用动机"
+      }
+    ]
+  },
+  {
+    "resource_index": 1,
+    "resource_type": "video",
+    "verdict": "needs_revision",
+    "issues": [
+      {
+        "severity": "error",
+        "detail": "装饰器示例中 @timer 缺少 @functools.wraps 包装，会导致被装饰函数的 __name__ 和 __doc__ 丢失"
+      },
+      {
+        "severity": "warning",
+        "detail": "视频内容偏难（advanced），学习者当前为 intermediate，建议增加过渡性讲解"
+      }
+    ]
+  },
+  {
+    "resource_index": 2,
+    "resource_type": "exercise",
+    "verdict": "needs_revision",
+    "issues": [
+      {
+        "severity": "error",
+        "detail": "useEffect 空依赖数组可能导致 missing dependency warning，且 fetchData 未处理 cleanup"
+      },
+      {
+        "severity": "warning",
+        "detail": "练习难度偏高（advanced），学习者当前为 intermediate，缺少 useState/useEffect 基础练习"
+      },
+      {
+        "severity": "info",
+        "detail": "建议先增加 useState 和 useEffect 的独立练习，再引入自定义 useLocalStorage Hook"
+      }
+    ]
+  },
+  {
+    "resource_index": 3,
+    "resource_type": "article",
+    "verdict": "approved",
+    "issues": [
+      {
+        "severity": "warning",
+        "detail": "文章未覆盖诊断结果中的 critical 盲区：Python 装饰器与闭包、React Hooks 最佳实践"
+      },
+      {
+        "severity": "info",
+        "detail": "可以增加混淆矩阵和 ROC 曲线的可视化图示，帮助理解模型评估"
+      }
+    ]
+  }
+]
