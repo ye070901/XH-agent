@@ -95,6 +95,8 @@ class Settings:
     # LLM 调用参数
     LLM_TIMEOUT_SECONDS: int = _int_env("LLM_TIMEOUT_SECONDS", 120)
     LLM_MAX_RETRIES: int = _int_env("LLM_MAX_RETRIES", 2)
+    LLM_MAX_INPUT_CHARS: int = _int_env("LLM_MAX_INPUT_CHARS", 32000)
+    """输入文本最大字符数，超长自动截断（保留 system_prompt + 截断 user_message）"""
 
     # 各 Agent 推荐温度（诊断/审核低温保证一致，生成中温保证多样性）
     LLM_TEMPERATURE_DIAGNOSIS: float = _float_env("LLM_TEMPERATURE_DIAGNOSIS", 0.2)

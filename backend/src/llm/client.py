@@ -5,12 +5,14 @@
 模式决策树：
     LLM_API_KEY 是否为空？
       ├─ 空  → 演示模式 (_demo_response)，返回 schema 完备的模拟数据
-      └─ 非空 → 真实模式，走 OpenAI 兼容 API（重试 + 超时）
+      └─ 非空 → 真实模式，走 OpenAI 兼容 API（重试 + 超时 + 分层异常）
 
 真实模式内置：
   - 按 provider:base_url 缓存 SSL 客户端
-  - 默认 2 次重试（可配置），最后一次失败必须 raise
-  - call_json() 兼容 ``` 包裹的 JSON，解析失败返回 {} + warning
+  - 默认 2 次重试（可配置），最后一次失败抛出 XHLLMRetryExhaustedError
+  - 超长输入自动截断（保留 system_prompt，截断 user_message）
+  - HTTP 分层捕获：401/403 → XHLLMAuthError，429/402 → XHLLMRateLimitError，5xx → XHLLMResponseError
+  - call_json() 兼容 ``` 包裹的 JSON + 自动清洗 + 兜底重试 + 统一错误结构体
 演示模式内置：
   - system_prompt 关键词分派到场景模拟数据
   - 所有 json.dumps 带 ensure_ascii=False
@@ -26,6 +28,48 @@ from typing import Any
 from loguru import logger
 
 from ..config import settings
+from ..exceptions import (
+    XHLLMAuthError,
+    XHLLMRateLimitError,
+    XHLLMResponseError,
+    XHLLMRetryExhaustedError,
+    XHLLMTimeoutError,
+)
+
+# ── OpenAI 异常类（延迟导入，避免未安装时崩溃） ──
+_OPENAI_AUTH_ERRORS: tuple[type[Exception], ...] = ()
+_OPENAI_RATE_LIMIT_ERRORS: tuple[type[Exception], ...] = ()
+_OPENAI_RETRYABLE_ERRORS: tuple[type[Exception], ...] = ()
+_openai_exc_loaded = False
+
+
+def _lazy_load_openai_exceptions() -> None:
+    """延迟加载 OpenAI SDK 异常类，仅执行一次。"""
+    global _OPENAI_AUTH_ERRORS, _OPENAI_RATE_LIMIT_ERRORS, _OPENAI_RETRYABLE_ERRORS
+    global _openai_exc_loaded
+    if _openai_exc_loaded:
+        return
+    try:
+        import openai
+
+        _OPENAI_AUTH_ERRORS = (
+            openai.AuthenticationError,
+            openai.PermissionDeniedError,
+        )
+        _OPENAI_RATE_LIMIT_ERRORS = (openai.RateLimitError,)
+        _OPENAI_RETRYABLE_ERRORS = (
+            openai.APIConnectionError,
+            openai.APITimeoutError,
+            openai.InternalServerError,
+        )
+    except ImportError:
+        # openai 未安装时使用空元组，后续泛化捕获
+        pass
+    _openai_exc_loaded = True
+
+
+# ── 输入截断常量 ──
+_TRUNCATION_MARKER = "\n…[内容过长，中间部分已截断]…\n"
 
 
 class LLMClient:
@@ -35,6 +79,8 @@ class LLMClient:
       - 根据 LLM_API_KEY 的有无自动切换 演示/真实 模式
       - 真实模式：SSL 客户端缓存、超时、指数退避重试、JSON 容错解析
       - 演示模式：按 system_prompt 关键词分派 schema 完备的模拟数据
+      - 边界处理：超长输入截断、网络超时、HTTP 错误分层捕获
+      - JSON 容错：自动清洗非标准 JSON、兜底重试、统一错误结构体
     """
 
     # ── 演示模式场景关键词 → 内部方法名映射 ──
@@ -47,6 +93,7 @@ class LLMClient:
     def __init__(self) -> None:
         self._clients: dict[str, Any] = {}
         self._is_demo: bool = not bool(settings.LLM_API_KEY)
+        _lazy_load_openai_exceptions()
 
     # ═══════════════════════════════════════════════════════════
     # 公开属性
@@ -87,18 +134,25 @@ class LLMClient:
             LLM 返回的文本内容
 
         Raises:
-            Exception: 真实模式下所有重试耗尽后抛出最后一次异常
+            XHLLMRetryExhaustedError: 所有重试耗尽
+            XHLLMTimeoutError:        调用超时（最终失败）
+            XHLLMAuthError:           认证失败 (401/403)
+            XHLLMRateLimitError:      频率/配额超限 (402/429)
+            XHLLMResponseError:       服务端错误 (5xx)
         """
         model = model or settings.LLM_MODEL
-        max_retries = max_retries if max_retries is not None else settings.LLM_MAX_RETRIES
+        max_retries_val = max_retries if max_retries is not None else settings.LLM_MAX_RETRIES
         timeout = timeout_seconds if timeout_seconds is not None else settings.LLM_TIMEOUT_SECONDS
+
+        # ── 边界处理：超长输入截断 ──
+        system_prompt, user_message = self._truncate_input(system_prompt, user_message)
 
         # ── 演示模式：返回 schema 完备的模拟数据 ──
         if self._is_demo:
             logger.info(f"[LLM Demo] 模拟调用 (model={model}, temperature={temperature})")
             return self._demo_response(system_prompt, user_message)
 
-        # ── 真实 API 调用（带超时 + 指数退避重试）──
+        # ── 真实 API 调用（带超时 + 指数退避重试 + 分层异常） ──
         client = self._get_client()
         messages = [
             {"role": "system", "content": system_prompt},
@@ -106,7 +160,7 @@ class LLMClient:
         ]
 
         last_exception: Exception | None = None
-        for attempt in range(max_retries + 1):
+        for attempt in range(max_retries_val + 1):
             try:
                 kwargs: dict[str, Any] = dict(
                     model=model,
@@ -131,27 +185,91 @@ class LLMClient:
                 )
                 return result
 
+            # ── 分层异常捕获：HTTP 状态码映射到 XH 异常 ──
             except asyncio.TimeoutError:
-                last_exception = TimeoutError(f"LLM 调用超时 ({timeout}s)")
+                last_exception = XHLLMTimeoutError(
+                    f"LLM 调用超时 ({timeout}s)",
+                    timeout_seconds=timeout,
+                )
                 logger.warning(
-                    f"[LLM] 超时 (attempt {attempt + 1}/{max_retries + 1}, "
+                    f"[LLM] 超时 (attempt {attempt + 1}/{max_retries_val + 1}, "
                     f"timeout={timeout}s)"
                 )
-            except Exception as e:
-                last_exception = e
+
+            except _OPENAI_AUTH_ERRORS as e:
+                # 401 / 403 → 不重试，直接抛出
+                last_exception = XHLLMAuthError(
+                    f"LLM 认证失败 (attempt {attempt + 1}): {e}",
+                    context={"status_code": getattr(e, "status_code", None)},
+                )
+                logger.error(f"[LLM] 认证失败，中止重试: {e}")
+                raise last_exception from e
+
+            except _OPENAI_RATE_LIMIT_ERRORS as e:
+                # 429 → 指数退避后重试；配额 402 同理
+                last_exception = XHLLMRateLimitError(
+                    f"LLM 频率/配额超限 (attempt {attempt + 1}): {e}",
+                    context={"status_code": getattr(e, "status_code", None)},
+                )
                 logger.warning(
-                    f"[LLM] 调用失败 (attempt {attempt + 1}/{max_retries + 1}): {e}"
+                    f"[LLM] 频率/配额限制 (attempt {attempt + 1}/{max_retries_val + 1}): {e}"
                 )
 
+            except _OPENAI_RETRYABLE_ERRORS as e:
+                # APIConnectionError / APITimeoutError / InternalServerError(500)
+                last_exception = XHLLMResponseError(
+                    f"LLM 服务端/网络错误 (attempt {attempt + 1}): {e}",
+                    context={"status_code": getattr(e, "status_code", None)},
+                )
+                logger.warning(
+                    f"[LLM] 可重试错误 (attempt {attempt + 1}/{max_retries_val + 1}): {e}"
+                )
+
+            except Exception as e:
+                # ── 402 及其他非标准 HTTP 状态码检测 ──
+                status_code = getattr(e, "status_code", None)
+                if status_code == 402:
+                    last_exception = XHLLMRateLimitError(
+                        f"LLM 配额用尽 (HTTP 402, attempt {attempt + 1}): {e}",
+                        context={"status_code": 402},
+                    )
+                    logger.warning(
+                        f"[LLM] 配额用尽 (attempt {attempt + 1}/{max_retries_val + 1}): {e}"
+                    )
+                elif status_code is not None and 500 <= status_code < 600:
+                    last_exception = XHLLMResponseError(
+                        f"LLM 服务端错误 (HTTP {status_code}, attempt {attempt + 1}): {e}",
+                        context={"status_code": status_code},
+                    )
+                    logger.warning(
+                        f"[LLM] 服务端错误 (attempt {attempt + 1}/{max_retries_val + 1}): {e}"
+                    )
+                elif status_code is not None and status_code == 401:
+                    last_exception = XHLLMAuthError(
+                        f"LLM 认证失败 (HTTP 401, attempt {attempt + 1}): {e}",
+                        context={"status_code": 401},
+                    )
+                    logger.error(f"[LLM] 认证失败，中止重试: {e}")
+                    raise last_exception from e
+                else:
+                    last_exception = e
+                    logger.warning(
+                        f"[LLM] 调用失败 (attempt {attempt + 1}/{max_retries_val + 1}): {e}"
+                    )
+
             # 指数退避：1s → 2s → 4s ...
-            if attempt < max_retries:
+            if attempt < max_retries_val:
                 delay = 2 ** attempt
                 logger.debug(f"[LLM] {delay}s 后重试...")
                 await asyncio.sleep(delay)
 
-        # 所有重试耗尽，最后一次失败必须抛出异常（上层处理）
-        logger.error(f"[LLM] {max_retries + 1} 次尝试全部失败")
-        raise last_exception  # type: ignore[misc]
+        # 所有重试耗尽，统一包装为 XHLLMRetryExhaustedError
+        logger.error(f"[LLM] {max_retries_val + 1} 次尝试全部失败")
+        raise XHLLMRetryExhaustedError(
+            f"LLM 调用失败，{max_retries_val + 1} 次尝试后仍不成功",
+            attempts=max_retries_val + 1,
+            last_error=last_exception,
+        )
 
     async def call_json(
         self,
@@ -159,13 +277,15 @@ class LLMClient:
         user_message: str,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        """调用 LLM 并解析为 dict。内置 JSON 容错。
+        """调用 LLM 并解析为 dict。内置 JSON 容错 + 兜底重试。
 
-        兼容 ``` 包裹的 JSON 字符串：先 strip 再 parse。
-        解析失败返回 {} + warning，不抛异常。
+        兼容 ``` 包裹的 JSON 字符串、尾部逗号、单引号、无引号 key 等非标准格式。
+        首次解析失败后自动重试一次（带上更强 JSON 指令）。
+        重试仍失败返回统一错误结构体。
 
         Returns:
-            解析后的 dict。解析失败时返回 {}。
+            解析后的 dict。解析失败时返回：
+            {"_parse_error": True, "raw_text": "...", "error_message": "...", "parse_attempts": N}
         """
         kwargs.pop("response_json", None)  # 防御重复参数
         result = await self.call(system_prompt, user_message, response_json=True, **kwargs)
@@ -173,7 +293,93 @@ class LLMClient:
         if not result or result.strip() == "{}":
             return {}
 
-        return self._parse_json(result)
+        parsed = self._parse_json(result)
+        if parsed:
+            return parsed
+
+        # ── 首次解析失败 → 重试一次，带更强 JSON 指令 ──
+        logger.warning("[LLM] call_json 首次 JSON 解析失败，尝试兜底重试（带格式指令）")
+        retry_message = (
+            f"{user_message}\n\n"
+            f"【重要提示】你的上一次回复不是有效的 JSON 格式。"
+            f"请**仅输出**合法的 JSON 对象，不要包含 markdown 代码块标记、"
+            f"额外说明文字或注释。键名和字符串值必须用双引号。"
+        )
+        try:
+            retry_result = await self.call(
+                system_prompt, retry_message, response_json=True, **kwargs,
+            )
+            retry_parsed = self._parse_json(retry_result)
+            if retry_parsed:
+                return retry_parsed
+        except Exception as e:
+            logger.warning(f"[LLM] call_json 兜底重试异常: {e}")
+
+        # ── 最终失败：返回统一错误结构体 ──
+        logger.error(
+            f"[LLM] call_json 两次解析均失败，原始文本前 300 字符: {result[:300]}"
+        )
+        return {
+            "_parse_error": True,
+            "raw_text": result[:2000],  # 保留前 2000 字符用于排查
+            "error_message": (
+                "LLM 返回内容无法解析为 JSON，"
+                "已尝试直接解析、代码块提取、自动清洗和兜底重试"
+            ),
+            "parse_attempts": 2,
+        }
+
+    # ═══════════════════════════════════════════════════════════
+    # 私有：输入截断
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _truncate_input(
+        system_prompt: str, user_message: str
+    ) -> tuple[str, str]:
+        """超长输入自动截断：保留 system_prompt 完整，截断 user_message。
+
+        截断策略（从中间截断以保留头尾关键信息）：
+          1. system_prompt + user_message ≤ max_chars → 原样返回
+          2. 超出 → system_prompt 不变，user_message 从中间截断
+          3. system_prompt 本身已超限 → 仅截断 system_prompt（极少发生）
+
+        Returns:
+            (system_prompt, user_message) 截断后的元组。
+        """
+        max_chars = settings.LLM_MAX_INPUT_CHARS
+        total = len(system_prompt) + len(user_message)
+        if total <= max_chars:
+            return system_prompt, user_message
+
+        # 预留 system_prompt 空间
+        sys_len = len(system_prompt)
+        if sys_len >= max_chars:
+            # 极端情况：system_prompt 本身超限
+            logger.error(
+                f"[LLM] system_prompt 自身 {sys_len} 字符已超限 {max_chars}，强制截断"
+            )
+            keep = max((max_chars - len(_TRUNCATION_MARKER)) // 2, 0)
+            truncated_sys = system_prompt[:keep] + _TRUNCATION_MARKER + system_prompt[-keep:]
+            return truncated_sys, ""
+
+        # 正常情况：截断 user_message
+        user_budget = max_chars - sys_len - len(_TRUNCATION_MARKER)
+        half = user_budget // 2
+        if half < 100:
+            # user_message 预算极少时，只保留开头
+            truncated_user = user_message[:user_budget] + _TRUNCATION_MARKER
+        else:
+            truncated_user = (
+                user_message[:half]
+                + _TRUNCATION_MARKER
+                + user_message[-half:]
+            )
+        logger.warning(
+            f"[LLM] 输入超长 (total={total}>{max_chars})，"
+            f"user_message 从 {len(user_message)} 截断至 {len(truncated_user)} 字符"
+        )
+        return system_prompt, truncated_user
 
     # ═══════════════════════════════════════════════════════════
     # 私有：客户端管理
@@ -197,43 +403,120 @@ class LLMClient:
 
     @staticmethod
     def _parse_json(text: str) -> dict[str, Any]:
-        """尽力从 LLM 返回的文本中提取 JSON。
+        """尽力从 LLM 返回的文本中提取并解析 JSON。
 
         处理的格式（按优先级）：
-          1. 纯 JSON 字符串
+          1. 纯 JSON 字符串（含自动清洗）
           2. ```json ... ``` 代码块
           3. ``` ... ``` 代码块（无语言标注）
           4. 文本中嵌入的首个 { ... } 片段
+          5. 自动清洗：尾部逗号、单引号、无引号 key、BOM
 
         全部失败返回 {} 并记录 warning。
         """
         text = text.strip()
 
-        # 尝试 1：直接解析
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
+        # ── 预处理：去除 BOM、不可见控制字符（保留换行符和制表符） ──
+        text = text.lstrip("﻿")
+        text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
 
-        # 尝试 2 & 3：提取 markdown 代码块
+        # ── 尝试 1：直接解析（含逐步清洗） ──
+        result = LLMClient._try_parse_with_cleaning(text)
+        if result:
+            return result
+
+        # ── 尝试 2 & 3：提取 markdown 代码块 ──
         for pattern in [r"```json\s*\n(.*?)\n```", r"```\s*\n(.*?)\n```"]:
             match = re.search(pattern, text, re.DOTALL)
             if match:
-                try:
-                    return json.loads(match.group(1).strip())
-                except json.JSONDecodeError:
-                    pass
+                result = LLMClient._try_parse_with_cleaning(match.group(1).strip())
+                if result:
+                    return result
 
-        # 尝试 4：找到文本中首个 { 和对应的 }
+        # ── 尝试 4：找到文本中首个 { 和对应的 } ──
         brace_match = re.search(r"\{.*\}", text, re.DOTALL)
         if brace_match:
-            try:
-                return json.loads(brace_match.group(0))
-            except json.JSONDecodeError:
-                pass
+            result = LLMClient._try_parse_with_cleaning(brace_match.group(0))
+            if result:
+                return result
 
         logger.warning(f"[LLM] JSON 解析失败，原始文本前 200 字符: {text[:200]}")
         return {}
+
+    @staticmethod
+    def _try_parse_with_cleaning(text: str) -> dict[str, Any] | None:
+        """对文本尝试直接解析，失败后逐步清洗再解析。
+
+        清洗策略：
+          1. 直接 json.loads
+          2. 移除尾部逗号（} 或 ] 前的逗号）
+          3. 单引号值 → 双引号
+          4. 无引号 key → 双引号 key
+          5. 组合清洗
+
+        Returns:
+            解析成功返回 dict，失败返回 None。
+        """
+        try:
+            val = json.loads(text)
+            if isinstance(val, dict):
+                return val
+            # 顶层为 list 时包装为 {"data": list}
+            if isinstance(val, list):
+                return {"data": val}
+            return None
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # ── 逐步清洗 ──
+        cleaned = LLMClient._clean_json_text(text)
+        if cleaned == text:
+            return None  # 清洗无变化，不再尝试
+
+        try:
+            val = json.loads(cleaned)
+            if isinstance(val, dict):
+                return val
+            if isinstance(val, list):
+                return {"data": val}
+            return None
+        except (json.JSONDecodeError, ValueError):
+            return None
+
+    @staticmethod
+    def _clean_json_text(text: str) -> str:
+        """自动清洗非标准 JSON 文本。
+
+        处理：
+          - 尾部逗号：{...,} 或 [...,] → {...} 或 [...]
+          - 单引号 key：{'key': ...} → {"key": ...}
+          - 单引号字符串值：'value' → "value"
+          - 无引号 key：{key: value} → {"key": value}
+        """
+        # 1. 去除尾部逗号（对象和数组）
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+
+        # 2. 单引号 key → 双引号 key
+        # 匹配 {'key': 或 ,'key': 或 { 'key' : 中的单引号 key
+        text = re.sub(
+            r"([{,]\s*)'([^']*)'(\s*:)",
+            r'\1"\2"\3',
+            text,
+        )
+
+        # 3. 单引号字符串值 → 双引号（只处理明显的情况）
+        # 匹配 : 后面的单引号字符串值
+        text = re.sub(r":\s*'([^']*)'", r': "\1"', text)
+
+        # 4. 无引号 key → 双引号 key
+        # 匹配 { 或 , 后面紧跟无引号的标识符 + 冒号
+        text = re.sub(
+            r'([{,])\s*([a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*)\s*:',
+            r'\1 "\2":',
+            text,
+        )
+
+        return text
 
     # ═══════════════════════════════════════════════════════════
     # 演示模式

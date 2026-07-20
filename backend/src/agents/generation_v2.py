@@ -105,7 +105,8 @@ class GenerationAgent(BaseAgent):
         """为单一资源类型生成内容。
 
         Args:
-            diagnosis: 诊断结果 dict，含 skill_gaps / recommended_difficulty / learning_style / summary
+            diagnosis: 诊断结果 dict，含 skill_gaps / recommended_difficulty
+                / learning_style / summary
             rtype:     资源类型字符串（lecture / guide / quiz）
 
         Returns:
