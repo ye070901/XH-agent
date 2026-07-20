@@ -98,6 +98,7 @@ async def generate(request: dict):
             "status": result.get("status", "completed"),
             "diagnosis": result.get("diagnosis_result", {}),
             "resources": result.get("generated_resources", []),
+            "audit": result.get("audit_result", []),
             "agent_log": result.get("agent_log", []),
         }
 
