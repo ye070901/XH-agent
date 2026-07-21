@@ -7,7 +7,7 @@ from loguru import logger
 
 from ..agents.audit import AuditAgent
 from ..agents.diagnosis import DiagnosisAgent
-from ..agents.generation import GenerationAgent
+from ..agents.generation_v2 import GenerationAgent as GenerationAgent
 
 
 class AgentWorkflow:
