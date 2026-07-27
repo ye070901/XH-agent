@@ -9,8 +9,8 @@
 | 周期 | 阶段 | 截止 |
 |------|------|------|
 | 5月-7月 | ✅ Phase 1 MVP（3 Agent 串行管道） | 已完成 |
-| 7/27-8/20 | 🔨 Phase 2 深化（4 Agent + 博弈 + RAG + 三项指标） | 8/20 代码冻结 |
-| 8/21-9/5 | 📦 交付（文档 + 视频 + 测试数据 + 打包） | 9/5 正式提交 |
+| 7/27-8/16 | 🔨 Phase 2 深化（4 Agent + 博弈 + RAG + 三项指标） | 8/16 代码冻结 |
+| 8/17-9/5 | 📦 交付（文档 + 视频 + 测试数据 + 打包） | 9/5 正式提交 |
 
 ### 快速导航
 
@@ -20,12 +20,11 @@
 | [人员1 — 编排器+WebSocket+闸门](docs/roles/phase2/person1-orchestrator.md) | 流水线大脑 |
 | [人员2 — Agent 1 + KB审核](docs/roles/phase2/person2-agent1-kb-review.md) | 学情诊断 + 知识库守门人 |
 | [人员3 — Agent 2 + Agent 4](docs/roles/phase2/person3-agent2-agent4.md) | 知识生成 + 保真修正 |
-| [人员4 — RAG + Agent 3 + 辩论](docs/roles/phase2/person4-rag-agent3-debate.md) | 审核博弈方 + 知识库基础设施 |
-| [人员5+7 — API + WebSocket](docs/roles/phase2/person5-api.md) | 后端接口 |
+| [人员4 — RAG + Agent 3 + 辩论 + 三项指标](docs/roles/phase2/person4-rag-agent3-debate.md) | 审核博弈方 + 知识库基础设施 + 质量量化 |
+| [人员5+7 — API + WebSocket](docs/roles/phase2/person5-api.md) | 两人协作后端全部接口 |
 | [人员6 — Streamlit 前端](docs/roles/phase2/person6-frontend.md) | 可视化 + 交互 |
-| [人员7 — 三项指标 + 测试](docs/roles/phase2/person7-evaluation-testing.md) | 质量量化 + 集成测试 |
-| [人员8 — KB数据 + 交付](docs/roles/phase2/person8-kb-data-delivery.md) | 知识库内容 + 打包部署 |
-| [进度跟踪表](docs/PROGRESS_TRACKER.md) | 三阶段逐日进度 + 验收清单 |
+| [人员8 — KB数据 + 代码验证 + 部署](docs/roles/phase2/person8-kb-data-delivery.md) | 知识库内容 + 打包部署 |
+| [排期与检查点](docs/PHASE2_SCHEDULE.md) | 三阶段谁做什么 + 检查点 |
 
 ---
 
