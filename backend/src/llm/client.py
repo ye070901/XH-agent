@@ -89,6 +89,7 @@ class LLMClient:
         (["学情诊断", "diagnosis"], "_demo_diagnosis"),
         (["知识专家", "generation", "垂直领域", "内容创作"], "_demo_generation"),
         (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
+        (["修正", "correction", "保真修正", "内容修正"], "_demo_correction"),
     ]
 
     def __init__(self) -> None:
@@ -789,6 +790,81 @@ class LLMClient:
                         ),
                     },
                 ],
+            },
+            ensure_ascii=False,
+        )
+
+    # ── 场景：保真修正 ──
+
+    def _demo_correction(self, system_prompt: str, user_message: str) -> str:
+        """演示修正：识别原始内容中的错误并提供修正版本。
+
+        从 user_message 中提取"原始内容"和"审核发现的问题"，
+        对 error 级别 issue 模拟修正行为。
+        """
+        # 提取原始标题
+        title_match = re.search(r"标题[：:]\s*(.+?)(?:\n|$)", user_message)
+        original_title = title_match.group(1).strip() if title_match else "学习资源"
+
+        # 提取原始内容
+        content_match = re.search(
+            r"### 原始内容\s*\n(.+?)(?=\n## (?:审核发现|知识库|修正任务))",
+            user_message,
+            re.DOTALL,
+        )
+        original_content = content_match.group(1).strip() if content_match else ""
+
+        # 检查是否有 LangGraph 归属错误
+        has_langgraph_error = "Google" in user_message and "LangGraph" in user_message
+
+        if has_langgraph_error:
+            corrected_content = original_content.replace(
+                "Google 开发的", "LangChain 团队开发的"
+            ).replace(
+                "Google 开发", "LangChain 团队开发"
+            )
+            correction_summary = (
+                "演示模式修正：已将 LangGraph 的开发者从 'Google' 修正为 'LangChain 团队'，"
+                "补充了 StateGraph 三要素说明。设置 LLM_API_KEY 以启用真实修正。"
+            )
+        elif original_content:
+            corrected_content = original_content
+            correction_summary = (
+                "演示模式修正 — 未检测到明显事实错误。"
+                "设置 LLM_API_KEY 以启用完整修正流程。"
+            )
+        else:
+            corrected_content = (
+                "# 演示模式修正示例\n\n"
+                "这是演示模式下的修正后内容。\n\n"
+                "请设置 LLM_API_KEY 环境变量以启用真实的保真修正。\n\n"
+                "修正内容包括：原始内容的事实纠错、溯源标注、难度适配调整。"
+            )
+            correction_summary = "演示模式占位修正"
+
+        return json.dumps(
+            {
+                "title": f"{original_title}（已修正）",
+                "content": corrected_content,
+                "difficulty_level": "beginner",
+                "citations": [
+                    {
+                        "doc_id": "demo_kb_doc.md",
+                        "chunk_index": 2,
+                        "original_text": (
+                            "LangGraph is a library built by the LangChain team "
+                            "for building stateful, multi-actor applications with LLMs."
+                        ),
+                        "relevance_score": 0.95,
+                    },
+                ],
+                "key_takeaways": [
+                    "LangGraph 由 LangChain 团队开发",
+                    "StateGraph 包含三个核心要素：节点、边、状态字典",
+                    "多 Agent 架构的核心是关注点分离",
+                ],
+                "correction_summary": correction_summary,
+                "_infos_applied": 1,
             },
             ensure_ascii=False,
         )

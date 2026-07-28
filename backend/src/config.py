@@ -92,6 +92,7 @@ class Settings:
     LLM_MODEL_DIAGNOSIS: str = os.getenv("LLM_MODEL_DIAGNOSIS", "")
     LLM_MODEL_GENERATION: str = os.getenv("LLM_MODEL_GENERATION", "")
     LLM_MODEL_AUDIT: str = os.getenv("LLM_MODEL_AUDIT", "")
+    LLM_MODEL_CORRECTION: str = os.getenv("LLM_MODEL_CORRECTION", "")
 
     # LLM 调用参数
     LLM_TIMEOUT_SECONDS: int = _int_env("LLM_TIMEOUT_SECONDS", 120)
@@ -99,10 +100,11 @@ class Settings:
     LLM_MAX_INPUT_CHARS: int = _int_env("LLM_MAX_INPUT_CHARS", 32000)
     """输入文本最大字符数，超长自动截断（保留 system_prompt + 截断 user_message）"""
 
-    # 各 Agent 推荐温度（诊断/审核低温保证一致，生成中温保证多样性）
+    # 各 Agent 推荐温度（诊断/审核/修正低温保证一致，生成中温保证多样性）
     LLM_TEMPERATURE_DIAGNOSIS: float = _float_env("LLM_TEMPERATURE_DIAGNOSIS", 0.2)
     LLM_TEMPERATURE_GENERATION: float = _float_env("LLM_TEMPERATURE_GENERATION", 0.5)
     LLM_TEMPERATURE_AUDIT: float = _float_env("LLM_TEMPERATURE_AUDIT", 0.1)
+    LLM_TEMPERATURE_CORRECTION: float = _float_env("LLM_TEMPERATURE_CORRECTION", 0.2)
 
     # ============================================================
     # Embedding
@@ -145,12 +147,15 @@ class Settings:
         "agent2": "LLM_MODEL_GENERATION",
         "audit": "LLM_MODEL_AUDIT",
         "agent3": "LLM_MODEL_AUDIT",
+        "correction": "LLM_MODEL_CORRECTION",
+        "agent4": "LLM_MODEL_CORRECTION",
     }
 
     _AGENT_TEMPERATURE_MAP: dict[str, str] = {
         "diagnosis": "LLM_TEMPERATURE_DIAGNOSIS",
         "generation": "LLM_TEMPERATURE_GENERATION",
         "audit": "LLM_TEMPERATURE_AUDIT",
+        "correction": "LLM_TEMPERATURE_CORRECTION",
     }
 
     # ═══════════════════════════════════════════════════════════
@@ -163,10 +168,11 @@ class Settings:
         解析链：LLM_MODEL_<AGENT_NAME> 环境变量 → LLM_MODEL 环境变量
 
         agent_name 大小写不敏感。支持别名：
-          diagnosis / agent1  → LLM_MODEL_DIAGNOSIS
-          generation / agent2 → LLM_MODEL_GENERATION
-          audit / agent3      → LLM_MODEL_AUDIT
-          未匹配的 agent_name → 直接回退到 LLM_MODEL
+          diagnosis / agent1   → LLM_MODEL_DIAGNOSIS
+          generation / agent2  → LLM_MODEL_GENERATION
+          audit / agent3       → LLM_MODEL_AUDIT
+          correction / agent4  → LLM_MODEL_CORRECTION
+          未匹配的 agent_name  → 直接回退到 LLM_MODEL
         """
         attr_name = self._AGENT_MODEL_MAP.get(agent_name.lower(), "")
         if attr_name:
