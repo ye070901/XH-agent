@@ -4,77 +4,69 @@
 
 ---
 
-## 📁 项目结构 + 人员分工
+## 当前阶段：Phase 2 — 多 Agent 博弈协同 + 知识库高保真
 
-```
-XH-agent/
-│
-├── README.md                           # 本文件
-├── CLAUDE.md                           # 团队总配置（AI 协作入口）
-├── .env.example                        # 环境变量模板（复制为 .env 后填写 API Key）
-├── .gitignore
-│
-├── docs/
-│   ├── INTERFACE_CONTRACT.md           # ⭐ 接口契约文档 — 8个人的法律文件
-│   └── roles/
-│       ├── role1-architect.md          # 👤 角色1：架构师 → backend/src/graph/
-│       ├── role2-llm.md               # 👤 角色2：LLM抽象层 → backend/src/llm/
-│       ├── role3-knowledge.md         # 👤 角色3：知识库 → backend/src/knowledge/
-│       ├── role4-diagnosis.md         # 👤 角色4：学情诊断Agent → backend/src/agents/diagnosis.py
-│       ├── role5-generation.md        # 👤 角色5：知识生成Agent → backend/src/agents/generation.py
-│       ├── role6-audit-main.md        # 👤 角色6：审核裁判(辩论协议) → backend/src/agents/audit.py + debate/
-│       ├── role7-audit-sub-eval.md    # 👤 角色7：事实抽取+评估 → backend/src/evaluation/
-│       └── role8-frontend.md          # 👤 角色8：前端可视化 → frontend/
-│
-├── scripts/
-│   └── check_contracts.py             # CI自动检查：所有人是否遵守接口契约
-│
-├── .github/workflows/
-│   └── ci.yml                         # GitHub Actions：PR 时自动跑 lint + test + contract check
-│
-├── backend/
-│   ├── pyproject.toml                 # Python 项目配置 + 依赖
-│   └── src/
-│       ├── schemas.py                 # ⭐ 全员统一数据模型（修改需周知所有人）
-│       ├── config.py                  # 系统配置（从 .env 读取）
-│       │
-│       ├── llm/                       # 👤 角色2：LLM抽象层（一行换模型）
-│       │   └── client.py              #    支持 OpenAI/Anthropic/DeepSeek/任意兼容API
-│       │
-│       ├── knowledge/                 # 👤 角色3：知识库（ChromaDB 零配置）
-│       │   └── store.py               #    文档分块 + Embedding + 向量检索
-│       │
-│       ├── agents/                    # 3 个 Agent（不是5个，每个做深不做多）
-│       │   ├── base.py                #    Agent 基类 + LLM 调用封装
-│       │   ├── diagnosis.py           # 👤 角色4：学情诊断Agent（细粒度知识缺口图谱）
-│       │   ├── generation.py          # 👤 角色5：知识生成Agent（KB约束+RAG生成）
-│       │   └── audit.py               # 👤 角色6+7：审核裁判Agent（对抗验证+辩论）
-│       │
-│       ├── debate/                    # 👤 角色6：辩论协议引擎
-│       │   └── engine.py              #    Agent 2⇄Agent 3 多轮对抗验证（最多3轮）
-│       │
-│       ├── graph/                     # 👤 角色1：LangGraph工作流调度
-│       │   └── orchestrator.py        #    诊断→检索→生成→审核→[辩论]→完成
-│       │
-│       ├── evaluation/                # 👤 角色7：三项硬指标自动评估
-│       │   └── metrics.py             #    幻觉率<5% / 适配率≥85% / 覆盖率≥90%
-│       │
-│       └── api/                       # 后端入口
-│           └── main.py                #    FastAPI + REST + WebSocket
-│
-├── backend/tests/                     # 单元测试
-│   └── test_contracts.py              #    每人写完代码后跑这个验证接口
-│
-├── frontend/                          # 👤 角色8：React前端+可视化
-│   └── (待角色8初始化)
-│
-└── data/
-    └── knowledge_base/                # 👤 角色3：放知识库原始文档
-```
+| 周期 | 阶段 | 截止 |
+|------|------|------|
+| 5月-7月 | ✅ Phase 1 MVP（3 Agent 串行管道） | 已完成 |
+| 7/27-8/16 | 🔨 Phase 2 深化（4 Agent + 博弈 + RAG + 三项指标） | 8/16 代码冻结 |
+| 8/17-9/5 | 📦 交付（文档 + 视频 + 测试数据 + 打包） | 9/5 正式提交 |
+
+### 快速导航
+
+| 文档 | 说明 |
+|------|------|
+| [Phase 2 总体方案](docs/PHASE2_PLAN.md) | 架构总览、防幻觉体系、分工总表、时间安排 |
+| [人员1 — 编排器+WebSocket+闸门](docs/roles/phase2/person1-orchestrator.md) | 流水线大脑 |
+| [人员2 — Agent 1 + KB审核](docs/roles/phase2/person2-agent1-kb-review.md) | 学情诊断 + 知识库守门人 |
+| [人员3 — Agent 2 + Agent 4](docs/roles/phase2/person3-agent2-agent4.md) | 知识生成 + 保真修正 |
+| [人员4 — RAG + Agent 3 + 辩论 + 三项指标](docs/roles/phase2/person4-rag-agent3-debate.md) | 审核博弈方 + 知识库基础设施 + 质量量化 |
+| [人员5+7 — API + WebSocket](docs/roles/phase2/person5-api.md) | 两人协作后端全部接口 |
+| [人员6 — Streamlit 前端](docs/roles/phase2/person6-frontend.md) | 可视化 + 交互 |
+| [人员8 — KB数据 + 代码验证 + 部署](docs/roles/phase2/person8-kb-data-delivery.md) | 知识库内容 + 打包部署 |
+| [排期与检查点](docs/PHASE2_SCHEDULE.md) | 三阶段谁做什么 + 检查点 |
 
 ---
 
-## 🚀 快速启动
+## 架构总览
+
+```
+用户输入 → 闸门1(特异性检测) → Agent1(学情诊断) → 闸门2(诊断质量)
+  → Agent2 Step1(生成检索Query) → RAG检索 → 闸门3(召回质量)
+  → Agent2 Step2(基于KB约束生成) → Agent3(事实核查) → 博弈引擎(辩论)
+  → Agent4(保真修正) → Agent3再审 → 标准化输出 → 前端
+```
+
+**4 Agent + 1 博弈引擎 + 3 道闸门 + 6 道防幻觉防线**
+
+---
+
+## 六道防幻觉防线
+
+| 防线 | 环节 | 卡什么 | 谁执行 |
+|------|------|--------|--------|
+| ① | 检索约束 | 相似度 < 0.6 不进 context，KB 没有的不硬编 | RAG 工具层 |
+| ② | 约束生成 | 只能基于 KB 原文，每条断言标注来源 | Agent 2 |
+| ③ | 事实核查 | 逐条断言 vs 原文，标 accurate / hallucination / unverifiable | Agent 3 |
+| ④ | 博弈对抗 | 质疑 → 应诉 → 双方援引原文 → 裁决 | 博弈引擎 |
+| ⑤ | 保真修正 | 删除错误、补溯源、冲突并列不选边 | Agent 4 |
+| ⑥ | 标准化包装 | 溯源 + 审核 + 辩论记录全部下发，透明可查 | 编排器 |
+
+---
+
+## 知识库领域
+
+**大模型应用开发**，4 个子领域：
+1. RAG 系统设计与实现
+2. Prompt Engineering 方法论
+3. Agent/多智能体系统开发
+4. LLM API 集成与最佳实践
+
+共 32 篇文档，存储于 `data/knowledge_base/`
+
+---
+
+## 快速启动
 
 ```bash
 # 1. 安装后端依赖
@@ -83,73 +75,74 @@ pip install -e ".[dev]"
 
 # 2. 配置 API Key
 cp ../.env.example ../.env
-# 编辑 .env，填写 LLM_API_KEY
+# 编辑 .env，填写 LLM_API_KEY（DeepSeek / GLM-5 / MiniMax）
 
-# 3. 启动后端
+# 3. 导入知识库
+python ../scripts/import_kb.py --dir ../data/knowledge_base/
+
+# 4. 启动后端
 cd backend
 python -m uvicorn src.api.main:app --reload --port 8000
 
-# 4. 验证
-curl http://localhost:8000/health
+# 5. 启动前端
+cd frontend
+streamlit run streamlit/app_v2.py --server.port 8502
 ```
 
 ---
 
-## 🤝 8 个人如何并行工作
+## 项目结构
 
-### Step 1: 每人认领自己的角色
-阅读 `docs/roles/roleN-*.md`，找到自己负责的文件。
-
-### Step 2: 创建自己的分支
-```bash
-git checkout -b feature/agent-diagnosis   # 角色4
-git checkout -b feature/agent-generation  # 角色5
-# ... 以此类推
 ```
-
-### Step 3: 在自己的分支上开发
-- 用 AI 辅助写代码
-- 只修改自己负责的文件
-- **不要改** `schemas.py` 和 `base.py`（除非全员同意）
-
-### Step 4: 本地验证
-```bash
-cd backend
-ruff check src/                          # 代码风格检查
-python scripts/check_contracts.py        # 契约检查
-python -m pytest tests/ -v               # 单元测试
+XH-agent/
+├── backend/src/
+│   ├── agents/          # 4个Agent: diagnosis / generation / audit / correction
+│   ├── debate/          # 辩论协议引擎
+│   │   └── engine.py
+│   ├── evaluation/      # 三项硬指标 + 保真打分
+│   │   ├── metrics.py
+│   │   └── scoring.py
+│   ├── gateways/        # 三道质量闸门
+│   │   ├── input_validator.py
+│   │   ├── diagnosis_validator.py
+│   │   └── retrieval_validator.py
+│   ├── knowledge/       # ChromaDB 知识库
+│   │   ├── store.py
+│   │   └── parser.py
+│   ├── graph/           # 编排器
+│   │   └── orchestrator.py
+│   ├── llm/             # LLM 抽象层
+│   ├── api/             # FastAPI + WebSocket
+│   │   ├── main.py
+│   │   └── ws.py
+│   ├── config.py
+│   ├── schemas.py
+│   └── exceptions.py
+├── frontend/streamlit/  # 前端
+│   ├── app_v2.py
+│   └── components/      # 可视化组件
+├── data/
+│   ├── knowledge_base/  # 知识库原始文档(4领域×8篇)
+│   ├── chroma/          # ChromaDB 持久化
+│   └── test_cases/      # 测试用例
+├── scripts/             # 工具脚本
+│   ├── import_kb.py
+│   ├── verify_kb_code.py
+│   └── evaluate.py
+└── docs/
+    ├── PHASE2_PLAN.md
+    ├── PROGRESS_TRACKER.md
+    ├── KB_REVIEW_STANDARD.md
+    └── roles/phase2/    # 8人分工文档
 ```
-
-### Step 5: 提交 PR
-```bash
-git add .
-git commit -m "角色4: 完成学情诊断Agent"
-git push origin feature/agent-diagnosis
-# 在 GitHub 上开 PR → dev 分支
-```
-
-### Step 6: 角色1 负责合并
-架构师 review PR，确认接口契约没有违反，合并到 `dev`。
 
 ---
 
-## ✅ 合并前检查清单
+## 评分标准覆盖
 
-- [ ] `ruff check .` 没有报错
-- [ ] `python scripts/check_contracts.py` 通过
-- [ ] `pytest tests/` 通过
-- [ ] 没有修改别人的文件
-- [ ] 没有在 schemas.py 里添加字段（除非讨论过）
-- [ ] `process()` 方法是 `async def`
-
----
-
-## 🔑 关键约束
-
-| 规则 | 原因 |
-|------|------|
-| 所有人通过 `state` dict 传数据 | 统一接口，LangGraph 需要 |
-| 数据模型统一用 `schemas.py` | 避免重复定义导致不一致 |
-| Agent 必须继承 `BaseAgent` | 统一 LLM 调用和日志 |
-| 修改接口契约需要全员周知 | 否则合并时一定冲突 |
-| 不直接 push 到 main/dev | 用 PR 流程 |
+| 维度 | 分值 | 覆盖方式 |
+|------|------|---------|
+| 作品完整性 | 30 | 4 Agent + 3 闸门 + 编排器 → "学情→生成→校验→决策→反馈"全流程闭环 |
+| 技术创新性 | 25 | 辩论引擎 + 6道防幻觉防线 + 知识库约束生成 + 高保真知识溯源 |
+| 用户体验 | 15 | Agent 协同拓扑图 + 辩论 timeline + 知识雷达图 + 学习路径 DAG |
+| 实用价值 | 30 | 三项硬指标自动评估(幻觉率<5%/适配率≥85%/覆盖率≥90%) + 4领域知识库 |
