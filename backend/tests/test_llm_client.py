@@ -13,6 +13,7 @@
     或
     pytest tests/test_llm_client.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,6 +41,7 @@ from src.llm.client import LLMClient, _lazy_load_openai_exceptions
 # 辅助工具
 # ═══════════════════════════════════════════════════════════
 
+
 def _make_client(demo: bool = True) -> LLMClient:
     """创建一个可控模式的 LLMClient 实例。"""
     client = LLMClient.__new__(LLMClient)
@@ -66,6 +68,7 @@ def check(condition: bool, label: str) -> None:
 
 def assert_raises(exc_type: type[Exception]) -> object:
     """上下文管理器：验证指定异常被抛出。"""
+
     class _Catcher:
         def __init__(self, exc_t):
             self.exc_type = exc_t
@@ -221,7 +224,7 @@ def test_truncate_user_message() -> None:
         # 临时设置极小的截断阈值
         settings.LLM_MAX_INPUT_CHARS = 100
         sys_prompt = "X" * 20  # 20 chars
-        user_msg = "Y" * 200     # 200 chars → 会被截断
+        user_msg = "Y" * 200  # 200 chars → 会被截断
 
         s, u = LLMClient._truncate_input(sys_prompt, user_msg)
         check(s == sys_prompt, "system_prompt 保持完整")
@@ -424,10 +427,12 @@ async def _run_real_mode_test(
     async def _mock_wait_for(coro, timeout):
         return await coro
 
-    with patch.object(settings, "LLM_BASE_URL", label), \
-         patch.object(settings, "LLM_PROVIDER", label), \
-         patch("asyncio.to_thread", _mock_to_thread, create=True), \
-         patch("asyncio.wait_for", _mock_wait_for):
+    with (
+        patch.object(settings, "LLM_BASE_URL", label),
+        patch.object(settings, "LLM_PROVIDER", label),
+        patch("asyncio.to_thread", _mock_to_thread, create=True),
+        patch("asyncio.wait_for", _mock_wait_for),
+    ):
         try:
             if timeout_mode:
                 await client.call("prompt", "message", max_retries=0, timeout_seconds=1)
@@ -447,8 +452,10 @@ async def test_call_auth_error_no_retry() -> None:
     """认证失败 (401) → 不重试，直接抛 XHLLMAuthError。"""
     print("\n── 真实模式：认证失败不重试 ──")
     await _run_real_mode_test(
-        "auth", _FakeAuthError("Invalid API Key"),
-        XHLLMAuthError, "认证失败",
+        "auth",
+        _FakeAuthError("Invalid API Key"),
+        XHLLMAuthError,
+        "认证失败",
     )
 
 
@@ -467,10 +474,12 @@ async def test_call_rate_limit_error() -> None:
     async def _mock_wait_for(coro, timeout):
         return await coro
 
-    with patch.object(settings, "LLM_BASE_URL", "ratelimit"), \
-         patch.object(settings, "LLM_PROVIDER", "ratelimit"), \
-         patch("asyncio.to_thread", _mock_to_thread, create=True), \
-         patch("asyncio.wait_for", _mock_wait_for):
+    with (
+        patch.object(settings, "LLM_BASE_URL", "ratelimit"),
+        patch.object(settings, "LLM_PROVIDER", "ratelimit"),
+        patch("asyncio.to_thread", _mock_to_thread, create=True),
+        patch("asyncio.wait_for", _mock_wait_for),
+    ):
         try:
             await client.call("prompt", "message", max_retries=0)
             check(False, "应该抛出异常")
@@ -488,8 +497,10 @@ async def test_call_retry_exhausted() -> None:
     """所有重试耗尽 → XHLLMRetryExhaustedError。"""
     print("\n── 真实模式：重试耗尽 ──")
     await _run_real_mode_test(
-        "server", _FakeServerError("Server error"),
-        XHLLMRetryExhaustedError, "失败",
+        "server",
+        _FakeServerError("Server error"),
+        XHLLMRetryExhaustedError,
+        "失败",
         extra_checks=[(True, "attempts check delegated to XHLLMRetryExhaustedError")],
     )
 
@@ -516,10 +527,12 @@ async def test_call_timeout_wraps_to_xh_error() -> None:
     async def _mock_wait_for(coro, timeout):
         return await coro
 
-    with patch.object(settings, "LLM_BASE_URL", "timeout"), \
-         patch.object(settings, "LLM_PROVIDER", "timeout"), \
-         patch("asyncio.to_thread", _mock_to_thread, create=True), \
-         patch("asyncio.wait_for", _mock_wait_for):
+    with (
+        patch.object(settings, "LLM_BASE_URL", "timeout"),
+        patch.object(settings, "LLM_PROVIDER", "timeout"),
+        patch("asyncio.to_thread", _mock_to_thread, create=True),
+        patch("asyncio.wait_for", _mock_wait_for),
+    ):
         try:
             await client.call("prompt", "message", max_retries=0, timeout_seconds=1)
             check(False, "应该抛出异常")
@@ -541,6 +554,7 @@ async def test_call_timeout_wraps_to_xh_error() -> None:
 
 class _FakeAPIError(Exception):
     """模拟 openai.APIError 基类。"""
+
     def __init__(self, message: str, status_code: int = 500):
         super().__init__(message)
         self.status_code = status_code
@@ -548,18 +562,21 @@ class _FakeAPIError(Exception):
 
 class _FakeAuthError(_FakeAPIError):
     """模拟 openai.AuthenticationError (401)。"""
+
     def __init__(self, message: str):
         super().__init__(message, status_code=401)
 
 
 class _FakeRateLimitError(_FakeAPIError):
     """模拟 openai.RateLimitError (429)。"""
+
     def __init__(self, message: str):
         super().__init__(message, status_code=429)
 
 
 class _FakeServerError(_FakeAPIError):
     """模拟 openai.InternalServerError (500)。"""
+
     def __init__(self, message: str):
         super().__init__(message, status_code=500)
 

@@ -56,21 +56,21 @@ class DiagnosisAgent(BaseAgent):
         return f"""请分析以下学习者的学情数据，输出诊断结果。
 
 ## 学历背景
-- 学历：{data.get('education_level', '未知')}
-- 专业：{data.get('major', '未知')}
-- 学校：{data.get('school', '未知')}
+- 学历：{data.get("education_level", "未知")}
+- 专业：{data.get("major", "未知")}
+- 学校：{data.get("school", "未知")}
 
 ## 工作经历
-- 年限：{data.get('work_years', 0)}年
-- 行业：{data.get('industry', '未知')}
-- 岗位：{', '.join(data.get('positions', []))}
-- 使用技能：{', '.join(data.get('skills_used', []))}
+- 年限：{data.get("work_years", 0)}年
+- 行业：{data.get("industry", "未知")}
+- 岗位：{", ".join(data.get("positions", []))}
+- 使用技能：{", ".join(data.get("skills_used", []))}
 
 ## 前置测试
-{self._format_pretests(data.get('pretest_results', []))}
+{self._format_pretests(data.get("pretest_results", []))}
 
 ## 学习目标
-{data.get('learning_goal', '未指定')}
+{data.get("learning_goal", "未指定")}
 
 请输出以下 JSON：
 {{

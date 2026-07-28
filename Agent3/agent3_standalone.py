@@ -53,6 +53,7 @@ if sys.platform == "win32":
 # ── loguru 配置：移除默认 handler，添加 UTF-8 handler ──
 try:
     from loguru import logger
+
     logger.remove()  # 移除默认 stderr handler
     logger.add(
         sys.stdout,
@@ -67,6 +68,7 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════════
 # 1. Settings — 全局配置单例（等价于 backend.src.config.Settings）
 # ═══════════════════════════════════════════════════════════════
+
 
 class _MissingSentinel:
     """标记"未设置"，区别于 None / 空字符串 / False。"""
@@ -110,6 +112,7 @@ def _env_int(key: str, default: int) -> int:
 # 尝试加载 .env 文件
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -183,6 +186,7 @@ settings = Settings()
 # 2. LLMClient — LLM 抽象层（等价于 backend.src.llm.client）
 # ═══════════════════════════════════════════════════════════════
 
+
 class LLMClient:
     """LLM 调用客户端。
 
@@ -202,19 +206,26 @@ class LLMClient:
         return settings.is_demo_mode
 
     async def call(
-        self, system_prompt: str, user_message: str, temperature: float = 0.1,
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.1,
     ) -> str:
         """调用 LLM，返回原始文本。"""
         if self.is_demo:
             # 演示模式返回模拟文本（实际不走这里，call_json 直接分派）
             return json.dumps(
-                self._demo_audit(user_message), ensure_ascii=False,
+                self._demo_audit(user_message),
+                ensure_ascii=False,
             )
 
         return await self._api_call(system_prompt, user_message, temperature)
 
     async def call_json(
-        self, system_prompt: str, user_message: str, temperature: float = 0.1,
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.1,
     ) -> dict[str, Any]:
         """调用 LLM，返回解析后的 JSON dict。解析失败返回 {}。"""
         if self.is_demo:
@@ -224,19 +235,25 @@ class LLMClient:
         return self._parse_json(text)
 
     async def _api_call(
-        self, system_prompt: str, user_message: str, temperature: float,
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float,
     ) -> str:
         """真实 API 调用 + 重试。"""
         import urllib.request
 
-        payload = json.dumps({
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            "temperature": temperature,
-        }, ensure_ascii=False).encode("utf-8")
+        payload = json.dumps(
+            {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                "temperature": temperature,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
 
         last_error: Exception | None = None
         for attempt in range(self.max_retries + 1):
@@ -252,7 +269,8 @@ class LLMClient:
                 # 在线程池中运行同步 HTTP 调用，避免阻塞事件循环
                 loop = asyncio.get_running_loop()
                 resp = await loop.run_in_executor(
-                    None, lambda: urllib.request.urlopen(req, timeout=self.timeout),
+                    None,
+                    lambda: urllib.request.urlopen(req, timeout=self.timeout),
                 )
                 body = json.loads(resp.read().decode("utf-8"))
                 return body["choices"][0]["message"]["content"]
@@ -274,8 +292,10 @@ class LLMClient:
                 "resource_type": "article",
                 "verdict": "approved",
                 "issues": [
-                    {"severity": "info",
-                     "detail": "建议补充闭包的实际应用场景（如工厂函数、回调封装），帮助理解使用动机"},
+                    {
+                        "severity": "info",
+                        "detail": "建议补充闭包的实际应用场景（如工厂函数、回调封装），帮助理解使用动机",
+                    },
                 ],
             },
             1: {
@@ -283,10 +303,14 @@ class LLMClient:
                 "resource_type": "video",
                 "verdict": "needs_revision",
                 "issues": [
-                    {"severity": "error",
-                     "detail": "装饰器示例中 @timer 缺少 @functools.wraps 包装，会导致被装饰函数的 __name__ 和 __doc__ 丢失"},
-                    {"severity": "warning",
-                     "detail": "视频内容偏难（advanced），学习者当前为 intermediate，建议增加过渡性讲解"},
+                    {
+                        "severity": "error",
+                        "detail": "装饰器示例中 @timer 缺少 @functools.wraps 包装，会导致被装饰函数的 __name__ 和 __doc__ 丢失",
+                    },
+                    {
+                        "severity": "warning",
+                        "detail": "视频内容偏难（advanced），学习者当前为 intermediate，建议增加过渡性讲解",
+                    },
                 ],
             },
             2: {
@@ -294,12 +318,18 @@ class LLMClient:
                 "resource_type": "exercise",
                 "verdict": "needs_revision",
                 "issues": [
-                    {"severity": "error",
-                     "detail": "useEffect 空依赖数组可能导致 missing dependency warning，且 fetchData 未处理 cleanup"},
-                    {"severity": "warning",
-                     "detail": "练习难度偏高（advanced），学习者当前为 intermediate，缺少 useState/useEffect 基础练习"},
-                    {"severity": "info",
-                     "detail": "建议先增加 useState 和 useEffect 的独立练习，再引入自定义 useLocalStorage Hook"},
+                    {
+                        "severity": "error",
+                        "detail": "useEffect 空依赖数组可能导致 missing dependency warning，且 fetchData 未处理 cleanup",
+                    },
+                    {
+                        "severity": "warning",
+                        "detail": "练习难度偏高（advanced），学习者当前为 intermediate，缺少 useState/useEffect 基础练习",
+                    },
+                    {
+                        "severity": "info",
+                        "detail": "建议先增加 useState 和 useEffect 的独立练习，再引入自定义 useLocalStorage Hook",
+                    },
                 ],
             },
             3: {
@@ -307,10 +337,14 @@ class LLMClient:
                 "resource_type": "article",
                 "verdict": "approved",
                 "issues": [
-                    {"severity": "warning",
-                     "detail": "文章未覆盖诊断结果中的 critical 盲区：Python 装饰器与闭包、React Hooks 最佳实践"},
-                    {"severity": "info",
-                     "detail": "可以增加混淆矩阵和 ROC 曲线的可视化图示，帮助理解模型评估"},
+                    {
+                        "severity": "warning",
+                        "detail": "文章未覆盖诊断结果中的 critical 盲区：Python 装饰器与闭包、React Hooks 最佳实践",
+                    },
+                    {
+                        "severity": "info",
+                        "detail": "可以增加混淆矩阵和 ROC 曲线的可视化图示，帮助理解模型评估",
+                    },
                 ],
             },
         }
@@ -345,6 +379,7 @@ llm = LLMClient()
 # ═══════════════════════════════════════════════════════════════
 # 3. BaseAgent — Agent 基类（等价于 backend.src.agents.base.BaseAgent）
 # ═══════════════════════════════════════════════════════════════
+
 
 class BaseAgent(ABC):
     """Agent 基类 —— 所有 Agent 的唯一父类。
@@ -383,13 +418,15 @@ class BaseAgent(ABC):
         validation_errors = self._validate_state(state)
         if validation_errors:
             self.log(f"state 校验失败: {'; '.join(validation_errors)}")
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "error",
-                "stage": "validation",
-                "message": f"state 校验失败: {'; '.join(validation_errors)}",
-                "errors": validation_errors,
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "error",
+                    "stage": "validation",
+                    "message": f"state 校验失败: {'; '.join(validation_errors)}",
+                    "errors": validation_errors,
+                }
+            )
             state["status"] = "error"
             return state
 
@@ -398,26 +435,32 @@ class BaseAgent(ABC):
         try:
             result = await self.process(state)
             if not isinstance(result, dict):
-                self.log(f"警告: process() 返回了 {type(result).__name__} 而非 dict，已包装")
+                self.log(
+                    f"警告: process() 返回了 {type(result).__name__} 而非 dict，已包装"
+                )
                 result = {"result": result}
             state.update(result)
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "info",
-                "stage": "complete",
-                "message": "执行完成",
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "info",
+                    "stage": "complete",
+                    "message": "执行完成",
+                }
+            )
             self.log("执行完成")
             return state
         except Exception as e:
             self.log(f"执行异常: {type(e).__name__}: {e}")
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "error",
-                "stage": "process",
-                "message": str(e),
-                "error_type": type(e).__name__,
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "error",
+                    "stage": "process",
+                    "message": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
             state["status"] = "error"
             state["error"] = str(e)
             state["error_type"] = type(e).__name__
@@ -430,7 +473,9 @@ class BaseAgent(ABC):
 
     # ── LLM 调用工具 ──
 
-    async def call_llm(self, user_message: str, *, temperature: float | None = None) -> str:
+    async def call_llm(
+        self, user_message: str, *, temperature: float | None = None
+    ) -> str:
         temp = temperature if temperature is not None else self.temperature
         return await llm.call(
             system_prompt=self.system_prompt,
@@ -439,7 +484,10 @@ class BaseAgent(ABC):
         )
 
     async def call_llm_json(
-        self, user_message: str, *, temperature: float | None = None,
+        self,
+        user_message: str,
+        *,
+        temperature: float | None = None,
     ) -> dict[str, Any]:
         temp = temperature if temperature is not None else self.temperature
         return await llm.call_json(
@@ -454,6 +502,7 @@ class BaseAgent(ABC):
         """统一日志，自动带 [Agent名称] 前缀。"""
         try:
             from loguru import logger
+
             logger.info(f"[{self.name}] {message}")
         except ImportError:
             ts = datetime.now().strftime("%H:%M:%S")
@@ -474,6 +523,7 @@ class BaseAgent(ABC):
             if unknown:
                 try:
                     from loguru import logger
+
                     logger.warning(
                         f"[{self.name}] state 包含未声明的键: {', '.join(sorted(unknown))}"
                     )
@@ -511,6 +561,7 @@ SYSTEM_PROMPT = """你是一个严格的内容审核专家。你的任务是检�
 # 5. AuditAgent — Agent 3 实现（继承 BaseAgent）
 # ═══════════════════════════════════════════════════════════════
 
+
 class AuditAgent(BaseAgent):
     """内容审核 Agent — 只审不修。
 
@@ -520,7 +571,11 @@ class AuditAgent(BaseAgent):
 
     REQUIRED_STATE_KEYS = {"generated_resources", "diagnosis_result"}
     OPTIONAL_STATE_KEYS = {
-        "learner_data", "task_id", "agent_log", "status", "resource_types",
+        "learner_data",
+        "task_id",
+        "agent_log",
+        "status",
+        "resource_types",
     }
 
     def __init__(self) -> None:
@@ -564,14 +619,15 @@ class AuditAgent(BaseAgent):
         difficulty = diagnosis.get("recommended_difficulty", "beginner")
         skill_gaps = diagnosis.get("skill_gaps", [])
         critical_gaps = [
-            g for g in skill_gaps
-            if g.get("priority") in ("critical", "high")
+            g for g in skill_gaps if g.get("priority") in ("critical", "high")
         ]
 
         # 安全取值：防御 None / 非字符串 / 双引号破坏 JSON 模板
         resource_type = str(resource.get("resource_type") or "").replace('"', "'")
         resource_title = str(resource.get("title") or "").replace('"', "'")
-        resource_difficulty = str(resource.get("difficulty_level") or "").replace('"', "'")
+        resource_difficulty = str(resource.get("difficulty_level") or "").replace(
+            '"', "'"
+        )
         content = str(resource.get("content") or "")[:3000]
 
         prompt = f"""## 待审核资源
@@ -621,10 +677,12 @@ class AuditAgent(BaseAgent):
                 "resource_index": index,
                 "resource_type": resource.get("resource_type", ""),
                 "verdict": "needs_revision",
-                "issues": [{
-                    "severity": "error",
-                    "detail": f"大模型调用失败（{type(e).__name__}），无法自动审核，需人工复查",
-                }],
+                "issues": [
+                    {
+                        "severity": "error",
+                        "detail": f"大模型调用失败（{type(e).__name__}），无法自动审核，需人工复查",
+                    }
+                ],
             }
 
         # 防御：确保 LLM 返回值包含契约要求的全部字段
@@ -712,10 +770,26 @@ SAMPLE_STATE: dict[str, Any] = {
         "recommended_difficulty": "intermediate",
         "learner_level": "intermediate",
         "skill_gaps": [
-            {"priority": "critical", "topic": "Python 装饰器与闭包", "category": "advanced_syntax"},
-            {"priority": "critical", "topic": "React Hooks 最佳实践", "category": "frontend"},
-            {"priority": "high", "topic": "异步编程 async/await", "category": "concurrency"},
-            {"priority": "high", "topic": "RESTful API 设计规范", "category": "backend"},
+            {
+                "priority": "critical",
+                "topic": "Python 装饰器与闭包",
+                "category": "advanced_syntax",
+            },
+            {
+                "priority": "critical",
+                "topic": "React Hooks 最佳实践",
+                "category": "frontend",
+            },
+            {
+                "priority": "high",
+                "topic": "异步编程 async/await",
+                "category": "concurrency",
+            },
+            {
+                "priority": "high",
+                "topic": "RESTful API 设计规范",
+                "category": "backend",
+            },
             {"priority": "medium", "topic": "Git 分支策略", "category": "tooling"},
             {"priority": "low", "topic": "Docker 基础", "category": "devops"},
         ],
@@ -728,6 +802,7 @@ SAMPLE_STATE: dict[str, Any] = {
 # ═══════════════════════════════════════════════════════════════
 # 7. 命令行入口
 # ═══════════════════════════════════════════════════════════════
+
 
 def print_usage() -> None:
     print(__doc__)
@@ -743,24 +818,27 @@ def print_summary(state: dict) -> None:
     approved = sum(1 for r in audit_list if r.get("verdict") == "approved")
     needs = len(audit_list) - approved
     errors = sum(
-        1 for r in audit_list
+        1
+        for r in audit_list
         for i in r.get("issues", [])
         if i.get("severity") == "error"
     )
     warnings = sum(
-        1 for r in audit_list
+        1
+        for r in audit_list
         for i in r.get("issues", [])
         if i.get("severity") == "warning"
     )
     infos = sum(
-        1 for r in audit_list
+        1
+        for r in audit_list
         for i in r.get("issues", [])
         if i.get("severity") == "info"
     )
 
     print()
     print("=" * 60)
-    print(f"  审核汇总")
+    print("  审核汇总")
     print(f"  ✅ Approved:       {approved}")
     print(f"  🔧 Needs Revision: {needs}")
     print(f"  ❌ Errors:         {errors}")
@@ -780,7 +858,7 @@ async def main() -> None:
     force_real = "--real" in args
     if force_real and settings.is_demo_mode:
         print("❌ 错误: --real 模式需要设置 LLM_API_KEY 环境变量")
-        print("   PowerShell: $env:LLM_API_KEY=\"your-key\"")
+        print('   PowerShell: $env:LLM_API_KEY="your-key"')
         print("   CMD:        set LLM_API_KEY=your-key")
         sys.exit(1)
 
@@ -819,7 +897,9 @@ async def main() -> None:
     print("  agent_log（运行日志）")
     print("─" * 60)
     for entry in state.get("agent_log", []):
-        print(f"  [{entry.get('stage', '?')}] [{entry.get('level', '?')}] {entry.get('message', '')}")
+        print(
+            f"  [{entry.get('stage', '?')}] [{entry.get('level', '?')}] {entry.get('message', '')}"
+        )
 
 
 if __name__ == "__main__":

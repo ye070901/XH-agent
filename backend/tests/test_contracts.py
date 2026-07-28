@@ -6,6 +6,7 @@ class TestAgentDiagnosis:
 
     async def test_process_returns_diagnosis(self):
         from src.agents.diagnosis import DiagnosisAgent
+
         agent = DiagnosisAgent()
         state = {
             "learner_data": {
@@ -31,19 +32,26 @@ class TestAgentGeneration:
 
     async def test_process_returns_resources(self):
         from src.agents.generation import GenerationAgent
+
         agent = GenerationAgent()
         state = {
             "diagnosis_result": {
                 "skill_gaps": [
-                    {"topic": "LangGraph", "priority": "critical",
-                     "current_level": 0.2, "target_level": 0.8, "reason": "未学过"}
+                    {
+                        "topic": "LangGraph",
+                        "priority": "critical",
+                        "current_level": 0.2,
+                        "target_level": 0.8,
+                        "reason": "未学过",
+                    }
                 ],
                 "recommended_difficulty": "beginner",
                 "learning_style": "practice_first",
             },
             "retrieved_chunks": [
                 {
-                    "doc_id": "test", "doc_title": "Test Doc",
+                    "doc_id": "test",
+                    "doc_title": "Test Doc",
                     "chunk_index": 0,
                     "content": "LangGraph is a library for building stateful agents.",
                 }
@@ -60,33 +68,46 @@ class TestAgentAudit:
 
     async def test_process_returns_audit(self):
         from src.agents.audit import AuditAgent
+
         agent = AuditAgent()
         state = {
-            "generated_resources": [{
-                "resource_id": "test-1",
-                "resource_type": "lecture",
-                "title": "测试资源",
-                "content": "# Test\n\nLangGraph uses StateGraph to define workflows. [ref:1]",
-                "citations": [{
-                    "ref_index": 1,
-                    "original_text": "StateGraph is the core abstraction.",
-                    "usage": "正文第一段",
-                }],
-                "difficulty_level": "beginner",
-                "target_skill_gaps": ["LangGraph"],
-            }],
+            "generated_resources": [
+                {
+                    "resource_id": "test-1",
+                    "resource_type": "lecture",
+                    "title": "测试资源",
+                    "content": "# Test\n\nLangGraph uses StateGraph to define workflows. [ref:1]",
+                    "citations": [
+                        {
+                            "ref_index": 1,
+                            "original_text": "StateGraph is the core abstraction.",
+                            "usage": "正文第一段",
+                        }
+                    ],
+                    "difficulty_level": "beginner",
+                    "target_skill_gaps": ["LangGraph"],
+                }
+            ],
             "retrieved_chunks": [
-                {"doc_id": "test", "doc_title": "Test Doc",
-                 "chunk_index": 0, "content": "StateGraph is the core abstraction in LangGraph."}
+                {
+                    "doc_id": "test",
+                    "doc_title": "Test Doc",
+                    "chunk_index": 0,
+                    "content": "StateGraph is the core abstraction in LangGraph.",
+                }
             ],
             "diagnosis_result": {
                 "recommended_difficulty": "beginner",
                 "learning_style": "practice_first",
-                "skill_gaps": [{
-                    "topic": "LangGraph",
-                    "current_level": 0.2, "target_level": 0.8,
-                    "priority": "critical", "reason": "未学过",
-                }],
+                "skill_gaps": [
+                    {
+                        "topic": "LangGraph",
+                        "current_level": 0.2,
+                        "target_level": 0.8,
+                        "priority": "critical",
+                        "reason": "未学过",
+                    }
+                ],
             },
         }
         result = await agent.process(state)
@@ -99,6 +120,7 @@ class TestSchemas:
 
     def test_learner_profile_creation(self):
         from src.schemas import Difficulty, Education, LearnerProfile, LearningStyle, WorkExperience
+
         edu = Education(level="bachelor", major="CS")
         exp = WorkExperience(years=2, industry="IT", positions=["Developer"])
         profile = LearnerProfile(
@@ -113,6 +135,7 @@ class TestSchemas:
 
     def test_generated_resource_citations_required(self):
         from src.schemas import Difficulty, GeneratedResource, ResourceType
+
         # citations 为空数组应被允许创建，但 Agent 2 不应这样做
         resource = GeneratedResource(
             resource_id="r-1",

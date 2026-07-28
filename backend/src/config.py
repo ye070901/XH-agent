@@ -5,6 +5,7 @@
 
 配置优先级：环境变量 > .env 文件 > 类内硬编码默认值
 """
+
 from __future__ import annotations
 
 import os
@@ -139,17 +140,17 @@ class Settings:
 
     _AGENT_MODEL_MAP: dict[str, str] = {
         "diagnosis": "LLM_MODEL_DIAGNOSIS",
-        "agent1":    "LLM_MODEL_DIAGNOSIS",
+        "agent1": "LLM_MODEL_DIAGNOSIS",
         "generation": "LLM_MODEL_GENERATION",
-        "agent2":    "LLM_MODEL_GENERATION",
-        "audit":     "LLM_MODEL_AUDIT",
-        "agent3":    "LLM_MODEL_AUDIT",
+        "agent2": "LLM_MODEL_GENERATION",
+        "audit": "LLM_MODEL_AUDIT",
+        "agent3": "LLM_MODEL_AUDIT",
     }
 
     _AGENT_TEMPERATURE_MAP: dict[str, str] = {
-        "diagnosis":  "LLM_TEMPERATURE_DIAGNOSIS",
+        "diagnosis": "LLM_TEMPERATURE_DIAGNOSIS",
         "generation": "LLM_TEMPERATURE_GENERATION",
-        "audit":      "LLM_TEMPERATURE_AUDIT",
+        "audit": "LLM_TEMPERATURE_AUDIT",
     }
 
     # ═══════════════════════════════════════════════════════════

@@ -2,6 +2,7 @@
 
 启动方式: streamlit run frontend/streamlit/app.py
 """
+
 import sys
 from pathlib import Path
 
@@ -65,7 +66,9 @@ with st.sidebar:
         }[x],
     )
 
-    generate_btn = st.button("🚀 生成个性化学习资源", type="primary", use_container_width=True)
+    generate_btn = st.button(
+        "🚀 生成个性化学习资源", type="primary", use_container_width=True
+    )
 
 # ── 主区域 ──
 tab1, tab2, tab3 = st.tabs(["📊 学情诊断", "📚 学习资源", "📋 调试信息"])
@@ -100,7 +103,9 @@ if generate_btn:
                 st.error(f"❌ API 返回错误: {response.status_code}\n{response.text}")
                 st.session_state.result = None
         except requests.exceptions.ConnectionError:
-            st.error("❌ 无法连接到后端。请先启动后端: `python -m uvicorn src.api.main:app --port 8000`")
+            st.error(
+                "❌ 无法连接到后端。请先启动后端: `python -m uvicorn src.api.main:app --port 8000`"
+            )
             st.session_state.result = None
         except Exception as e:
             st.error(f"❌ 请求失败: {e}")
@@ -132,8 +137,15 @@ if "result" in st.session_state and st.session_state.result:
             st.subheader("🎯 知识盲区（按优先级）")
             for gap in diagnosis.get("skill_gaps", []):
                 priority = gap.get("priority", "?")
-                icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(priority, "⚪")
-                with st.expander(f"{icon} [{priority.upper()}] {gap.get('topic', '未知')} (当前 {gap.get('current_level', 0):.1f} → 目标 {gap.get('target_level', 1.0):.1f})"):
+                icon = {
+                    "critical": "🔴",
+                    "high": "🟠",
+                    "medium": "🟡",
+                    "low": "🟢",
+                }.get(priority, "⚪")
+                with st.expander(
+                    f"{icon} [{priority.upper()}] {gap.get('topic', '未知')} (当前 {gap.get('current_level', 0):.1f} → 目标 {gap.get('target_level', 1.0):.1f})"
+                ):
                     st.write(f"**原因:** {gap.get('reason', '')}")
 
             # 知识地图
@@ -142,7 +154,9 @@ if "result" in st.session_state and st.session_state.result:
             if knowledge_map:
                 for topic, info in knowledge_map.items():
                     level = info.get("level", 0) if isinstance(info, dict) else 0
-                    confidence = info.get("confidence", 0) if isinstance(info, dict) else 0
+                    confidence = (
+                        info.get("confidence", 0) if isinstance(info, dict) else 0
+                    )
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.progress(level, text=f"{topic}: {level:.0%}")
@@ -161,7 +175,10 @@ if "result" in st.session_state and st.session_state.result:
                 icon_map = {"lecture": "📖", "guide": "🛠️", "quiz": "✏️"}
                 icon = icon_map.get(rtype, "📄")
 
-                with st.expander(f"{icon} {res.get('title', f'资源 {i+1}')} — {rtype}", expanded=(i == 0)):
+                with st.expander(
+                    f"{icon} {res.get('title', f'资源 {i + 1}')} — {rtype}",
+                    expanded=(i == 0),
+                ):
                     content = res.get("content", "")
                     if content:
                         st.markdown(content)
@@ -174,7 +191,9 @@ if "result" in st.session_state and st.session_state.result:
                         st.divider()
                         st.caption(f"📎 引用来源 ({len(citations)} 条)")
                         for c in citations:
-                            st.caption(f"> [{c.get('ref_index', '?')}] {c.get('original_text', '')[:200]}")
+                            st.caption(
+                                f"> [{c.get('ref_index', '?')}] {c.get('original_text', '')[:200]}"
+                            )
         else:
             st.info("无生成资源")
 
@@ -199,6 +218,10 @@ st.divider()
 try:
     health = requests.get(f"{API_BASE}/health", timeout=2)
     kb_docs = health.json().get("kb_docs", 0)
-    st.caption(f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')} | 知识库文档: {kb_docs} 篇")
+    st.caption(
+        f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')} | 知识库文档: {kb_docs} 篇"
+    )
 except Exception:
-    st.caption("🔴 后端未连接 — 请先启动: `python -m uvicorn src.api.main:app --port 8000`")
+    st.caption(
+        "🔴 后端未连接 — 请先启动: `python -m uvicorn src.api.main:app --port 8000`"
+    )

@@ -89,7 +89,7 @@ def _extract_json(text: str) -> dict:
 
 def _fix_duplicate_numbering(text: str) -> str:
     """修正行首重复序号，如 '1. 1.' -> '1.'"""
-    return re.sub(r'^(\d+\.)\s*\1', r'\1', text, flags=re.MULTILINE)
+    return re.sub(r"^(\d+\.)\s*\1", r"\1", text, flags=re.MULTILINE)
 
 
 class DiagnosisAgent(BaseAgent):
@@ -153,7 +153,9 @@ class DiagnosisAgent(BaseAgent):
                 kp["evidence"] = ["（LLM 未提供具体证据，请核实）"]
 
         # 修正推荐内容中的重复序号（双重保障：LLM 遵守 prompt + 后处理兜底）
-        result["recommendations"] = [_fix_duplicate_numbering(r) for r in result.get("recommendations", [])]
+        result["recommendations"] = [
+            _fix_duplicate_numbering(r) for r in result.get("recommendations", [])
+        ]
 
         state["diagnosis_result"] = {
             "knowledge_map": km,

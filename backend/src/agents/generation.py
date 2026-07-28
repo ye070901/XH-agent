@@ -9,6 +9,7 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
 输入: state["diagnosis_result"] + state["resource_types"]
 输出: state["generated_resources"] (list of GeneratedResource)
 """
+
 import uuid
 
 from .base import BaseAgent

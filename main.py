@@ -43,6 +43,7 @@ from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
 
 class EducationLevel(str, Enum):
     """学历 — 前端下拉框选项"""
+
     HIGH_SCHOOL = "high_school"
     JUNIOR_COLLEGE = "junior_college"
     BACHELOR = "bachelor"
@@ -52,6 +53,7 @@ class EducationLevel(str, Enum):
 
 class ResourceType(str, Enum):
     """资源类型 — 前端多选复选框选项"""
+
     LECTURE = "lecture"
     GUIDE = "guide"
     QUIZ = "quiz"
@@ -133,14 +135,16 @@ class GenerateRequest(BaseModel):
     pretest_results: List[dict] = Field(
         default_factory=list,
         description="前置测试成绩",
-        examples=[[
-            {
-                "test_name": "Python基础",
-                "total_score": 78,
-                "max_score": 100,
-                "topic_scores": {"变量与类型": 85, "函数": 72},
-            },
-        ]],
+        examples=[
+            [
+                {
+                    "test_name": "Python基础",
+                    "total_score": 78,
+                    "max_score": 100,
+                    "topic_scores": {"变量与类型": 85, "函数": 72},
+                },
+            ]
+        ],
     )
     resource_types: List[ResourceType] = Field(
         default=[ResourceType.LECTURE, ResourceType.GUIDE, ResourceType.QUIZ],

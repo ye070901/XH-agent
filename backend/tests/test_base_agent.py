@@ -11,6 +11,7 @@
     cd backend
     python tests/test_base_agent.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -119,6 +120,7 @@ class NoSysPromptAgent(BaseAgent):
 # 测试函数
 # ═══════════════════════════════════════════════════════════
 
+
 def test_abstract_enforcement() -> None:
     """验证：未实现 process() 的类无法实例化。"""
     print("\n── 测试 1: 抽象强制 ──")
@@ -139,9 +141,11 @@ def test_temperature_presets() -> None:
     assert TEMPERATURE_DIAGNOSIS == 0.2, f"diagnosis 应为 0.2, 实际 {TEMPERATURE_DIAGNOSIS}"
     assert TEMPERATURE_GENERATION == 0.5, f"generation 应为 0.5, 实际 {TEMPERATURE_GENERATION}"
     assert TEMPERATURE_AUDIT == 0.1, f"audit 应为 0.1, 实际 {TEMPERATURE_AUDIT}"
-    print(f"  [PASS] diagnosis={TEMPERATURE_DIAGNOSIS}, "
-          f"generation={TEMPERATURE_GENERATION}, "
-          f"audit={TEMPERATURE_AUDIT}")
+    print(
+        f"  [PASS] diagnosis={TEMPERATURE_DIAGNOSIS}, "
+        f"generation={TEMPERATURE_GENERATION}, "
+        f"audit={TEMPERATURE_AUDIT}"
+    )
 
 
 def test_agent_uses_preset() -> None:
@@ -209,9 +213,7 @@ async def test_run_success() -> None:
     assert result["processed_at"] == "2026-07-17"
 
     # agent_log 应有成功记录
-    complete_entries = [
-        e for e in result["agent_log"] if e.get("stage") == "complete"
-    ]
+    complete_entries = [e for e in result["agent_log"] if e.get("stage") == "complete"]
     assert len(complete_entries) == 1, f"应有 1 条成功记录，实际 {len(complete_entries)}"
     assert complete_entries[0]["agent"] == "测试Agent"
     assert complete_entries[0]["level"] == "info"
@@ -237,9 +239,7 @@ async def test_run_validation_error() -> None:
     assert "test_result" not in result
 
     # agent_log 应有 validation 阶段错误
-    validation_errors = [
-        e for e in result["agent_log"] if e.get("stage") == "validation"
-    ]
+    validation_errors = [e for e in result["agent_log"] if e.get("stage") == "validation"]
     assert len(validation_errors) == 1
     assert "learner_data" in validation_errors[0]["message"]
     assert "缺少必需字段" in validation_errors[0]["message"]
@@ -264,9 +264,7 @@ async def test_run_exception_isolation() -> None:
     assert result["error_type"] == "RuntimeError"
 
     # agent_log 应有错误记录
-    error_entries = [
-        e for e in result["agent_log"] if e.get("level") == "error"
-    ]
+    error_entries = [e for e in result["agent_log"] if e.get("level") == "error"]
     assert len(error_entries) == 1
     assert error_entries[0]["agent"] == "故障Agent"
     assert error_entries[0]["stage"] == "process"
@@ -289,9 +287,7 @@ async def test_run_custom_validation() -> None:
     result = await agent.run(state)
 
     assert result["status"] == "error"
-    validation = [
-        e for e in result["agent_log"] if e.get("stage") == "validation"
-    ]
+    validation = [e for e in result["agent_log"] if e.get("stage") == "validation"]
     assert len(validation) == 1
     assert "learner_data.name 不能为空" in validation[0]["message"]
 
@@ -367,9 +363,9 @@ def test_subclass_conventions() -> None:
     print(f"  [PASS] 三类温度: {temps}")
 
     # name 必须为中文
-    assert any('一' <= c <= '鿿' for c in d.name), "name 应为中文"
-    assert any('一' <= c <= '鿿' for c in g.name)
-    assert any('一' <= c <= '鿿' for c in a.name)
+    assert any("一" <= c <= "鿿" for c in d.name), "name 应为中文"
+    assert any("一" <= c <= "鿿" for c in g.name)
+    assert any("一" <= c <= "鿿" for c in a.name)
     print(f"  [PASS] 三个 Agent name 均为中文: {d.name}, {g.name}, {a.name}")
 
     # 子类私有辅助方法以下划线开头
@@ -382,6 +378,7 @@ def test_subclass_conventions() -> None:
 # ═══════════════════════════════════════════════════════════
 # 主入口
 # ═══════════════════════════════════════════════════════════
+
 
 async def main() -> None:
     """运行全部测试。"""

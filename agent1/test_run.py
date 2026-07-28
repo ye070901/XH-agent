@@ -143,8 +143,16 @@ def test_case_2():
             {"name": "Graph状态管理", "score": 55, "total": 100},
         ],
         "project_experience": [
-            {"name": "基于LLM的问答机器人", "role": "主要开发者", "description": "使用LangChain构建RAG问答系统"},
-            {"name": "数据爬取与分析工具", "role": "独立完成", "description": "Scrapy + Pandas 数据流水线"},
+            {
+                "name": "基于LLM的问答机器人",
+                "role": "主要开发者",
+                "description": "使用LangChain构建RAG问答系统",
+            },
+            {
+                "name": "数据爬取与分析工具",
+                "role": "独立完成",
+                "description": "Scrapy + Pandas 数据流水线",
+            },
         ],
         "study_time": {
             "total_hours": 45,

@@ -1,4 +1,5 @@
 """知识库 — MVP 版本：文件系统关键词检索 + ChromaDB 可选升级。角色3 在此实现。"""
+
 from pathlib import Path
 
 from loguru import logger
@@ -50,12 +51,14 @@ class KnowledgeBase:
                 try:
                     content = md_file.read_text(encoding="utf-8")
                     title = md_file.stem
-                    self._docs.append({
-                        "doc_id": md_file.name,
-                        "doc_title": title,
-                        "chunk_index": 0,
-                        "content": content[:2000],
-                    })
+                    self._docs.append(
+                        {
+                            "doc_id": md_file.name,
+                            "doc_title": title,
+                            "chunk_index": 0,
+                            "content": content[:2000],
+                        }
+                    )
                 except Exception:
                     pass
             logger.info(f"[知识库] 文件检索模式，加载了 {len(self._docs)} 篇文档")
@@ -76,12 +79,14 @@ class KnowledgeBase:
                 ],
             )
         else:
-            self._docs.append({
-                "doc_id": doc_id,
-                "doc_title": title,
-                "chunk_index": 0,
-                "content": content[:2000],
-            })
+            self._docs.append(
+                {
+                    "doc_id": doc_id,
+                    "doc_title": title,
+                    "chunk_index": 0,
+                    "content": content[:2000],
+                }
+            )
 
         logger.info(f"[知识库] 添加文档 '{title}': {len(chunks)} chunks")
         return [
@@ -106,13 +111,15 @@ class KnowledgeBase:
                     metas_list = results.get("metadatas", [[]])[0]
                     for i in range(len(ids_list)):
                         meta = metas_list[i] if i < len(metas_list) else {}
-                        formatted.append({
-                            "doc_id": meta.get("doc_id", ""),
-                            "doc_title": meta.get("doc_title", ""),
-                            "chunk_index": meta.get("chunk_index", 0),
-                            "content": docs_list[i] if i < len(docs_list) else "",
-                            "relevance_score": 1.0,
-                        })
+                        formatted.append(
+                            {
+                                "doc_id": meta.get("doc_id", ""),
+                                "doc_title": meta.get("doc_title", ""),
+                                "chunk_index": meta.get("chunk_index", 0),
+                                "content": docs_list[i] if i < len(docs_list) else "",
+                                "relevance_score": 1.0,
+                            }
+                        )
                     return formatted
             except Exception:
                 pass

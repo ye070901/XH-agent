@@ -2,6 +2,7 @@
 方案 B — 暗色主题
 启动: streamlit run frontend/streamlit/app_v2.py --server.port 8502
 """
+
 from __future__ import annotations
 
 import sys
@@ -228,16 +229,41 @@ FAKE_RESULT = {
             "Agent 架构": {"level": 0.10, "confidence": 0.80},
         },
         "skill_gaps": [
-            {"topic": "LangGraph 状态图", "current_level": 0.10, "target_level": 0.80,
-             "priority": "critical", "reason": "LangGraph 核心概念，不掌握无法推进"},
-            {"topic": "Agent 通信模式", "current_level": 0.10, "target_level": 0.80,
-             "priority": "critical", "reason": "协同系统需要理解 Agent 间通信"},
-            {"topic": "RAG 检索流程", "current_level": 0.20, "target_level": 0.70,
-             "priority": "high", "reason": "知识生成依赖 RAG，前置依赖"},
-            {"topic": "Prompt Engineering", "current_level": 0.30, "target_level": 0.70,
-             "priority": "high", "reason": "多 Agent 系统需要精心设计 prompt"},
-            {"topic": "向量数据库", "current_level": 0.20, "target_level": 0.60,
-             "priority": "medium", "reason": "RAG 依赖向量检索，可后续学习"},
+            {
+                "topic": "LangGraph 状态图",
+                "current_level": 0.10,
+                "target_level": 0.80,
+                "priority": "critical",
+                "reason": "LangGraph 核心概念，不掌握无法推进",
+            },
+            {
+                "topic": "Agent 通信模式",
+                "current_level": 0.10,
+                "target_level": 0.80,
+                "priority": "critical",
+                "reason": "协同系统需要理解 Agent 间通信",
+            },
+            {
+                "topic": "RAG 检索流程",
+                "current_level": 0.20,
+                "target_level": 0.70,
+                "priority": "high",
+                "reason": "知识生成依赖 RAG，前置依赖",
+            },
+            {
+                "topic": "Prompt Engineering",
+                "current_level": 0.30,
+                "target_level": 0.70,
+                "priority": "high",
+                "reason": "多 Agent 系统需要精心设计 prompt",
+            },
+            {
+                "topic": "向量数据库",
+                "current_level": 0.20,
+                "target_level": 0.60,
+                "priority": "medium",
+                "reason": "RAG 依赖向量检索，可后续学习",
+            },
         ],
         "learning_style": "practice_first",
         "recommended_difficulty": "beginner",
@@ -245,7 +271,8 @@ FAKE_RESULT = {
     },
     "resources": [
         {
-            "resource_type": "lecture", "title": "LangGraph 入门讲义",
+            "resource_type": "lecture",
+            "title": "LangGraph 入门讲义",
             "content": """## 什么是 LangGraph
 
 LangGraph 是 LangChain 团队推出的库，用于构建有状态的多步骤 LLM 应用。
@@ -283,11 +310,17 @@ app.invoke({})
 3. 条件路由
 4. 2-Agent 协同
 5. 复杂架构扩展""",
-            "difficulty_level": "beginner", "estimated_duration_minutes": 30,
-            "key_takeaways": ["StateGraph 状态管理", "三要素：节点、边、字典", "关注点分离"],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+                "StateGraph 状态管理",
+                "三要素：节点、边、字典",
+                "关注点分离",
+            ],
         },
         {
-            "resource_type": "guide", "title": "构建第一个 LangGraph 应用",
+            "resource_type": "guide",
+            "title": "构建第一个 LangGraph 应用",
             "content": """## 步骤一：安装
 
 ```bash
@@ -334,11 +367,17 @@ workflow.add_conditional_edges(
     {"langgraph_node": "specialized", "general_node": END}
 )
 ```""",
-            "difficulty_level": "beginner", "estimated_duration_minutes": 20,
-            "key_takeaways": ["三步：State → 节点 → 编译", "条件路由 = 多 Agent 关键", "代码直接可用"],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 20,
+            "key_takeaways": [
+                "三步：State → 节点 → 编译",
+                "条件路由 = 多 Agent 关键",
+                "代码直接可用",
+            ],
         },
         {
-            "resource_type": "quiz", "title": "LangGraph 基础测试",
+            "resource_type": "quiz",
+            "title": "LangGraph 基础测试",
             "content": """## 基础题
 
 **1. LangGraph 最核心的抽象是什么？**
@@ -366,17 +405,38 @@ workflow.add_conditional_edges(
 ## 挑战题
 
 **5. 设计工作流：输入 → 判断类型 → GPT-4 / GPT-3.5 → 输出结果。**""",
-            "difficulty_level": "beginner", "estimated_duration_minutes": 15,
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 15,
             "key_takeaways": ["检验 StateGraph 概念理解", "逐级递进评估"],
         },
     ],
     "audit": [
-        {"resource_index": 0, "resource_type": "lecture", "verdict": "needs_revision",
-         "issues": [{"severity": "warning", "detail": "beginner 水平但跳过了中间过渡概念"},
-                    {"severity": "info", "detail": "可增加架构对比图"}]},
-        {"resource_index": 1, "resource_type": "guide", "verdict": "approved",
-         "issues": [{"severity": "info", "detail": "conditional_edges 可补充完整的 specialized 节点实现"}]},
-        {"resource_index": 2, "resource_type": "quiz", "verdict": "approved", "issues": []},
+        {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "verdict": "needs_revision",
+            "issues": [
+                {"severity": "warning", "detail": "beginner 水平但跳过了中间过渡概念"},
+                {"severity": "info", "detail": "可增加架构对比图"},
+            ],
+        },
+        {
+            "resource_index": 1,
+            "resource_type": "guide",
+            "verdict": "approved",
+            "issues": [
+                {
+                    "severity": "info",
+                    "detail": "conditional_edges 可补充完整的 specialized 节点实现",
+                }
+            ],
+        },
+        {
+            "resource_index": 2,
+            "resource_type": "quiz",
+            "verdict": "approved",
+            "issues": [],
+        },
     ],
     "agent_log": [
         {"agent": "diagnosis", "status": "done"},
@@ -389,7 +449,8 @@ workflow.add_conditional_edges(
 def call_backend(data: dict) -> dict | None:
     try:
         r = requests.post(f"{API_BASE}/api/generate", json=data, timeout=120)
-        if r.status_code == 200: return r.json()
+        if r.status_code == 200:
+            return r.json()
         st.error(f"API ({r.status_code})")
     except requests.exceptions.ConnectionError:
         st.warning("后端未启动，请执行: python -m uvicorn src.api.main:app --port 8000")
@@ -398,12 +459,27 @@ def call_backend(data: dict) -> dict | None:
     return None
 
 
-_LS = {"practice_first": "实践优先", "theory_first": "理论优先", "visual": "视觉学习", "project_based": "项目驱动"}
+_LS = {
+    "practice_first": "实践优先",
+    "theory_first": "理论优先",
+    "visual": "视觉学习",
+    "project_based": "项目驱动",
+}
 _DF = {"beginner": "入门", "intermediate": "进阶", "advanced": "高级"}
 _PR = {"critical": "紧急", "high": "重要", "medium": "一般", "low": "可选"}
 _ICN = {"lecture": "📖", "guide": "🛠️", "quiz": "✏️"}
-_AGT = {"diagnosis": "学情诊断 Agent", "generation": "知识生成 Agent", "audit": "审核裁判 Agent"}
-_STAT = {"starting": "准备中", "diagnosing": "学情诊断中", "generating": "知识生成中", "auditing": "审核裁判中", "completed": "全部完成"}
+_AGT = {
+    "diagnosis": "学情诊断 Agent",
+    "generation": "知识生成 Agent",
+    "audit": "审核裁判 Agent",
+}
+_STAT = {
+    "starting": "准备中",
+    "diagnosing": "学情诊断中",
+    "generating": "知识生成中",
+    "auditing": "审核裁判中",
+    "completed": "全部完成",
+}
 
 
 def show_diagnosis(diag: dict) -> None:
@@ -424,19 +500,22 @@ def show_diagnosis(diag: dict) -> None:
 
     summary = diag.get("summary", "")
     if summary:
-        st.markdown(f"""
+        st.markdown(
+            f"""
         <div class="summary-box">
             <div class="sl">整体画像</div>
             <div class="st">{summary}</div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+            unsafe_allow_html=True,
+        )
 
     st.caption("知识盲区")
     if gaps:
         for g in gaps:
             p = g.get("priority", "medium")
             lb = _PR.get(p, p)
-            label = f"{lb}  {g.get('topic', '?')} — {g.get('current_level',0):.0%} → {g.get('target_level',1):.0%}"
+            label = f"{lb}  {g.get('topic', '?')} — {g.get('current_level', 0):.0%} → {g.get('target_level', 1):.0%}"
             with st.expander(label):
                 st.write(g.get("reason", ""))
     else:
@@ -450,16 +529,19 @@ def show_diagnosis(diag: dict) -> None:
             cf = info.get("confidence", 0) if isinstance(info, dict) else 0
             st.write(f"**{topic}**")
             a, b, c = st.columns([5, 0.8, 1])
-            with a: st.progress(lv)
-            with b: st.caption(f"{lv:.0%}")
-            with c: st.caption(f"置信度 {cf:.0%}")
+            with a:
+                st.progress(lv)
+            with b:
+                st.caption(f"{lv:.0%}")
+            with c:
+                st.caption(f"置信度 {cf:.0%}")
     else:
         st.info("暂无数据")
 
 
 def show_resources(resources: list, audit_list: list) -> None:
     ab = {}
-    for a in (audit_list or []):
+    for a in audit_list or []:
         ab[a.get("resource_index", -1)] = a
 
     TP = {"lecture": "讲义", "guide": "指南", "quiz": "测试"}
@@ -478,22 +560,28 @@ def show_resources(resources: list, audit_list: list) -> None:
             v_tag = f" — {VD.get(v, v)}"
         else:
             v_tag = ""
-        title = f"{icon}  {TP.get(rt, rt)} · {res.get('title', f'资源 {i+1}')}{v_tag}"
+        title = f"{icon}  {TP.get(rt, rt)} · {res.get('title', f'资源 {i + 1}')}{v_tag}"
 
         with st.expander(title, expanded=(i == 0)):
             if ae:
                 for iss in ae.get("issues", []):
                     s = iss.get("severity", "info")
-                    if s == "error":   st.error(iss.get("detail", ""))
-                    elif s == "warning": st.warning(iss.get("detail", ""))
-                    else:              st.info(iss.get("detail", ""))
+                    if s == "error":
+                        st.error(iss.get("detail", ""))
+                    elif s == "warning":
+                        st.warning(iss.get("detail", ""))
+                    else:
+                        st.info(iss.get("detail", ""))
 
             content = res.get("content", "")
-            if content: st.markdown(content)
-            else:       st.info("暂无内容")
+            if content:
+                st.markdown(content)
+            else:
+                st.info("暂无内容")
 
             dur = res.get("estimated_duration_minutes")
-            if dur: st.caption(f"预计 {dur} 分钟")
+            if dur:
+                st.caption(f"预计 {dur} 分钟")
             if res.get("key_takeaways"):
                 st.caption(" · ".join(res["key_takeaways"]))
 
@@ -527,44 +615,64 @@ def show_audit(audit_list: list) -> None:
         idx = a.get("resource_index", "?")
         rt = a.get("resource_type", "?")
         v = a.get("verdict", "")
-        lb = {"approved": "通过", "needs_revision": "需修改", "rejected": "不通过"}.get(v, v)
+        lb = {"approved": "通过", "needs_revision": "需修改", "rejected": "不通过"}.get(
+            v, v
+        )
         title = f"{lb}  资源 #{idx}（{TC.get(rt, rt)}）"
         with st.expander(title):
             for iss in a.get("issues", []):
                 s = iss.get("severity", "info")
-                if s == "error":   st.error(iss.get("detail", ""))
-                elif s == "warning": st.warning(iss.get("detail", ""))
-                else:              st.info(iss.get("detail", ""))
+                if s == "error":
+                    st.error(iss.get("detail", ""))
+                elif s == "warning":
+                    st.warning(iss.get("detail", ""))
+                else:
+                    st.info(iss.get("detail", ""))
             if not a.get("issues"):
                 st.success("无问题，审核通过")
 
 
 # ═══ 页面 ═══
 
-st.markdown("""
+st.markdown(
+    """
 <div class="page-title">
     <h1>领域知识个性化生成系统</h1>
     <p>学情诊断 · 知识生成 · 审核裁判</p>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.markdown("#### 学习目标")
     learning_goal = st.text_area(
-        "学习目标", "学习使用 LangGraph 构建多智能体 AI 应用",
-        height=80, placeholder="你想学什么？",
+        "学习目标",
+        "学习使用 LangGraph 构建多智能体 AI 应用",
+        height=80,
+        placeholder="你想学什么？",
     )
 
     st.markdown("#### 基本信息")
     ca, cb = st.columns(2)
     with ca:
         education_level = st.selectbox(
-            "学历", ["high_school", "junior_college", "bachelor", "master", "phd"], index=2,
-            format_func=lambda x: {"high_school": "高中","junior_college":"大专","bachelor":"本科","master":"硕士","phd":"博士"}[x],
+            "学历",
+            ["high_school", "junior_college", "bachelor", "master", "phd"],
+            index=2,
+            format_func=lambda x: {
+                "high_school": "高中",
+                "junior_college": "大专",
+                "bachelor": "本科",
+                "master": "硕士",
+                "phd": "博士",
+            }[x],
         )
     with cb:
         major = st.text_input("专业", "计算机科学")
-    skills_used = st.text_input("已掌握技能", "Python, Flask, SQL", placeholder="逗号分隔")
+    skills_used = st.text_input(
+        "已掌握技能", "Python, Flask, SQL", placeholder="逗号分隔"
+    )
 
     st.markdown("#### 工作背景")
     cc, cd = st.columns(2)
@@ -586,7 +694,9 @@ with st.sidebar:
 
     st.divider()
     use_fake = st.toggle("使用演示数据", value=False)
-    generate_btn = st.button("生成个性化学习资源", type="primary", use_container_width=True)
+    generate_btn = st.button(
+        "生成个性化学习资源", type="primary", use_container_width=True
+    )
 
 if generate_btn:
     if use_fake:
@@ -612,7 +722,7 @@ if generate_btn:
             real = call_backend(payload)
             if real:
                 st.session_state.result = real
-                st.toast(f"生成完成", icon="✅")
+                st.toast("生成完成", icon="✅")
             else:
                 st.session_state.result = FAKE_RESULT
                 st.toast("后端未就绪，已切换到演示数据", icon="💡")
@@ -636,9 +746,12 @@ if "result" in st.session_state and st.session_state.result:
     st.caption(f"工作流状态：{_STAT.get(status, status)}")
 
     t1, t2, t3 = st.tabs(["学情诊断", "学习资源", "审核意见"])
-    with t1: show_diagnosis(r.get("diagnosis", {}))
-    with t2: show_resources(r.get("resources", []), r.get("audit", []))
-    with t3: show_audit(r.get("audit", []))
+    with t1:
+        show_diagnosis(r.get("diagnosis", {}))
+    with t2:
+        show_resources(r.get("resources", []), r.get("audit", []))
+    with t3:
+        show_audit(r.get("audit", []))
     with st.expander("调试信息", expanded=False):
         st.json(r)
 else:
@@ -648,6 +761,8 @@ st.divider()
 try:
     h = requests.get(f"{API_BASE}/health", timeout=2).json()
     demo = h.get("demo_mode", True)
-    st.caption(f"后端运行中 | {'演示模式' if demo else '真实 API'} | LLM: {h.get('llm','N/A')}")
+    st.caption(
+        f"后端运行中 | {'演示模式' if demo else '真实 API'} | LLM: {h.get('llm', 'N/A')}"
+    )
 except Exception:
     st.caption("后端未连接")

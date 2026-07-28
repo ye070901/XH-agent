@@ -14,6 +14,7 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
   - 原 generation.py: prompt 代码块转义、项目代码风格
   - 新增: 循环容错（部分成功）、float() 类型保护、OPTIONAL_STATE_KEYS 补全
 """
+
 import uuid
 
 from .base import BaseAgent
@@ -50,7 +51,7 @@ class GenerationAgent(BaseAgent):
     OPTIONAL_STATE_KEYS = {
         "learner_data",
         "resource_types",
-        "retrieved_chunks",   # Phase 2 RAG 知识库检索结果，MVP 阶段可选
+        "retrieved_chunks",  # Phase 2 RAG 知识库检索结果，MVP 阶段可选
         "task_id",
         "agent_log",
         "status",
@@ -179,9 +180,7 @@ class GenerationAgent(BaseAgent):
                 target_lv = 1.0
 
             lines.append(
-                f"- [{priority}] {topic} "
-                f"(当前 {curr_lv:.1f} → 目标 {target_lv:.1f}): "
-                f"{reason}"
+                f"- [{priority}] {topic} (当前 {curr_lv:.1f} → 目标 {target_lv:.1f}): {reason}"
             )
 
         return "\n".join(lines)

@@ -8,6 +8,7 @@ Agent 3: 内容审核 Agent
 - 难度是否匹配学习者水平
 - critical 盲区有没有被覆盖到
 """
+
 from .base import BaseAgent
 
 SYSTEM_PROMPT = """你是一个严格的内容审核专家。你的任务是检查学习资源的质量，但不要修改内容。
@@ -74,7 +75,7 @@ class AuditAgent(BaseAgent):
 
 {{
     "resource_index": {index},
-    "resource_type": "{resource.get('resource_type', '')}",
+    "resource_type": "{resource.get("resource_type", "")}",
     "verdict": "approved|needs_revision",
     "issues": [
         {{
@@ -95,7 +96,4 @@ class AuditAgent(BaseAgent):
     def _fmt_gaps(self, gaps: list) -> str:
         if not gaps:
             return "无"
-        return "\n".join(
-            f"- [{g.get('priority', '?')}] {g.get('topic', '')}"
-            for g in gaps[:3]
-        )
+        return "\n".join(f"- [{g.get('priority', '?')}] {g.get('topic', '')}" for g in gaps[:3])

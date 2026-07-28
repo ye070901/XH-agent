@@ -1,4 +1,5 @@
 """工作流引擎 — 3 Agent 顺序执行: 诊断 → 生成 → 审核。Agent 3 只审不修。"""
+
 from __future__ import annotations
 
 import uuid
@@ -74,11 +75,13 @@ class AgentWorkflow:
         state["status"] = "generating"
         result = await self.generation.run(state)
         state.update(result)
-        state["agent_log"].append({
-            "agent": "generation",
-            "status": result.get("status", "done"),
-            "count": len(result.get("generated_resources", [])),
-        })
+        state["agent_log"].append(
+            {
+                "agent": "generation",
+                "status": result.get("status", "done"),
+                "count": len(result.get("generated_resources", [])),
+            }
+        )
 
         if result.get("status") == "error":
             state["status"] = "error"

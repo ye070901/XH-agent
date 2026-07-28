@@ -18,6 +18,7 @@
   - 所有 json.dumps 带 ensure_ascii=False
   - 未匹配场景返回兜底字典，不抛异常
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -85,9 +86,9 @@ class LLMClient:
 
     # ── 演示模式场景关键词 → 内部方法名映射 ──
     _DEMO_DISPATCH: list[tuple[list[str], str]] = [
-        (["学情诊断", "diagnosis"],                    "_demo_diagnosis"),
+        (["学情诊断", "diagnosis"], "_demo_diagnosis"),
         (["知识专家", "generation", "垂直领域", "内容创作"], "_demo_generation"),
-        (["审核", "audit", "内容审核", "严格的内容审核"],    "_demo_audit"),
+        (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
     ]
 
     def __init__(self) -> None:
@@ -172,16 +173,13 @@ class LLMClient:
 
                 # asyncio.wait_for 包裹线程调用以实现超时
                 response = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        lambda: client.chat.completions.create(**kwargs)
-                    ),
+                    asyncio.to_thread(lambda: client.chat.completions.create(**kwargs)),
                     timeout=timeout,
                 )
 
                 result: str = response.choices[0].message.content or ""
                 logger.debug(
-                    f"[LLM] 调用成功 (model={model}, {len(result)} chars, "
-                    f"attempt={attempt + 1})"
+                    f"[LLM] 调用成功 (model={model}, {len(result)} chars, attempt={attempt + 1})"
                 )
                 return result
 
@@ -192,8 +190,7 @@ class LLMClient:
                     timeout_seconds=timeout,
                 )
                 logger.warning(
-                    f"[LLM] 超时 (attempt {attempt + 1}/{max_retries_val + 1}, "
-                    f"timeout={timeout}s)"
+                    f"[LLM] 超时 (attempt {attempt + 1}/{max_retries_val + 1}, timeout={timeout}s)"
                 )
 
             except _OPENAI_AUTH_ERRORS as e:
@@ -259,7 +256,7 @@ class LLMClient:
 
             # 指数退避：1s → 2s → 4s ...
             if attempt < max_retries_val:
-                delay = 2 ** attempt
+                delay = 2**attempt
                 logger.debug(f"[LLM] {delay}s 后重试...")
                 await asyncio.sleep(delay)
 
@@ -307,7 +304,10 @@ class LLMClient:
         )
         try:
             retry_result = await self.call(
-                system_prompt, retry_message, response_json=True, **kwargs,
+                system_prompt,
+                retry_message,
+                response_json=True,
+                **kwargs,
             )
             retry_parsed = self._parse_json(retry_result)
             if retry_parsed:
@@ -316,15 +316,12 @@ class LLMClient:
             logger.warning(f"[LLM] call_json 兜底重试异常: {e}")
 
         # ── 最终失败：返回统一错误结构体 ──
-        logger.error(
-            f"[LLM] call_json 两次解析均失败，原始文本前 300 字符: {result[:300]}"
-        )
+        logger.error(f"[LLM] call_json 两次解析均失败，原始文本前 300 字符: {result[:300]}")
         return {
             "_parse_error": True,
             "raw_text": result[:2000],  # 保留前 2000 字符用于排查
             "error_message": (
-                "LLM 返回内容无法解析为 JSON，"
-                "已尝试直接解析、代码块提取、自动清洗和兜底重试"
+                "LLM 返回内容无法解析为 JSON，已尝试直接解析、代码块提取、自动清洗和兜底重试"
             ),
             "parse_attempts": 2,
         }
@@ -334,9 +331,7 @@ class LLMClient:
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    def _truncate_input(
-        system_prompt: str, user_message: str
-    ) -> tuple[str, str]:
+    def _truncate_input(system_prompt: str, user_message: str) -> tuple[str, str]:
         """超长输入自动截断：保留 system_prompt 完整，截断 user_message。
 
         截断策略（从中间截断以保留头尾关键信息）：
@@ -356,9 +351,7 @@ class LLMClient:
         sys_len = len(system_prompt)
         if sys_len >= max_chars:
             # 极端情况：system_prompt 本身超限
-            logger.error(
-                f"[LLM] system_prompt 自身 {sys_len} 字符已超限 {max_chars}，强制截断"
-            )
+            logger.error(f"[LLM] system_prompt 自身 {sys_len} 字符已超限 {max_chars}，强制截断")
             keep = max((max_chars - len(_TRUNCATION_MARKER)) // 2, 0)
             truncated_sys = system_prompt[:keep] + _TRUNCATION_MARKER + system_prompt[-keep:]
             return truncated_sys, ""
@@ -370,11 +363,7 @@ class LLMClient:
             # user_message 预算极少时，只保留开头
             truncated_user = user_message[:user_budget] + _TRUNCATION_MARKER
         else:
-            truncated_user = (
-                user_message[:half]
-                + _TRUNCATION_MARKER
-                + user_message[-half:]
-            )
+            truncated_user = user_message[:half] + _TRUNCATION_MARKER + user_message[-half:]
         logger.warning(
             f"[LLM] 输入超长 (total={total}>{max_chars})，"
             f"user_message 从 {len(user_message)} 截断至 {len(truncated_user)} 字符"
@@ -511,7 +500,7 @@ class LLMClient:
         # 4. 无引号 key → 双引号 key
         # 匹配 { 或 , 后面紧跟无引号的标识符 + 冒号
         text = re.sub(
-            r'([{,])\s*([a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*)\s*:',
+            r"([{,])\s*([a-zA-Z_一-鿿][a-zA-Z0-9_一-鿿]*)\s*:",
             r'\1 "\2":',
             text,
         )
@@ -536,9 +525,7 @@ class LLMClient:
                     return handler(system_prompt, user_message)
 
         # ── 兜底：无法匹配场景，返回字典不抛异常 ──
-        logger.warning(
-            f"[LLM Demo] 未匹配到场景，system_prompt 前 80 字符: {system_prompt[:80]}"
-        )
+        logger.warning(f"[LLM Demo] 未匹配到场景，system_prompt 前 80 字符: {system_prompt[:80]}")
         return json.dumps(
             {
                 "message": "演示模式 — 无 LLM API Key",
@@ -560,54 +547,70 @@ class LLMClient:
             {
                 "knowledge_map": {
                     "Python编程": {
-                        "level": 0.7, "confidence": 0.9,
+                        "level": 0.7,
+                        "confidence": 0.9,
                         "evidence": f"专业为{major}，有Python开发经验",
                     },
                     "LLM基础概念": {
-                        "level": 0.4, "confidence": 0.7,
+                        "level": 0.4,
+                        "confidence": 0.7,
                         "evidence": "工作经历中有相关技能使用",
                     },
                     "RAG检索增强生成": {
-                        "level": 0.2, "confidence": 0.6,
+                        "level": 0.2,
+                        "confidence": 0.6,
                         "evidence": "前置测试中该部分得分较低",
                     },
                     "LangGraph框架": {
-                        "level": 0.1, "confidence": 0.8,
+                        "level": 0.1,
+                        "confidence": 0.8,
                         "evidence": f"学习目标明确提到{learning_goal}",
                     },
                     "Prompt Engineering": {
-                        "level": 0.3, "confidence": 0.7,
+                        "level": 0.3,
+                        "confidence": 0.7,
                         "evidence": "有一定的LLM使用经验",
                     },
                     "Agent架构设计": {
-                        "level": 0.1, "confidence": 0.8,
+                        "level": 0.1,
+                        "confidence": 0.8,
                         "evidence": "未接触过多智能体系统",
                     },
                 },
                 "skill_gaps": [
                     {
-                        "topic": "LangGraph状态图", "current_level": 0.1,
-                        "target_level": 0.8, "priority": "critical",
+                        "topic": "LangGraph状态图",
+                        "current_level": 0.1,
+                        "target_level": 0.8,
+                        "priority": "critical",
                         "reason": f"学习目标是{learning_goal}，LangGraph是核心基础",
                     },
                     {
-                        "topic": "RAG检索流程", "current_level": 0.2,
-                        "target_level": 0.7, "priority": "high",
+                        "topic": "RAG检索流程",
+                        "current_level": 0.2,
+                        "target_level": 0.7,
+                        "priority": "high",
                         "reason": "Agent知识生成依赖RAG，是前置知识点",
                     },
                     {
-                        "topic": "Prompt Engineering进阶", "current_level": 0.3,
-                        "target_level": 0.7, "priority": "high",
+                        "topic": "Prompt Engineering进阶",
+                        "current_level": 0.3,
+                        "target_level": 0.7,
+                        "priority": "high",
                         "reason": "多Agent系统中每个Agent需要精心设计的prompt",
                     },
                     {
-                        "topic": "多Agent架构设计", "current_level": 0.1,
-                        "target_level": 0.8, "priority": "critical",
+                        "topic": "多Agent架构设计",
+                        "current_level": 0.1,
+                        "target_level": 0.8,
+                        "priority": "critical",
                         "reason": "构建协同系统需要理解Agent间通信模式",
                     },
                     {
-                        "topic": "向量数据库使用", "current_level": 0.2,
-                        "target_level": 0.6, "priority": "medium",
+                        "topic": "向量数据库使用",
+                        "current_level": 0.2,
+                        "target_level": 0.6,
+                        "priority": "medium",
                         "reason": "RAG依赖向量检索，但可以后续深入学习",
                     },
                 ],
@@ -671,9 +674,7 @@ class LLMClient:
                         },
                         {
                             "ref_index": 2,
-                            "original_text": (
-                                "StateGraph is the core abstraction in LangGraph"
-                            ),
+                            "original_text": ("StateGraph is the core abstraction in LangGraph"),
                             "usage": "第2节核心概念",
                         },
                     ],

@@ -13,6 +13,7 @@
   - 三类 Agent 固定温度预设：诊断 0.2 / 生成 0.5 / 审核 0.1
   - 子类私有辅助方法以下划线开头
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -114,13 +115,15 @@ class BaseAgent(ABC):
         validation_errors = self._validate_state(state)
         if validation_errors:
             self.log(f"state 校验失败: {'; '.join(validation_errors)}")
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "error",
-                "stage": "validation",
-                "message": f"state 校验失败: {'; '.join(validation_errors)}",
-                "errors": validation_errors,
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "error",
+                    "stage": "validation",
+                    "message": f"state 校验失败: {'; '.join(validation_errors)}",
+                    "errors": validation_errors,
+                }
+            )
             state["status"] = "error"
             return state
 
@@ -138,24 +141,28 @@ class BaseAgent(ABC):
             state.update(result)
 
             # 记录成功
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "info",
-                "stage": "complete",
-                "message": "执行完成",
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "info",
+                    "stage": "complete",
+                    "message": "执行完成",
+                }
+            )
             self.log("执行完成")
             return state
 
         except Exception as e:
             logger.error(f"[{self.name}] 执行异常: {type(e).__name__}: {e}")
-            state["agent_log"].append({
-                "agent": self.name,
-                "level": "error",
-                "stage": "process",
-                "message": str(e),
-                "error_type": type(e).__name__,
-            })
+            state["agent_log"].append(
+                {
+                    "agent": self.name,
+                    "level": "error",
+                    "stage": "process",
+                    "message": str(e),
+                    "error_type": type(e).__name__,
+                }
+            )
             state["status"] = "error"
             state["error"] = str(e)
             state["error_type"] = type(e).__name__

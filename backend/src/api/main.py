@@ -1,12 +1,26 @@
-"""FastAPI 应用入口 — MVP 版本：2 Agent 工作流（不需要知识库）"""
+# ====================== 导入块全部置顶，连续无中断 ======================
+# 1. 项目内部模块导入
+# 2. Python 标准库
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from backend.src.config import settings
+from backend.src.graph.orchestrator import workflow_engine
+
+# 3. 第三方依赖库
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
-from ..config import settings
-from ..graph.orchestrator import workflow_engine
+# ====================== 导入全部结束后，再放文档注释与业务代码 ======================
+"""FastAPI 应用入口 — MVP 版本：2 Agent 工作流 (不需要知识库)"""
+
+# 定位项目根目录 XH-agent
+root_path = Path(__file__).parent.parent.parent.parent
+sys.path.append(str(root_path))
+
+# 全部换成绝对导入，删掉..相对导入
 
 
 @asynccontextmanager
