@@ -11,9 +11,7 @@ from backend.llm import DeepSeekClient
 class BaseAgent:
     """Agent 基类，提供 LLM 调用封装"""
 
-    def __init__(
-        self, name: str = "BaseAgent", client: Optional[DeepSeekClient] = None
-    ):
+    def __init__(self, name: str = "BaseAgent", client: Optional[DeepSeekClient] = None):
         self.name = name
         self.client = client or DeepSeekClient()
 

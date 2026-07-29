@@ -4,6 +4,7 @@
 模型固定为 deepseek-v4-flash，纯同步写法。
 """
 
+import json
 from typing import Optional
 
 import requests
