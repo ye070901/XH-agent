@@ -12,10 +12,10 @@
 第二阶段（Task 2.4）：完整计算逻辑实现
 ══════════════════════════════════════════════
 """
+
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from loguru import logger
 
@@ -156,14 +156,11 @@ class EvaluationMetrics:
 
         # 真实计算（已可直接使用，因为输入结构已确定）
         hallucination_count = sum(
-            1 for item in items
-            if item.get("verdict") == "hallucination"
-            or item.get("is_accurate") is False
+            1
+            for item in items
+            if item.get("verdict") == "hallucination" or item.get("is_accurate") is False
         )
-        unverifiable_count = sum(
-            1 for item in items
-            if item.get("verdict") == "unverifiable"
-        )
+        unverifiable_count = sum(1 for item in items if item.get("verdict") == "unverifiable")
         accurate_count = total - hallucination_count - unverifiable_count
 
         rate = (hallucination_count + unverifiable_count) / total if total > 0 else 0.0
@@ -269,10 +266,7 @@ class EvaluationMetrics:
         skill_gaps = diagnosis.get("skill_gaps", [])
 
         # 筛选 critical + high 盲区
-        critical_high = [
-            g for g in skill_gaps
-            if g.get("priority") in ("critical", "high")
-        ]
+        critical_high = [g for g in skill_gaps if g.get("priority") in ("critical", "high")]
 
         if not critical_high:
             return {
@@ -285,8 +279,7 @@ class EvaluationMetrics:
 
         # 合并所有资源文本
         all_text = " ".join(
-            r.get("content", "") + " " + r.get("title", "")
-            for r in resources
+            r.get("content", "") + " " + r.get("title", "") for r in resources
         ).lower()
 
         # 检查每个盲区是否被覆盖
@@ -336,10 +329,7 @@ def _estimate_style_match(resources: list[dict], learning_style: str) -> float:
 
     if learning_style == "practice_first":
         # 检查有多少资源包含代码块（``` 标记）
-        code_resources = sum(
-            1 for r in resources
-            if "```" in r.get("content", "")
-        )
+        code_resources = sum(1 for r in resources if "```" in r.get("content", ""))
         ratio = code_resources / len(resources)
         return 0.5 * min(ratio / 0.3, 1.0)  # 30% 为满分线
 
@@ -361,8 +351,7 @@ def _estimate_style_match(resources: list[dict], learning_style: str) -> float:
         # 检查图片/图表引用标记
         visual_markers = ("![]", "<img", "```mermaid", "图表", "图示", "如图")
         visual_count = sum(
-            1 for r in resources
-            if any(m in r.get("content", "") for m in visual_markers)
+            1 for r in resources if any(m in r.get("content", "") for m in visual_markers)
         )
         ratio = visual_count / len(resources)
         return 0.5 * min(ratio / 0.3, 1.0)
@@ -371,8 +360,7 @@ def _estimate_style_match(resources: list[dict], learning_style: str) -> float:
         # 检查实操步骤/项目说明
         project_markers = ("## 步骤", "实操", "项目说明", "动手", "练习")
         project_count = sum(
-            1 for r in resources
-            if any(m in r.get("content", "") for m in project_markers)
+            1 for r in resources if any(m in r.get("content", "") for m in project_markers)
         )
         ratio = project_count / len(resources)
         return 0.5 * min(ratio / 0.3, 1.0)

@@ -29,7 +29,7 @@ Agent 4: 保真修正 Agent（入口文件）
 主实现位于 correction.py，本文件作为 Agent 4 的标准入口。
 """
 
-from .correction import CorrectionAgent, SYSTEM_PROMPT
+from .correction import SYSTEM_PROMPT, CorrectionAgent
 
 __all__ = ["CorrectionAgent", "SYSTEM_PROMPT"]
 
@@ -99,7 +99,10 @@ async def demo():
             {
                 "doc_id": "langgraph_intro.md",
                 "chunk_index": 2,
-                "content": "LangGraph is a library built by the LangChain team for building stateful, multi-actor applications with LLMs.",
+                "content": (
+                    "LangGraph is a library built by the LangChain team "
+                    "for building stateful, multi-actor applications with LLMs."
+                ),
                 "relevance_score": 0.95,
             },
         ],

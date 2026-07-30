@@ -10,8 +10,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend" / "src"))
 
-import streamlit as st
 import requests
+import streamlit as st
 
 st.set_page_config(
     page_title="领域知识个性化生成系统",
@@ -615,9 +615,7 @@ def show_audit(audit_list: list) -> None:
         idx = a.get("resource_index", "?")
         rt = a.get("resource_type", "?")
         v = a.get("verdict", "")
-        lb = {"approved": "通过", "needs_revision": "需修改", "rejected": "不通过"}.get(
-            v, v
-        )
+        lb = {"approved": "通过", "needs_revision": "需修改", "rejected": "不通过"}.get(v, v)
         title = f"{lb}  资源 #{idx}（{TC.get(rt, rt)}）"
         with st.expander(title):
             for iss in a.get("issues", []):
@@ -670,9 +668,7 @@ with st.sidebar:
         )
     with cb:
         major = st.text_input("专业", "计算机科学")
-    skills_used = st.text_input(
-        "已掌握技能", "Python, Flask, SQL", placeholder="逗号分隔"
-    )
+    skills_used = st.text_input("已掌握技能", "Python, Flask, SQL", placeholder="逗号分隔")
 
     st.markdown("#### 工作背景")
     cc, cd = st.columns(2)
@@ -694,9 +690,7 @@ with st.sidebar:
 
     st.divider()
     use_fake = st.toggle("使用演示数据", value=False)
-    generate_btn = st.button(
-        "生成个性化学习资源", type="primary", use_container_width=True
-    )
+    generate_btn = st.button("生成个性化学习资源", type="primary", use_container_width=True)
 
 if generate_btn:
     if use_fake:
@@ -761,8 +755,6 @@ st.divider()
 try:
     h = requests.get(f"{API_BASE}/health", timeout=2).json()
     demo = h.get("demo_mode", True)
-    st.caption(
-        f"后端运行中 | {'演示模式' if demo else '真实 API'} | LLM: {h.get('llm', 'N/A')}"
-    )
+    st.caption(f"后端运行中 | {'演示模式' if demo else '真实 API'} | LLM: {h.get('llm', 'N/A')}")
 except Exception:
     st.caption("后端未连接")

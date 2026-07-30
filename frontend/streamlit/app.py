@@ -9,8 +9,8 @@ from pathlib import Path
 # 添加 backend/src 到 Python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "backend" / "src"))
 
-import streamlit as st
 import requests
+import streamlit as st
 
 st.set_page_config(
     page_title="多智能体协同决策系统 MVP",
@@ -66,9 +66,7 @@ with st.sidebar:
         }[x],
     )
 
-    generate_btn = st.button(
-        "🚀 生成个性化学习资源", type="primary", use_container_width=True
-    )
+    generate_btn = st.button("🚀 生成个性化学习资源", type="primary", use_container_width=True)
 
 # ── 主区域 ──
 tab1, tab2, tab3 = st.tabs(["📊 学情诊断", "📚 学习资源", "📋 调试信息"])
@@ -154,9 +152,7 @@ if "result" in st.session_state and st.session_state.result:
             if knowledge_map:
                 for topic, info in knowledge_map.items():
                     level = info.get("level", 0) if isinstance(info, dict) else 0
-                    confidence = (
-                        info.get("confidence", 0) if isinstance(info, dict) else 0
-                    )
+                    confidence = info.get("confidence", 0) if isinstance(info, dict) else 0
                     col1, col2 = st.columns([3, 1])
                     with col1:
                         st.progress(level, text=f"{topic}: {level:.0%}")
@@ -218,10 +214,6 @@ st.divider()
 try:
     health = requests.get(f"{API_BASE}/health", timeout=2)
     kb_docs = health.json().get("kb_docs", 0)
-    st.caption(
-        f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')} | 知识库文档: {kb_docs} 篇"
-    )
+    st.caption(f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')} | 知识库文档: {kb_docs} 篇")
 except Exception:
-    st.caption(
-        "🔴 后端未连接 — 请先启动: `python -m uvicorn src.api.main:app --port 8000`"
-    )
+    st.caption("🔴 后端未连接 — 请先启动: `python -m uvicorn src.api.main:app --port 8000`")

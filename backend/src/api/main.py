@@ -5,13 +5,13 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from backend.src.config import settings
-from backend.src.graph.orchestrator import workflow_engine
-
 # 3. 第三方依赖库
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
+
+from backend.src.config import settings
+from backend.src.graph.orchestrator import workflow_engine
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
 """FastAPI 应用入口 — MVP 版本：2 Agent 工作流 (不需要知识库)"""

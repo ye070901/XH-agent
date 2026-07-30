@@ -1,0 +1,31 @@
+# ──────────────────────────────────────────────
+# XH-Agent 项目 Ruff 配置
+# 从 backend/pyproject.toml [tool.ruff] 段迁移
+# ──────────────────────────────────────────────
+
+line-length = 100
+target-version = "py310"
+
+# 排除目录
+# Agent3/ agent1/ 为团队个人原型目录，不纳入项目级 lint 范围
+# frontend/ 为 Streamlit/Node 前端，不纳入 Python lint
+extend-exclude = [
+    ".git",
+    ".ruff_cache",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    "node_modules",
+    "*.pyc",
+    "Agent3/",
+    "agent1/",
+    "frontend/",
+    ".github/",
+]
+
+[lint]
+select = ["E", "F", "I", "N", "W"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

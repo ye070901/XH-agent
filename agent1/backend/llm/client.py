@@ -4,7 +4,6 @@
 模型固定为 deepseek-v4-flash，纯同步写法。
 """
 
-import json
 from typing import Optional
 
 import requests
@@ -12,11 +11,11 @@ import requests
 from backend.config import (
     DEEPSEEK_API_KEY,
     DEEPSEEK_BASE_URL,
+    MAX_TOKENS,
     MODEL_NAME,
     TEMPERATURE,
-    MAX_TOKENS,
-    TOP_P,
     TIMEOUT,
+    TOP_P,
 )
 
 

@@ -820,9 +820,7 @@ class LLMClient:
         if has_langgraph_error:
             corrected_content = original_content.replace(
                 "Google 开发的", "LangChain 团队开发的"
-            ).replace(
-                "Google 开发", "LangChain 团队开发"
-            )
+            ).replace("Google 开发", "LangChain 团队开发")
             correction_summary = (
                 "演示模式修正：已将 LangGraph 的开发者从 'Google' 修正为 'LangChain 团队'，"
                 "补充了 StateGraph 三要素说明。设置 LLM_API_KEY 以启用真实修正。"
@@ -830,8 +828,7 @@ class LLMClient:
         elif original_content:
             corrected_content = original_content
             correction_summary = (
-                "演示模式修正 — 未检测到明显事实错误。"
-                "设置 LLM_API_KEY 以启用完整修正流程。"
+                "演示模式修正 — 未检测到明显事实错误。设置 LLM_API_KEY 以启用完整修正流程。"
             )
         else:
             corrected_content = (

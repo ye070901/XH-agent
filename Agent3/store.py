@@ -6,6 +6,7 @@
 ChromaDB 模式：向量语义检索，支持相似度阈值过滤、批量查询、metadata 过滤。
 文件降级模式：关键词匹配，ChromaDB 不可用时自动切换。
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -98,21 +99,8 @@ class KnowledgeBase:
                 continue
             try:
                 content = doc_file.read_text(encoding="utf-8")
-                self._docs.append({
-                    "doc_id": doc_file.stem,
-                    "content": content[:2000],
-                    "metadata": {
-                        "doc_title": doc_file.stem,
-                        "source_level": "unknown",
-                        "reviewer": "",
-                        "code_verified": False,
-                    },
-                })
-                loaded += 1
-            except UnicodeDecodeError:
-                try:
-                    content = doc_file.read_text(encoding="gbk")
-                    self._docs.append({
+                self._docs.append(
+                    {
                         "doc_id": doc_file.stem,
                         "content": content[:2000],
                         "metadata": {
@@ -121,7 +109,24 @@ class KnowledgeBase:
                             "reviewer": "",
                             "code_verified": False,
                         },
-                    })
+                    }
+                )
+                loaded += 1
+            except UnicodeDecodeError:
+                try:
+                    content = doc_file.read_text(encoding="gbk")
+                    self._docs.append(
+                        {
+                            "doc_id": doc_file.stem,
+                            "content": content[:2000],
+                            "metadata": {
+                                "doc_title": doc_file.stem,
+                                "source_level": "unknown",
+                                "reviewer": "",
+                                "code_verified": False,
+                            },
+                        }
+                    )
                     loaded += 1
                 except Exception as e:
                     logger.warning(f"[知识库] 编码失败: {doc_file.name}: {e}")
@@ -166,7 +171,10 @@ class KnowledgeBase:
         return await self._query_fallback(query_text, top_k, min_similarity)
 
     async def _query_chroma(
-        self, query_text: str, top_k: int, min_similarity: float,
+        self,
+        query_text: str,
+        top_k: int,
+        min_similarity: float,
     ) -> list[dict]:
         """ChromaDB 向量检索。"""
         try:
@@ -222,7 +230,10 @@ class KnowledgeBase:
             return []
 
     async def _query_fallback(
-        self, query_text: str, top_k: int, min_similarity: float,
+        self,
+        query_text: str,
+        top_k: int,
+        min_similarity: float,
     ) -> list[dict]:
         """文件关键词降级检索：关键词命中数 / 总关键词数 作为近似相似度。"""
         keywords = [kw.strip().lower() for kw in query_text.split() if len(kw.strip()) >= 1]
@@ -315,6 +326,7 @@ class KnowledgeBase:
 
         # 智能分片（调用 parser.py 的统一分片逻辑）
         from .parser import chunk_text as smart_chunk
+
         chunks = smart_chunk(content)
 
         # 构建 metadata
@@ -343,18 +355,17 @@ class KnowledgeBase:
                 documents=documents,
                 metadatas=metadatas,
             )
-            logger.info(
-                f"[知识库] ChromaDB 添加文档 '{title}' ({doc_id}): "
-                f"{len(chunks)} chunks"
-            )
+            logger.info(f"[知识库] ChromaDB 添加文档 '{title}' ({doc_id}): {len(chunks)} chunks")
         else:
             # 文件降级模式：存储全文前 2000 字符
-            self._docs.append({
-                "doc_id": doc_id,
-                "content": content[:2000],
-                "metadata": meta,
-                "chunk_idx": 0,
-            })
+            self._docs.append(
+                {
+                    "doc_id": doc_id,
+                    "content": content[:2000],
+                    "metadata": meta,
+                    "chunk_idx": 0,
+                }
+            )
             logger.info(f"[知识库] 降级模式 添加文档 '{title}' ({doc_id})")
 
         return [
@@ -394,9 +405,7 @@ class KnowledgeBase:
                 if chunk_ids:
                     self._collection.delete(ids=chunk_ids)
                     deleted = len(chunk_ids)
-                    logger.info(
-                        f"[知识库] ChromaDB 删除文档 '{doc_id}': {deleted} chunks"
-                    )
+                    logger.info(f"[知识库] ChromaDB 删除文档 '{doc_id}': {deleted} chunks")
             except Exception as e:
                 logger.error(f"[知识库] ChromaDB 删除异常: {e}")
                 return 0
@@ -434,7 +443,10 @@ class KnowledgeBase:
 
                 doc_ids: set[str] = set()
                 source_breakdown: dict[str, int] = {
-                    "official": 0, "community": 0, "personal": 0, "unknown": 0,
+                    "official": 0,
+                    "community": 0,
+                    "personal": 0,
+                    "unknown": 0,
                 }
                 for m in metas:
                     did = m.get("doc_id", "")
@@ -460,7 +472,12 @@ class KnowledgeBase:
             "total_documents": len(doc_ids),
             "collection_name": settings.CHROMA_COLLECTION_NAME,
             "mode": "fallback",
-            "source_breakdown": {"official": 0, "community": 0, "personal": len(self._docs), "unknown": 0},
+            "source_breakdown": {
+                "official": 0,
+                "community": 0,
+                "personal": len(self._docs),
+                "unknown": 0,
+            },
         }
 
 
@@ -474,6 +491,7 @@ knowledge_base = KnowledgeBase()
 # ═══════════════════════════════════════════════════════════
 # 私有：Embedding 函数构建
 # ═══════════════════════════════════════════════════════════
+
 
 def _build_embedding_function() -> Any:
     """根据 settings 构建 ChromaDB embedding function。
@@ -491,6 +509,7 @@ def _build_embedding_function() -> Any:
     if provider == "openai":
         try:
             from chromadb.utils import embedding_functions
+
             api_key = settings.LLM_API_KEY
             if not api_key:
                 logger.warning(
@@ -511,6 +530,7 @@ def _build_embedding_function() -> Any:
     elif provider == "local":
         try:
             from chromadb.utils import embedding_functions
+
             fn = embedding_functions.SentenceTransformerEmbeddingFunction(
                 model_name="shibing624/text2vec-base-chinese",
             )

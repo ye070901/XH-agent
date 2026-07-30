@@ -8,6 +8,7 @@
 
 角色：人员4 — 知识库基础设施。
 """
+
 from __future__ import annotations
 
 import re
@@ -48,9 +49,7 @@ async def parse_file(file_path: str) -> str:
     elif suffix == ".pdf":
         return await _parse_pdf(path)
     else:
-        raise ValueError(
-            f"不支持的文件格式: {suffix}。支持的格式: .md, .txt, .pdf"
-        )
+        raise ValueError(f"不支持的文件格式: {suffix}。支持的格式: .md, .txt, .pdf")
 
 
 def chunk_text(
@@ -92,29 +91,33 @@ def chunk_text(
             continue
 
         if len(section_text) <= chunk_size:
-            chunks.append({
-                "content": section_text.strip(),
-                "chunk_idx": chunk_idx,
-                "heading_path": heading_path,
-                "char_count": len(section_text.strip()),
-            })
+            chunks.append(
+                {
+                    "content": section_text.strip(),
+                    "chunk_idx": chunk_idx,
+                    "heading_path": heading_path,
+                    "char_count": len(section_text.strip()),
+                }
+            )
             chunk_idx += 1
         else:
             # 按句子边界切分
             sentences = _split_by_sentences(section_text)
-            sub_chunks = _merge_sentences_with_overlap(
-                sentences, chunk_size, overlap
-            )
+            sub_chunks = _merge_sentences_with_overlap(sentences, chunk_size, overlap)
             for sc in sub_chunks:
-                chunks.append({
-                    "content": sc,
-                    "chunk_idx": chunk_idx,
-                    "heading_path": heading_path,
-                    "char_count": len(sc),
-                })
+                chunks.append(
+                    {
+                        "content": sc,
+                        "chunk_idx": chunk_idx,
+                        "heading_path": heading_path,
+                        "char_count": len(sc),
+                    }
+                )
                 chunk_idx += 1
 
-    logger.info(f"[解析器] 分片完成: {len(chunks)} chunks (chunk_size={chunk_size}, overlap={overlap})")
+    logger.info(
+        f"[解析器] 分片完成: {len(chunks)} chunks (chunk_size={chunk_size}, overlap={overlap})"
+    )
     return chunks
 
 
@@ -146,6 +149,7 @@ async def _parse_pdf(path: Path) -> str:
     # 尝试 1：pdfplumber
     try:
         import pdfplumber
+
         with pdfplumber.open(str(path)) as pdf:
             pages: list[str] = []
             for page in pdf.pages:
@@ -164,6 +168,7 @@ async def _parse_pdf(path: Path) -> str:
     # 尝试 2：PyPDF2
     try:
         from PyPDF2 import PdfReader
+
         reader = PdfReader(str(path))
         pages: list[str] = []
         for page in reader.pages:
@@ -212,7 +217,7 @@ def _split_by_headings(text: str) -> list[tuple[str, str]]:
     # 第一个标题之前的内容
     first_match = matches[0]
     if first_match.start() > 0:
-        prefix = text[:first_match.start()].strip()
+        prefix = text[: first_match.start()].strip()
         if prefix:
             sections.append(("", prefix))
 

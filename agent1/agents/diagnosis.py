@@ -100,7 +100,7 @@ def _extract_json(text: str) -> dict:
 
 def _fix_duplicate_numbering(text: str) -> str:
     """修正行首重复序号，如 '1. 1.' -> '1.'"""
-    return re.sub(r'^(\d+\.)\s*\1', r'\1', text, flags=re.MULTILINE)
+    return re.sub(r"^(\d+\.)\s*\1", r"\1", text, flags=re.MULTILINE)
 
 
 class DiagnosisAgent(BaseAgent):
@@ -125,9 +125,7 @@ class DiagnosisAgent(BaseAgent):
         retry_hints = state.get("diagnosis_retry_hints", "")
         user_prompt = f"请对以下学习者进行学情诊断，严格按照 JSON 格式输出。\n\n学习者数据:\n{json.dumps(learner_data, ensure_ascii=False, indent=2)}"
         if retry_hints:
-            user_prompt += (
-                f"\n\n上一轮诊断产出的主题过于宽泛，请将以下topic拆解细化到最小颗粒度技术点：{retry_hints}"
-            )
+            user_prompt += f"\n\n上一轮诊断产出的主题过于宽泛，请将以下topic拆解细化到最小颗粒度技术点：{retry_hints}"
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -169,7 +167,9 @@ class DiagnosisAgent(BaseAgent):
                 kp["evidence"] = ["（LLM 未提供具体证据，请核实）"]
 
         # 修正推荐内容中的重复序号（双重保障：LLM 遵守 prompt + 后处理兜底）
-        result["recommendations"] = [_fix_duplicate_numbering(r) for r in result.get("recommendations", [])]
+        result["recommendations"] = [
+            _fix_duplicate_numbering(r) for r in result.get("recommendations", [])
+        ]
 
         state["diagnosis_result"] = {
             "knowledge_map": km,

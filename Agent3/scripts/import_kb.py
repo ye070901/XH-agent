@@ -11,6 +11,7 @@
 
 角色：人员4 — 知识库基础设施。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_PROJECT_ROOT))
 
 from backend.src.knowledge.parser import parse_file
+
 from backend.src.knowledge.store import knowledge_base
 
 # ═══════════════════════════════════════════════════════════
@@ -118,11 +120,13 @@ async def import_directory(
         return {"total_files": 0, "success": 0, "failed": 0, "total_chunks": 0, "details": []}
 
     print(f"\n{'=' * 60}")
-    print(f"  KB Batch Import")
+    print("  KB Batch Import")
     print(f"{'=' * 60}")
     print(f"  Source Dir:  {docs_path}")
     print(f"  Files:       {len(files)}")
-    print(f"  Mode:        {'Preview (dry-run)' if dry_run else 'Write' + (' (reset)' if reset else ' (incremental)')}")
+    print(
+        f"  Mode:        {'Preview (dry-run)' if dry_run else 'Write' + (' (reset)' if reset else ' (incremental)')}"
+    )
     print(f"  Start Time:  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'=' * 60}\n")
 
@@ -134,7 +138,13 @@ async def import_directory(
             print(f"       Path: {f}")
             print(f"       source_level: {meta['source_level']}")
         print(f"\n  Total {len(files)} files (not written)")
-        return {"total_files": len(files), "success": 0, "failed": 0, "total_chunks": 0, "details": []}
+        return {
+            "total_files": len(files),
+            "success": 0,
+            "failed": 0,
+            "total_chunks": 0,
+            "details": [],
+        }
 
     # 初始化知识库
     await knowledge_base.initialize()
@@ -160,12 +170,14 @@ async def import_directory(
             text = await parse_file(str(file_path))
             if not text or not text.strip():
                 print(f"  [{i}/{len(files)}] [SKIP] {file_path.name} (empty)")
-                details.append({
-                    "file": file_path.name,
-                    "status": "skipped",
-                    "chunks": 0,
-                    "error": "文件内容为空",
-                })
+                details.append(
+                    {
+                        "file": file_path.name,
+                        "status": "skipped",
+                        "chunks": 0,
+                        "error": "文件内容为空",
+                    }
+                )
                 continue
 
             # 推断元数据
@@ -189,30 +201,36 @@ async def import_directory(
                 f"  -> {chunk_count} chunks"
                 f"  [{metadata['source_level']}]"
             )
-            details.append({
-                "file": file_path.name,
-                "status": "success",
-                "chunks": chunk_count,
-                "error": None,
-            })
+            details.append(
+                {
+                    "file": file_path.name,
+                    "status": "success",
+                    "chunks": chunk_count,
+                    "error": None,
+                }
+            )
 
         except Exception as e:
             failed += 1
             print(f"  [{i}/{len(files)}] [FAIL] {file_path.name} -> {type(e).__name__}: {e}")
-            details.append({
-                "file": file_path.name,
-                "status": "failed",
-                "chunks": 0,
-                "error": str(e),
-            })
+            details.append(
+                {
+                    "file": file_path.name,
+                    "status": "failed",
+                    "chunks": 0,
+                    "error": str(e),
+                }
+            )
 
     # 最终统计
     stats = await knowledge_base.get_stats()
     print(f"\n{'=' * 60}")
-    print(f"  Import Done!")
+    print("  Import Done!")
     print(f"  Success: {success}  Failed: {failed}  Skipped: {len(files) - success - failed}")
     print(f"  Total Chunks: {total_chunks}")
-    print(f"  KB Status: {stats['mode']} | {stats['total_documents']} docs | {stats['total_chunks']} chunks")
+    print(
+        f"  KB Status: {stats['mode']} | {stats['total_documents']} docs | {stats['total_chunks']} chunks"
+    )
     print(f"  Source Breakdown: {stats['source_breakdown']}")
     print(f"  End Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'=' * 60}")

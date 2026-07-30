@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from pathlib import Path
-import sys
 import subprocess
+import sys
+from pathlib import Path
 
 # ===================== 路径配置 =====================
 SCRIPT_PATH = Path(__file__).resolve()
@@ -42,9 +42,7 @@ def check_ruff() -> bool:
     print_yellow("===== 开始 Ruff 代码规范校验 =====")
     subprocess.run([sys.executable, "-m", "ruff", "format", "."], cwd=PROJECT_ROOT)
     print_green("Ruff Format 格式化完成")
-    ret = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", ".", "--fix"], cwd=PROJECT_ROOT
-    )
+    ret = subprocess.run([sys.executable, "-m", "ruff", "check", ".", "--fix"], cwd=PROJECT_ROOT)
     if ret.returncode != 0:
         print_red("Ruff 代码规范校验未通过")
         return False

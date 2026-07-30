@@ -4,8 +4,9 @@
 CI 会跑这个脚本，确保所有人的 Agent 实现没有违反接口契约。
 如果这个脚本报错，说明你的实现和约定不一致——集成时一定会出问题。
 """
-import sys
+
 import ast
+import sys
 from pathlib import Path
 
 BACKEND_SRC = Path(__file__).parent.parent / "backend" / "src"
@@ -68,11 +69,18 @@ def check_schemas_exist() -> list[str]:
         return errors
 
     required_models = [
-        "LearnerProfile", "SkillGap", "KnowledgeItem",
-        "GeneratedResource", "Citation",
-        "AuditReport", "HallucinationFlag", "FactCheckResult",
-        "DebateRecord", "DebateRound",
-        "AuditChallenge", "AgentDefense",
+        "LearnerProfile",
+        "SkillGap",
+        "KnowledgeItem",
+        "GeneratedResource",
+        "Citation",
+        "AuditReport",
+        "HallucinationFlag",
+        "FactCheckResult",
+        "DebateRecord",
+        "DebateRound",
+        "AuditChallenge",
+        "AgentDefense",
         "ReportResponse",
     ]
     with open(schemas_path, encoding="utf-8") as f:

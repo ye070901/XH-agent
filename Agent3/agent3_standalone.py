@@ -435,9 +435,7 @@ class BaseAgent(ABC):
         try:
             result = await self.process(state)
             if not isinstance(result, dict):
-                self.log(
-                    f"警告: process() 返回了 {type(result).__name__} 而非 dict，已包装"
-                )
+                self.log(f"警告: process() 返回了 {type(result).__name__} 而非 dict，已包装")
                 result = {"result": result}
             state.update(result)
             state["agent_log"].append(
@@ -473,9 +471,7 @@ class BaseAgent(ABC):
 
     # ── LLM 调用工具 ──
 
-    async def call_llm(
-        self, user_message: str, *, temperature: float | None = None
-    ) -> str:
+    async def call_llm(self, user_message: str, *, temperature: float | None = None) -> str:
         temp = temperature if temperature is not None else self.temperature
         return await llm.call(
             system_prompt=self.system_prompt,
@@ -618,16 +614,12 @@ class AuditAgent(BaseAgent):
         """审核单个资源，LLM 异常时返回兜底报告。"""
         difficulty = diagnosis.get("recommended_difficulty", "beginner")
         skill_gaps = diagnosis.get("skill_gaps", [])
-        critical_gaps = [
-            g for g in skill_gaps if g.get("priority") in ("critical", "high")
-        ]
+        critical_gaps = [g for g in skill_gaps if g.get("priority") in ("critical", "high")]
 
         # 安全取值：防御 None / 非字符串 / 双引号破坏 JSON 模板
         resource_type = str(resource.get("resource_type") or "").replace('"', "'")
         resource_title = str(resource.get("title") or "").replace('"', "'")
-        resource_difficulty = str(resource.get("difficulty_level") or "").replace(
-            '"', "'"
-        )
+        resource_difficulty = str(resource.get("difficulty_level") or "").replace('"', "'")
         content = str(resource.get("content") or "")[:3000]
 
         prompt = f"""## 待审核资源
@@ -817,24 +809,11 @@ def print_summary(state: dict) -> None:
 
     approved = sum(1 for r in audit_list if r.get("verdict") == "approved")
     needs = len(audit_list) - approved
-    errors = sum(
-        1
-        for r in audit_list
-        for i in r.get("issues", [])
-        if i.get("severity") == "error"
-    )
+    errors = sum(1 for r in audit_list for i in r.get("issues", []) if i.get("severity") == "error")
     warnings = sum(
-        1
-        for r in audit_list
-        for i in r.get("issues", [])
-        if i.get("severity") == "warning"
+        1 for r in audit_list for i in r.get("issues", []) if i.get("severity") == "warning"
     )
-    infos = sum(
-        1
-        for r in audit_list
-        for i in r.get("issues", [])
-        if i.get("severity") == "info"
-    )
+    infos = sum(1 for r in audit_list for i in r.get("issues", []) if i.get("severity") == "info")
 
     print()
     print("=" * 60)

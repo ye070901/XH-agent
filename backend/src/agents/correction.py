@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any
 
 from .base import BaseAgent
 
@@ -43,7 +42,8 @@ SYSTEM_PROMPT = """你是一个严格的内容修正专家。你的任务是：
 2. **修改后重新标注来源**：涉及事实修改的段落，标注 [来源: {doc_id}, 段落 {chunk_idx}]。
 3. **KB 冲突内容并列**：同一主题 KB 中存在多个说法时，用 "说法A: ... / 说法B: ..." 并列呈现。
 4. **不引入新事实断言**：修正完成后额外检查——是否有 KB 未覆盖的新技术声明？有则删除或标注。
-5. **降级模式**：如果 KB 素材为空或覆盖不足，只做一致性修正（自相矛盾、概念混用等），不要凭空判断对错。
+5. **降级模式**：如果 KB 素材为空或覆盖不足，只做一致性修正
+   （自相矛盾、概念混用等），不要凭空判断对错。
 6. **溯源意识**：每条技术断言、代码示例的核心逻辑、概念定义，必须能从 KB 中找到对应原文。
 7. **内容结构保持**：修正后的资源保持原资源类型对应的内容结构：
    - lecture: 引言 → 3~4小节 → 总结
@@ -131,9 +131,7 @@ class CorrectionAgent(BaseAgent):
             resource_type = resource.get("resource_type", "unknown")
 
             # 找到对应的审核报告
-            audit_report = (
-                audit_results[i] if i < len(audit_results) else {}
-            )
+            audit_report = audit_results[i] if i < len(audit_results) else {}
 
             try:
                 result = await self._correct_one(
@@ -158,13 +156,13 @@ class CorrectionAgent(BaseAgent):
                         infos_applied += 1
 
                 self.log(
-                    f"[{i+1}/{len(resources)}] {resource_type} "
+                    f"[{i + 1}/{len(resources)}] {resource_type} "
                     f"修正完成: {len(result['logs'])} 处修正"
                 )
 
             except Exception as e:
                 # 修正失败：保留原内容，记录错误
-                self.log(f"❌ [{i+1}/{len(resources)}] {resource_type} 修正失败: {e}")
+                self.log(f"❌ [{i + 1}/{len(resources)}] {resource_type} 修正失败: {e}")
                 corrected_resources.append(resource)
                 all_logs.append(
                     {
@@ -185,8 +183,7 @@ class CorrectionAgent(BaseAgent):
         stats = {
             "total_resources": len(resources),
             "resources_corrected": sum(
-                1 for r in corrected_resources
-                if r.get("_was_corrected", False)
+                1 for r in corrected_resources if r.get("_was_corrected", False)
             ),
             "total_issues": errors_fixed + warnings_addressed + infos_applied,
             "errors_fixed": errors_fixed,
@@ -196,9 +193,10 @@ class CorrectionAgent(BaseAgent):
         }
 
         self.log(
-            f"修正全部完成: {stats['resources_corrected']}/{stats['total_resources']} 个资源有改动, "
-            f"{stats['errors_fixed']} error / {stats['warnings_addressed']} warning / "
-            f"{stats['infos_applied']} info, 耗时 {elapsed_ms}ms"
+            f"修正全部完成: {stats['resources_corrected']}/{stats['total_resources']}"
+            f" 个资源有改动, {stats['errors_fixed']} error"
+            f" / {stats['warnings_addressed']} warning"
+            f" / {stats['infos_applied']} info, 耗时 {elapsed_ms}ms"
         )
 
         return {
@@ -304,9 +302,7 @@ class CorrectionAgent(BaseAgent):
                 "difficulty_level", resource.get("difficulty_level", "beginner")
             ),
             "citations": corrected.get("citations", resource.get("citations", [])),
-            "key_takeaways": corrected.get(
-                "key_takeaways", resource.get("key_takeaways", [])
-            ),
+            "key_takeaways": corrected.get("key_takeaways", resource.get("key_takeaways", [])),
             "_was_corrected": True,
             "_correction_summary": corrected.get(
                 "correction_summary", f"修正了 {len(errors) + len(warnings)} 处问题"
@@ -360,8 +356,10 @@ class CorrectionAgent(BaseAgent):
             downgrade_note = (
                 "\n## ⚠️ 降级模式\n"
                 "当前为降级模式（知识库覆盖不足）。修正策略调整为：\n"
-                "- 只做一致性修正：概念前后矛盾、API 名称写法不一致、代码缺少 import、步骤跳跃缺失\n"
-                "- **禁止做事实判断**：不要凭自己的知识判断对错，不确定的内容标注 [暂无权威参考，建议补充学习]\n"
+                "- 只做一致性修正：概念前后矛盾、API 名称写法不一致、"
+                "代码缺少 import、步骤跳跃缺失\n"
+                "- **禁止做事实判断**：不要凭自己的知识判断对错，"
+                "不确定的内容标注 [暂无权威参考，建议补充学习]\n"
                 "- 难度不匹配问题照常修正（调整解释深度即可）\n"
             )
 
@@ -411,7 +409,9 @@ class CorrectionAgent(BaseAgent):
         }}
     ],
     "key_takeaways": ["修正后的学习要点1", "修正后的学习要点2", "修正后的学习要点3"],
-    "correction_summary": "一句话概括做了哪些修正（如：修正了LangGraph开发者归属错误，调整了RAG概念定义，并列展示了两种检索策略）"
+    "correction_summary": "一句话概括做了哪些修正"
+    "（如：修正了LangGraph开发者归属错误，调整了RAG概念定义，"
+    "并列展示了两种检索策略）"
 }}
 
 ## 硬性要求
@@ -423,7 +423,8 @@ class CorrectionAgent(BaseAgent):
 6. **不引入新断言**：修正完成后检查——是否新增了 KB 未覆盖的技术声明？有则删除或标注 [暂无权威参考]
 7. {structure_guide}
 8. 内容格式为 Markdown，代码示例和命令行用 `````` 标注语言类型
-9. citations 列表包含所有引用 KB 原文的溯源记录，每条 citation 的 original_text 必须是 KB 中的逐字原文"""
+9. citations 列表包含所有引用 KB 原文的溯源记录，
+   每条 citation 的 original_text 必须是 KB 中的逐字原文"""
 
         return prompt
 
@@ -447,7 +448,7 @@ class CorrectionAgent(BaseAgent):
             detail = iss.get("detail", str(iss))
             kb_evidence = iss.get("kb_evidence", "")
 
-            line = f"{idx+1}. [{severity}] {detail}"
+            line = f"{idx + 1}. [{severity}] {detail}"
             if kb_evidence:
                 line += f"\n   KB 原文: {kb_evidence[:200]}"
             lines.append(line)
@@ -476,7 +477,7 @@ class CorrectionAgent(BaseAgent):
             score = chunk.get("relevance_score", 0.0)
 
             lines.append(
-                f"### KB素材 {idx+1}: {doc_id}#chunk_{chunk_idx} "
+                f"### KB素材 {idx + 1}: {doc_id}#chunk_{chunk_idx} "
                 f"(相关度: {score:.2f})\n"
                 f"```\n{content}\n```"
             )
@@ -492,9 +493,7 @@ class CorrectionAgent(BaseAgent):
         对齐 Agent 2 generation_v2.py 的"三种资源固定内容结构"。
         """
         guides = {
-            "lecture": (
-                "保持 lecture 结构：引言 → 3~4小节（概念+可运行代码）→ 总结"
-            ),
+            "lecture": ("保持 lecture 结构：引言 → 3~4小节（概念+可运行代码）→ 总结"),
             "guide": (
                 "保持 guide 结构：概述 → 前置准备 → 分步操作（命令+代码+预期输出）→ 常见问题"
             ),
@@ -540,9 +539,7 @@ class CorrectionAgent(BaseAgent):
                         else ""
                     ),
                     "correction_basis": (
-                        "knowledge_base"
-                        if err.get("kb_evidence")
-                        else "consistency_check"
+                        "knowledge_base" if err.get("kb_evidence") else "consistency_check"
                     ),
                     "kb_source": err.get("kb_evidence", None),
                     "action": "replaced",
@@ -709,13 +706,19 @@ async def demo():
             {
                 "doc_id": "langgraph_intro.md",
                 "chunk_index": 2,
-                "content": "LangGraph is a library built by the LangChain team for building stateful, multi-actor applications with LLMs.",
+                "content": (
+                    "LangGraph is a library built by the LangChain team "
+                    "for building stateful, multi-actor applications with LLMs."
+                ),
                 "relevance_score": 0.95,
             },
             {
                 "doc_id": "langgraph_intro.md",
                 "chunk_index": 5,
-                "content": "StateGraph 的三个核心要素：节点（Node）定义处理逻辑、边（Edge）定义流转方向、状态字典（State）传递上下文数据。",
+                "content": (
+                    "StateGraph 的三个核心要素：节点（Node）定义处理逻辑、"
+                    "边（Edge）定义流转方向、状态字典（State）传递上下文数据。"
+                ),
                 "relevance_score": 0.90,
             },
         ],
