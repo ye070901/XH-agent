@@ -129,6 +129,57 @@ class Settings:
     COVERAGE_TARGET: float = _float_env("COVERAGE_TARGET", 0.90)
 
     # ============================================================
+    # Scheduler（调度器并发/超时）
+    # ============================================================
+    SCHEDULER_MAX_CONCURRENT_TASKS: int = _int_env("SCHEDULER_MAX_CONCURRENT_TASKS", 10)
+    """全局任务最大并发上限，防止 LLM 资源耗尽"""
+    SCHEDULER_TASK_TIMEOUT_SECONDS: int = _int_env("SCHEDULER_TASK_TIMEOUT_SECONDS", 600)
+    """单 task 全局执行超时，超时主动终止链路并推送错误事件"""
+    SCHEDULER_AGENT_TIMEOUT_SECONDS: int = _int_env("SCHEDULER_AGENT_TIMEOUT_SECONDS", 180)
+    """单个 Agent 执行超时，超时后跳过该 Agent 继续链路（不设默认值也 OK，由 Agent 层自己控制）"""
+
+    # ============================================================
+    # Quality Gate（三道闸门全部阈值，禁止模块内硬编码）
+    # ============================================================
+    # -- 闸门1：特异性检测（纯规则，不调LLM）--
+    GATE1_MIN_INPUT_LENGTH: int = _int_env("GATE1_MIN_INPUT_LENGTH", 10)
+    """用户输入最短字符数，低于此值直接拦截"""
+    GATE1_BANNED_KEYWORDS: list[str] = _list_env(
+        "GATE1_BANNED_KEYWORDS",
+        "违法,暴力,色情,赌博,毒品",
+    )
+    """领域外危险关键词，命中任一即拦截"""
+    GATE1_BLOCKED_DOMAINS: list[str] = _list_env(
+        "GATE1_BLOCKED_DOMAINS",
+        "政治,军事,金融交易,医疗诊断",
+    )
+    """领域外话题，命中任一即拦截"""
+
+    # -- 闸门2：学情诊断质量（硬规则 + 临界LLM复核）--
+    GATE2_MIN_SKILL_GAPS: int = _int_env("GATE2_MIN_SKILL_GAPS", 1)
+    """skill_gaps 最少条数"""
+    GATE2_MIN_KNOWLEDGE_ITEMS: int = _int_env("GATE2_MIN_KNOWLEDGE_ITEMS", 1)
+    """knowledge_map 最少条目数"""
+    GATE2_LLM_REVIEW_LOWER: float = _float_env("GATE2_LLM_REVIEW_LOWER", 0.40)
+    """诊断质量分数低于此值 → 直接驳回"""
+    GATE2_LLM_REVIEW_UPPER: float = _float_env("GATE2_LLM_REVIEW_UPPER", 0.70)
+    """诊断质量分数高于此值 → 直接放行；[lower, upper] 区间 → LLM复核"""
+
+    # -- 闸门3：RAG召回质量（硬规则 + 临界LLM复核）--
+    GATE3_MIN_RECALL_COUNT: int = _int_env("GATE3_MIN_RECALL_COUNT", 3)
+    """最少召回文档数"""
+    GATE3_MIN_SIMILARITY: float = _float_env("GATE3_MIN_SIMILARITY", 0.60)
+    """单文档最低相似度阈值"""
+    GATE3_LLM_REVIEW_SIM_LOWER: float = _float_env("GATE3_LLM_REVIEW_SIM_LOWER", 0.50)
+    """相似度低于此值 → 直接丢弃"""
+    GATE3_LLM_REVIEW_SIM_UPPER: float = _float_env("GATE3_LLM_REVIEW_SIM_UPPER", 0.70)
+    """相似度高于此值 → 直接采纳；[lower, upper] 区间 → LLM复核语义相关性"""
+
+    # -- 闸门通用 --
+    GATE_LLM_MODEL: str = os.getenv("GATE_LLM_MODEL", "")
+    """闸门轻量LLM复核使用的模型，为空回退到 LLM_MODEL"""
+
+    # ============================================================
     # App
     # ============================================================
     DEBUG: bool = _bool_env("DEBUG", True)

@@ -62,6 +62,8 @@ _MODULES_TO_CHECK: list[tuple[str, str]] = [
     ("backend.src.llm", "LLM 客户端包"),
     ("backend.src.scheduler", "Agent 调度器包"),
     ("backend.src.quality_gate", "质量闸门包"),
+    ("backend.src.quality_gate.base", "BaseGate 抽象基类"),
+    ("backend.src.quality_gate.gates", "三道闸门实现"),
     ("backend.src.event_broadcast", "事件广播包"),
     ("backend.src.models", "数据模型包"),
     ("backend.src.utils", "工具函数包"),
