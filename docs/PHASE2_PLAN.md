@@ -173,7 +173,265 @@ Phase 2b（Day 8–10 集成联调）:
 | 全链路稳定性 | 配合 Opt-3/Opt-4 逐模块排查 Gate 和 Scheduler 相关 Bug | 5 条端到端场景无异常 |
 | 输出 | 模块单测覆盖率报告 + Phase 2 联调通过报告 Gates/Scheduler 部分 | 文档交付全员 |
 
-### 2.6 API 接口硬性约束
+### 2.6 Opt-2 — KB 引擎 开发工作手册
+
+| 项目 | 内容 |
+|------|------|
+| **你的定位** | 你负责把原始文档变成可被语义检索的向量知识库。你写的 `store.py` 是知识库组的唯一入口——采集者通过页面提交文档，最终调用的是你的 `add_document()`；检索时调用的是你的 `search()`。 |
+| **你需要会什么** | Python 基础（读写文件、dict 操作）、了解 ChromaDB 基本概念（PersistentClient / Collection / EmbeddingFunction）。如果完全没接触过 ChromaDB，先用 30 分钟看官方 Quickstart——只需要 PersistentClient 和 `query()` 两个 API。 |
+| **代码放哪** | `backend/src/knowledge/store.py`（唯一文件，不超过 280 行）。模块依赖项在 `pyproject.toml` 已声明（chromadb ≥ 0.5.0）。 |
+| **零依赖说明** | 你不需要 Gates、不需要 Scheduler、不需要 Agent、不需要 LLM。唯一外部依赖是 `settings`（`config.py` 的环境变量），读取 ChromaDB 持久化路径和 Embedding 配置。 |
+
+**对外接口契约（Opt-4 对接用）**
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `initialize()` | `async` | 启动时调用一次，创建 PersistentClient + 集合。不可用自动回退文件模式 |
+| `add_document(doc_id, title, content)` | `async` → `list[dict]` | 切分 + 向量化 + 写入。返回 chunk 列表 |
+| `add_documents_batch(docs)` | `async` → `int` | 批量导入，`docs` 每项含 `{doc_id, title, content}`，返回成功数 |
+| `search(query, top_k=10)` | `async` → `list[dict]` | 每项 `{doc_id, doc_title, chunk_index, content, relevance_score}` |
+| `delete_document(doc_id)` | `async` → `bool` | 删除文档全部 chunks |
+| `get_stats()` | `async` → `dict` | `{mode, total_chunks, total_documents, collection_name}` |
+
+**Day 1（08-03）：技术方案**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| ChromaDB 调研 | 阅读 ChromaDB Quickstart（PersistentClient / Collection / EmbeddingFunction 三节），确认 Text-embedding-3-small 和 all-MiniLM 两种 Embedding 的接入方式 | 明确 API Key 有无两种场景下的代码分支 |
+| KB 引擎方案文档 | 写一份 1 页以内的方案：① ChromaDB 持久化路径；② 集合名称（从 settings 读）；③ Embedding 切换逻辑（有 API Key → OpenAI / 无 → 内置）；④ 文件模式回退方案 | 方案文档就绪 |
+
+**Day 2（08-04）：ChromaDB 启动**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `_build_embedding_function()` | 根据 `settings.EMBEDDING_PROVIDER` 创建 `OpenAIEmbeddingFunction`（有 Key）或返回 None（无 Key 用 ChromaDB 内置）。注意 base_url 参数：国内中转 API 需要自定义地址 | 不论有无 API Key 都不会崩溃 |
+| `initialize()` | `PersistentClient(path=settings.CHROMA_PERSIST_DIR)` → 检查集合是否存在 → 复用 `get_collection` 或新建 `create_collection`。新建时设置 `hnsw:space=cosine` | `python -c "from store import knowledge_base; await knowledge_base.initialize()"` 成功，终端打印 `[知识库] ChromaDB 模式` |
+
+**Day 3（08-05）：切分 + 入库**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `_chunk_text(text, chunk_size=512, overlap=64)` | 按 `\n\n` 切段落 → 累积至 512 字符产生一个 chunk → 下一个 chunk 从上一 chunk 末尾 64 字符的 overlap 开始 | ① 一段 600 字的文本切出 2 个 chunk 且 overlap 区内容重复 ② 和 Opt-4 约定的 chunk 格式一致 |
+| `add_document(doc_id, title, content)` | 调 `_chunk_text()` → 生成 `{doc_id}_chunk_0` 格式的 ID → `collection.add()` 写入；文件模式下追加到 `_docs` 列表 | 单元测试：传一篇示例 Markdown，返回的 chunk 列表包含 `doc_id`、`doc_title`、`chunk_index`、`content` |
+
+**Day 4（08-06）：检索 + CRUD**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `search(query, top_k)` | ChromaDB 模式调 `collection.query(query_texts=[query], n_results=top_k)`，取 `distances` 字段转余弦相似度 `1 - distance/2` 映射到 [0,1]；文件模式用关键词匹配 | 单元测试：搜索 "FANUC" 返回相关 chunk 且 `relevance_score` 是 0~1 的小数，不硬编码 1.0 |
+| `delete_document(doc_id)` | `collection.get(where={"doc_id": doc_id})` → `collection.delete(ids=...)` | 删除后 `search()` 不再返回该文档的 chunks |
+| `get_stats()` | 返回 `{mode, total_chunks, total_documents, collection_name}` | 返回值与实际状态一致 |
+| `add_documents_batch(docs)` | 遍历 docs 逐篇调 `add_document()`，单篇失败不中断其余 | 批量导入 3 篇，至少有 2 篇成功 |
+
+**Day 5（08-07）：测试 + 回退**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| KB 引擎单元测试 | 覆盖 6 个方法：初始化、切分、入库、检索、删除、统计。ChromaDB 模式和文件模式各一套 | 覆盖率 ≥80% |
+| 文件回退兼容 | 卸载 chromadb（或故意传错参数），验证自动回退到扫描 `data/raw/` 的 `.md` 文件 | 文件回退模式下 `search()` 仍返回结果 |
+| 性能基线 | 记录 10 篇文档的检索耗时 | 单次检索 < 200ms |
+
+**Day 6（08-08）：集成验证**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| ChromaDB 持久化验证 | 重启进程 → 重新 `initialize()` → `get_stats()` 确认数据不丢 | chunk 数量与重启前一致 |
+| 种子数据入库 | 用 Opt-4 提供的 API 批量导入 `data/raw/` 下的种子文档 | `search()` 能命中种子文档 |
+| 检索质量调优 | 与 K1~K3 对齐：用采集文档做 3 条检索测试，检查结果是否相关 | 3 条测试至少 2 条相关结果排 Top-1 |
+
+**Day 7（08-09）：性能优化**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 检索延迟优化 | 调 `n_results`、元数据过滤等参数 | 单次 < 200ms |
+| 异常场景覆盖 | 空查询、超长文本切分、ChromaDB 断连、特殊字符 doc_id | 所有异常场景 log 清晰不崩溃 |
+
+**Day 8（08-10）：接入联调**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| KB 引擎接入 API | Opt-4 的 `/api/knowledge/search` 调用 `search()`，联调验证 | curl 返回 vector search 结果非 mock |
+| 真实检索替换 | Day 8 起 RecallGate 的 RAG 检索替换为真实 `search()` | 终端日志确认 KB 引擎被调用 |
+
+**Day 9–10（08-11 ~ 08-12）：调优 + 可选博弈引擎**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 检索质量反馈循环 | 根据联调反馈调整 top_k 和 relevance_score 阈值 | RecallGate 裁决准确性提升 |
+| 输出 | KB 引擎验证报告（覆盖 + 延迟 + 检索质量） | 文档交付 |
+| 可选：博弈引擎预研 | 若全链路稳定，可启动 Phase 3 博弈引擎方案设计 | 预研文档（可选） |
+
+---
+
+### 2.7 Opt-3 — 事件 + Agent 开发工作手册
+
+| 项目 | 内容 |
+|------|------|
+| **你的定位** | 你负责流水线中的两个独立模块：① EventBus — 各模块间的消息通道（发布/订阅 + 持久化日志）；② 三个 Agent — Agent1（学情诊断）、Agent2（知识生成）、Agent3（初审）。EventBus 和 Agent 可并行开发，相互不阻塞。 |
+| **你需要会什么** | Python 基础（dict/list/queue），了解发布/订阅模式；若有 LLM prompt 设计经验更好。 |
+| **代码放哪** | `src/eventbus/`（EventBus，单文件 bus.py ≤200 行）、`src/agents/`（已有 base.py / diagnosis.py / generation.py / audit.py，本次在已有骨架基础上完善）。 |
+
+**对外接口契约（Arch-L + Opt-4 对接用）**
+
+| 模块 | 关键接口 | 说明 |
+|------|---------|------|
+| EventBus | `publish(event_type, payload)` | 发布事件，写入持久化日志 |
+| EventBus | `subscribe(event_type, callback)` | 订阅事件，支持通配 `*` |
+| Agent1 | `process(state) → {diagnosis_result}` | 输入 learner_data，输出学情诊断 JSON |
+| Agent2 | `process(state) → {generated_resources}` | 输入 diagnosis_result + 检索 chunks，输出学习资源 |
+| Agent3 | `process(state) → {audit_result}` | 输入 generated_resources，输出审核报告 |
+
+**Day 1（08-03）：技术方案**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| EventBus 技术方案 | 写 `docs/EventBus_Design.md`：① 消息格式（`{event_type, payload, timestamp, source}`）；② 发布/订阅接口签名；③ 选择进程内 `queue.Queue`（不同步 Redis）；④ 持久化日志格式 | Arch-L 和 Opt-4 能直接按文档写对接代码 |
+| Agent 设计方案 | 确认三个 Agent 的 system prompt 方案：Agent1 诊断→Agent2 生成→Agent3 审核，每个 Agent 的输入输出 JSON Schema | 方案文档与 Arch-L 的 Gate Protocol 对齐 |
+
+**Day 2（08-04）：EventBus v0.1**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `src/eventbus/bus.py` | 实现 `SimpleEventBus` 类：① `subscribe(event_type, callback)` 存入 `dict[event_type] = [callbacks]`；② `publish(event)` 同步遍历匹配的 callbacks 调用；③ 支持 `*` 通配符 | 单元测试 `tests/test_eventbus.py`：3 个订阅者各收各的，`*` 通配符收到所有事件 |
+| 事件类型常量 | 在 `src/eventbus/events.py` 定义：`gate.pass` / `gate.retry` / `gate.fallback` / `agent.start` / `agent.done` | Arch-L 和 Opt-4 能直接 import 常量 |
+
+**Day 3（08-05）：EventBus v0.2**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 消息持久化 | `publish()` 时追加一行 JSON 到 `logs/eventbus.log` | 跑一轮测试后文件可读 `cat logs/eventbus.log` |
+| 订阅者异常隔离 | callback 抛异常 → 写 error 日志 → 不崩溃，继续通知下一个订阅者 | 单元测试：一个订阅者故意抛异常，其余仍收到消息 |
+
+**Day 4（08-06）：Agent1 + Agent3 v0.1**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Agent1 学情诊断 | 基于已有 `base.py` 的 `BaseAgent`，写 `SYSTEM_PROMPT` + `process()`：接收 learner_data → 调 LLM → 解析为 `{knowledge_map, skill_gaps, learning_style, recommended_difficulty, summary}`。Mock 数据逻辑保留在 `_demo_diagnosis()` | 单元测试：mock learner_data 输入 → 返回 JSON 包含 5 个必填字段 → 格式符合 Arch-L 的 DiagnosisGate 校验规则 |
+| Agent3 初审 | `SYSTEM_PROMPT` + `process()`：接收 generated_resources → 逐资源审核 → 输出 `{verdict, issues}` | 单元测试：mock 资源输入 → 返回审核结果含 `verdict` 和 `issues` 列表 |
+
+**Day 5（08-07）：Agent2 v0.1 + 集成 EventBus**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Agent2 知识生成 | `SYSTEM_PROMPT` + `process()`：接收 diagnosis_result + resource_types → 逐类型调 LLM 生成 → 输出 `{generated_resources}`（每项含 resource_id/type/title/content/difficulty/key_takeaways）。**注意**：Phase 2 初期用 LLM 自身知识，RAG 检索 Phase 2b 接入 | 单元测试：mock diagnosis → 返回 ≥1 个生成资源 |
+| Agent 接入 EventBus | Agent1/2/3 的 `run()` 方法中增加 `publish("agent.start/done")` 调用 | EventBus 日志中出现 agent.start/done 事件 |
+
+**Day 6（08-08）：Agent 测试**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Agent 单元测试 | 每个 Agent 至少 3 个测试用例（正常输入 / 边界输入 / 异常输入），覆盖 PROCESS / JSON 解析 / 错误返回 | 三个 Agent 总覆盖率 ≥80% |
+| LLM 调用异常模拟 | 模拟 LLM 超时 / 返回非法 JSON / 返回空 | Agent 不崩溃，返回 `{error, status: "error"}` |
+
+**Day 7（08-09）：完善 + 修复**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 边界 case 修复 | 检查三个 Agent 的 system_prompt 是否覆盖领域关键词（FANUC/KUKA/ABB/机器人/示教器/故障代码等） | Prompt 包含领域约束 |
+| 输出 JSON Schema 对齐 | 确认 Agent1/2/3 的输出 JSON 与 schemas.py 的定义完全一致 | `check_contracts.py` 运行无报错 |
+
+**Day 8（08-10）：接入联调**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Agent 接入 Scheduler | 与 Arch-L 对接：将 Agent 实例注册到 Scheduler 的 step 列表，替换 mock_agent | 全链路终端打印每个 step 的 `[AgentX]` 日志 |
+| EventBus 事件流验证 | 全链路跑一遍，`logs/eventbus.log` 包含完整的 gate → agent → gate 事件链 | 日志时间戳连续无断层 |
+
+**Day 9–10（08-11 ~ 08-12）：调试 + 收尾**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Agent 输出质量调优 | 根据联调反馈微调 temperature / system_prompt | 3 条端到端测试输出合理 |
+| 边界修复 | 覆盖非法输入、超时、LLM 返回异常等 | Agent 日志清晰可追溯 |
+| 输出 | Agent 模块测试报告 + EventBus 日志样例 | 文档交付 |
+
+---
+
+### 2.8 Opt-4 — API + 界面 开发工作手册
+
+| 项目 | 内容 |
+|------|------|
+| **你的定位** | 你负责两件事，按时间顺序：① Day 1–3 优先交付 Streamlit KB 提交页面（这是 P0 最高优先级，Day 4 上线后 KB 组要立即用）；② Day 4–6 实现 FastAPI 接口层（`/api/knowledge/*` + `/api/generate`）。你的 API 是 Arch-L 的 Scheduler 和 Opt-2 的 KB 引擎与外部之间的唯一桥梁。 |
+| **你需要会什么** | FastAPI 基础（路由、异常处理、lifespan）、Streamlit 基础（st.form / st.button / st.tabs / requests 调用后端 API）、Python dict/JSON 处理。 |
+| **代码放哪** | `src/api/main.py`（FastAPI，≤250 行）、`frontend/streamlit/app.py`（Streamlit，原有基础上增加 Tab 4）。 |
+
+**对外接口契约**
+
+| 接口 | 说明 | 对接方 |
+|------|------|--------|
+| `POST /api/generate` | 主接口，入参出参结构**不可变**（见 2.9 硬性约束） | 前端 → Scheduler(Arch-L) |
+| `POST /api/knowledge/upload` | 单篇 Markdown 入库 | KB 页面 → KB 引擎(Opt-2) |
+| `POST /api/knowledge/import` | 批量导入 `data/raw/` | KB 页面 → KB 引擎(Opt-2) |
+| `GET /api/knowledge/search` | 语义检索 | KB 页面/外部 → KB 引擎(Opt-2) |
+| `GET /api/knowledge/stats` | 统计信息 | KB 页面 → KB 引擎(Opt-2) |
+| `DELETE /api/knowledge/{doc_id}` | 删除文档 | 管理操作 → KB 引擎(Opt-2) |
+
+**Day 1（08-03）：KB 页面框架 ⚡ P0**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| Streamlit KB 页面骨架 | 在现有 3 个 Tab 后新增 `tab4`（`st.tabs` 增加 "📚 知识库管理"）。页面分三个区域：① 导入区（占左侧 2/3）；② 状态面板（占右侧 1/3）；③ 检索测试区（底部全宽） | `streamlit run frontend/streamlit/app.py` 能看到第 4 个 Tab |
+| 状态面板 | 调用 `GET /health` 已有的字段展示（先展示，不调 KB API） | 启动后端后能看到健康状态 |
+
+**Day 2（08-04）：上传功能 ⚡ P0**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 手动粘贴上传 | `st.form` 内放 `st.text_input("标题")` + `st.text_area("正文")` + `st.form_submit_button("上传")`。正文 < 500 字时警告但不阻断 | 标题 + 正文填写点击上传 → 调用 `POST /api/knowledge/upload`（此时 API 未就绪，先 mock 验证 UI） |
+| 批量导入按钮 | `st.button("批量导入")` → 显示 spinner → 调 `POST /api/knowledge/import` | 按钮可用，触发 API 调用 |
+| 状态面板对接 | 从 `GET /health` 改为 `GET /api/knowledge/stats`，展示模式/文档数/Chunk 数 | 显示真实 KB 统计（或占位） |
+
+**Day 3（08-05）：KB 页面 v1.0 交付 ⚡ P0**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 检索测试区 | `st.text_input("检索关键词")` + `st.button("检索")` → 调 `GET /api/knowledge/search?q=xxx` → 展示匹配 chunks | 输入关键词 → 点击检索 → 看到结果列表（含 relevance_score） |
+| 全页面联调 | 上传 → 统计刷新 → 检索命中，三个功能跑通完整交互流 | **KB 页面 UI v1.0 就绪**（API 为 mock，Day 4 切换真实） |
+
+**Day 4（08-06）：KB API 端点 + 页面上线**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `POST /api/knowledge/upload` | 接收 JSON `{doc_id, title, content}` → 调用 Opt-2 的 `add_document()` → 返回 `{status, doc_id, title, chunks_count}` | `curl -X POST .../api/knowledge/upload -d '{...}'` 返回 200 |
+| `POST /api/knowledge/import` | 扫描 `data/raw/**/*.md` → 逐篇读取 → 调 `add_documents_batch()` → 返回 `{imported, total}` | `curl -X POST .../api/knowledge/import` 返回导入数量 |
+| `GET /api/knowledge/search` | 接收 `?q=xxx&top_k=5` → 调 `search()` → 返回 `{query, results, count}` | `curl ".../search?q=FANUC"` 返回匹配 chunks |
+| `GET /api/knowledge/stats` | 调 `get_stats()` → 返回统计 JSON | 前端状态面板数据来自此端点 |
+| `DELETE /api/knowledge/{doc_id}` | 调 `delete_document()` → 404 或 200 | 删除后 search 不再命中 |
+| KB 页面切换真实 API | 将 Day 3 的 mock 调用全部改为真实 API 地址 | **KB 页面正式上线，K1~K3 可通过界面提交文档** |
+
+**Day 5（08-07）：/api/generate 骨架**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| FastAPI 应用骨架 | `FastAPI(title=..., lifespan=...)` + CORS + `/` + `/health`。lifespan 中调用 `knowledge_base.initialize()`，`/health` 返回 `kb_docs` 和 `kb_mode` | `uvicorn backend.src.api.main:app` 启动，`curl /health` 返回 200 |
+| `/api/generate` 骨架 | 接收 `{"user_input": str}` → 返回占位 JSON（mock），入参出参结构严格按 2.9 硬性约束 | curl POST 返回 `{status, result: {answer, sources, confidence}, metrics}` |
+
+**Day 6（08-08）：/api/generate 接入 Scheduler**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| `/api/generate` 接入 Scheduler | 将请求转发给 Arch-L 的 `workflow_engine.run()`，返回结果映射为 2.9 定义的出参格式 | curl "FANUC SRVO-068 怎么处理" 返回完整 mock 流水线结果 |
+| KB API 异常处理 | 422 参数校验 / 500 兜底 / 超时捕获 | 错误输入返回 4xx 不崩 500 |
+
+**Day 7（08-09）：API 加固 + 页面测试**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| API 异常处理加固 | 全路径覆盖：KB 引擎下线 / ChromaDB 断连 / `data/raw/` 为空 | 所有异常场景有明确错误信息和状态码 |
+| KB 页面端到端测试 | Day 4–6 采集的种子数据通过页面全部导入 → 检索 → 验证统计 | 上传 → 导入 → 检索 → 统计 全流程无 Bug |
+| KB 页面对接真实数据 | 确认统计面板与检索结果来自真实 KB API | 刷新页面后数据一致 |
+
+**Day 8–10（08-10 ~ 08-12）：联调 + 收尾**
+
+| 做什么 | 怎么做 | 交付标准 |
+|--------|--------|----------|
+| 全链路端到端测试 | 覆盖 5 条场景：正常 / 空输入 / 未知领域 / Gate FALLBACK / 安全提示输出 | 集成测试脚本全 PASS |
+| KB 页面 Bug 修复 | 根据联调反馈修 UI Bug | 页面交互流畅 |
+| 输出 | API 测试报告 + KB 页面截图 + 集成测试脚本 | 文档交付 |
+
+---
+
+### 2.9 API 接口硬性约束
 
 > **硬性约束**：所有迭代优化过程中，API 接口严格保持与原有接口定义完全吻合，不修改入参、出参结构，杜绝前后端接口不适配问题。
 
