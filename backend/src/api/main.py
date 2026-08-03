@@ -12,32 +12,35 @@ from loguru import logger
 
 from backend.src.config import settings
 from backend.src.graph.orchestrator import workflow_engine
+from backend.src.knowledge.store import knowledge_base
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
-"""FastAPI 应用入口 — MVP 版本：2 Agent 工作流 (不需要知识库)"""
+"""FastAPI 应用入口 — 知识库 + RAG 版本。v0.2.0"""
 
 # 定位项目根目录 XH-agent
 root_path = Path(__file__).parent.parent.parent.parent
 sys.path.append(str(root_path))
 
-# 全部换成绝对导入，删掉..相对导入
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
-    logger.info("领域知识个性化生成系统 v0.1.0 MVP")
+    logger.info("领域知识个性化生成系统 v0.2.0 KB-RAG")
     logger.info(f"LLM: {settings.LLM_PROVIDER}/{settings.LLM_MODEL}")
-    logger.info("知识来源: LLM 自身知识（无外部知识库）")
+    # 初始化知识库
+    await knowledge_base.initialize()
+    stats = await knowledge_base.get_stats()
+    logger.info(f"知识库: {stats['mode']} 模式, {stats['total_documents']} 篇文档, "
+                f"{stats['total_chunks']} chunks")
     logger.info("=" * 60)
     yield
     logger.info("系统关闭")
 
 
 app = FastAPI(
-    title="领域知识个性化生成系统 MVP",
-    description="XH-202630 揭榜挂帅 — 多智能体协同决策",
-    version="0.1.0",
+    title="领域知识个性化生成系统",
+    description="XH-202630 揭榜挂帅 — 多智能体协同决策 + RAG",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -52,19 +55,25 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    stats = await knowledge_base.get_stats()
     return {
-        "name": "领域知识个性化生成系统 MVP",
-        "version": "0.1.0",
+        "name": "领域知识个性化生成系统",
+        "version": "0.2.0",
         "status": "running",
+        "kb_mode": stats["mode"],
+        "kb_docs": stats["total_documents"],
     }
 
 
 @app.get("/health")
 async def health():
+    stats = await knowledge_base.get_stats()
     return {
         "status": "healthy",
         "llm": f"{settings.LLM_PROVIDER}/{settings.LLM_MODEL}",
-        "demo_mode": not bool(settings.LLM_API_KEY),
+        "demo_mode": settings.is_demo_mode,
+        "kb_docs": stats["total_documents"],
+        "kb_mode": stats["mode"],
     }
 
 
@@ -121,3 +130,91 @@ async def generate(request: dict):
     except Exception as e:
         logger.error(f"[API] 生成失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ═══════════════════════════════════════════════════════════
+# 知识库管理 API
+# ═══════════════════════════════════════════════════════════
+
+
+@app.post("/api/knowledge/upload")
+async def kb_upload(request: dict):
+    """上传单篇 Markdown 文档到知识库。
+
+    请求: {"doc_id": "...", "title": "...", "content": "Markdown 正文"}
+    """
+    doc_id = request.get("doc_id", "")
+    title = request.get("title", "")
+    content = request.get("content", "")
+
+    if not doc_id or not title or not content:
+        raise HTTPException(status_code=422, detail="doc_id, title, content 均为必填")
+
+    try:
+        chunks = await knowledge_base.add_document(
+            doc_id=doc_id, title=title, content=content
+        )
+        return {
+            "status": "ok",
+            "doc_id": doc_id,
+            "title": title,
+            "chunks_count": len(chunks),
+        }
+    except Exception as e:
+        logger.error(f"[API] 上传文档失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/knowledge/import")
+async def kb_import():
+    """批量导入 data/raw/ 下所有 .md 文件到知识库。"""
+    raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
+    if not raw_dir.exists():
+        return {"status": "ok", "imported": 0, "message": "data/raw/ 目录不存在"}
+
+    md_files = list(raw_dir.glob("**/*.md"))
+    if not md_files:
+        return {"status": "ok", "imported": 0, "message": "data/raw/ 下无 .md 文件"}
+
+    docs = []
+    for md_file in md_files:
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            doc_id = md_file.stem
+            lines = content.strip().split("\n")
+            title = lines[0].lstrip("# ").strip() if lines else doc_id
+            docs.append({"doc_id": doc_id, "title": title, "content": content})
+        except Exception as e:
+            logger.warning(f"[API] 读取文件失败: {md_file} — {e}")
+
+    count = await knowledge_base.add_documents_batch(docs)
+    return {"status": "ok", "imported": count, "total": len(md_files)}
+
+
+@app.get("/api/knowledge/search")
+async def kb_search(q: str = "", top_k: int = 5):
+    """检索知识库。
+
+    参数: ?q=查询文本&top_k=5
+    """
+    if not q.strip():
+        return {"query": "", "results": []}
+
+    results = await knowledge_base.search(query=q, top_k=top_k)
+    return {"query": q, "results": results, "count": len(results)}
+
+
+@app.get("/api/knowledge/stats")
+async def kb_stats():
+    """知识库统计信息。"""
+    return await knowledge_base.get_stats()
+
+
+@app.delete("/api/knowledge/{doc_id}")
+async def kb_delete(doc_id: str):
+    """删除指定文档及其全部 chunks。"""
+    ok = await knowledge_base.delete_document(doc_id)
+    if ok:
+        return {"status": "ok", "doc_id": doc_id}
+    else:
+        raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
