@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import re
+
 from backend.src.config import settings
 from backend.src.quality_gate.base import (
     BaseGate,
@@ -61,6 +63,8 @@ class InputGate(BaseGate):
                 score=0.0,
                 violations=["输入为空，无法进行学情诊断"],
                 gate_name=self.GATE_NAME,
+                intent="未识别",
+                intent_confidence="low",
             )
 
         # ── 检测2：输入过短 ──
@@ -80,6 +84,9 @@ class InputGate(BaseGate):
         if domain_hits:
             violations.append(f"输入涉及领域外话题，不在本系统支持范围: {', '.join(domain_hits)}")
 
+        # ── 意图识别（不阻断，仅标记标签）──
+        intent_label, intent_confidence = self._detect_intent(combined)
+
         # ── 汇总 ──
         if violations:
             return make_gate_result(
@@ -87,12 +94,16 @@ class InputGate(BaseGate):
                 score=0.0,
                 violations=violations,
                 gate_name=self.GATE_NAME,
+                intent=intent_label,
+                intent_confidence=intent_confidence,
             )
 
         return make_gate_result(
             passed=True,
             score=1.0,
             gate_name=self.GATE_NAME,
+            intent=intent_label,
+            intent_confidence=intent_confidence,
         )
 
     # ═══════════════════════════════════════════════════════════
@@ -138,3 +149,111 @@ class InputGate(BaseGate):
             if kw_stripped.lower() in text_lower:
                 hits.append(kw_stripped)
         return hits
+
+    # ═══════════════════════════════════════════════════════════
+    # 意图识别（工业机器人领域）
+    # ═══════════════════════════════════════════════════════════
+
+    # 按优先级排列的意图模式：(标签, 优先级, 正则模式)
+    # 优先级越高越先匹配，匹配成功后不再尝试后续模式
+    _INTENT_PATTERNS: list[tuple[str, int, re.Pattern]] = [
+        # P0: 故障排查 — 明确的报错/故障信号
+        (
+            "故障排查",
+            0,
+            re.compile(
+                r"故障|报错|报警|异常|不工作|无法|出错|错误代码|SRVO|INTP|MOTN|"
+                r"恢复|排除|排查|修理|维修|坏了|不动了|停了",
+                re.IGNORECASE,
+            ),
+        ),
+        # P1: 安全规范 — 安全相关
+        (
+            "安全规范",
+            1,
+            re.compile(
+                r"安全|急停|防护|危险|警告|门锁|光栅|安全门|区域传感器|"
+                r"安全回路|安全栅栏|防护罩",
+                re.IGNORECASE,
+            ),
+        ),
+        # P2: 通信调试 — 通信/IO/PLC 相关
+        (
+            "通信调试",
+            2,
+            re.compile(
+                r"通信|IO|信号|总线|EtherNet|ProfiNet|DeviceNet|PLC|"
+                r"调试|联调|通讯|EtherCAT|CC-Link|ProfiBus|I/?O",
+                re.IGNORECASE,
+            ),
+        ),
+        # P3: 编程操作 — 编程/示教/指令相关
+        (
+            "编程操作",
+            3,
+            re.compile(
+                r"编程|示教|编写|程序|指令|轨迹|点位|运动指令|"
+                r"Move[LJ]?|JMP|CALL|LBL|WAIT|Step|TP程序|"
+                r"焊接|码垛|搬运|涂胶|打磨|路径",
+                re.IGNORECASE,
+            ),
+        ),
+        # P4: 参数配置 — 参数/坐标/设定
+        (
+            "参数配置",
+            4,
+            re.compile(
+                r"参数|配置|设置|变量|系统变量|寄存器|坐标|TCP|"
+                r"工具坐标|用户坐标|工件坐标|三点法|六点法|标定|"
+                r"有效载荷|Payload|零点|校准|原点",
+                re.IGNORECASE,
+            ),
+        ),
+        # P5: 概念理解 — 疑问句式兜底
+        (
+            "概念理解",
+            5,
+            re.compile(
+                r"怎么|如何|为什么|是什么|什么区别|原理|作用|功能|"
+                r"介绍|概述|说明|差异|对比|优缺点",
+                re.IGNORECASE,
+            ),
+        ),
+    ]
+
+    @classmethod
+    def _detect_intent(cls, text: str) -> tuple[str, str]:
+        """从输入文本中识别用户意图（计分制：统计各类别命中关键词数）。
+
+        不再使用首匹配制，而是对每个 intent 类别分别统计命中的唯一关键词数，
+        取得分最高者。得分相同时按优先级（P0 > P1 > ... > P5）裁决。
+
+        Args:
+            text: 拼接后的用户输入文本。
+
+        Returns:
+            tuple[str, str]: (意图标签, 置信度)。
+        """
+        if not text.strip():
+            return ("未识别", "low")
+
+        best_label = "未识别"
+        best_score = 0
+        best_priority = 999
+
+        for label, priority, pattern in cls._INTENT_PATTERNS:
+            # 用 finditer 统计该类别下命中的唯一关键词数
+            matches = set(m.group() for m in pattern.finditer(text))
+            score = len(matches)
+
+            if score > best_score or (score == best_score and priority < best_priority):
+                best_score = score
+                best_priority = priority
+                best_label = label
+
+        if best_score == 0:
+            return ("未识别", "low")
+
+        # P0-P4 为高置信度，P5 为中等
+        confidence = "medium" if best_label == "概念理解" else "high"
+        return (best_label, confidence)

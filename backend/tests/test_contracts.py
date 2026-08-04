@@ -111,8 +111,8 @@ class TestAgentAudit:
             },
         }
         result = await agent.process(state)
-        assert "audit_reports" in result
-        assert len(result["audit_reports"]) > 0
+        assert "audit_result" in result
+        assert len(result["audit_result"]) > 0
 
 
 class TestSchemas:
