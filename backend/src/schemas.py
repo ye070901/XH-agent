@@ -69,6 +69,29 @@ class AgentState(str, Enum):
     ERROR = "error"
 
 
+class PipelineState(str, Enum):
+    """流水线调度器全局状态 — 用于 Scheduler v0.1 状态机。
+
+    IDLE           → 初始状态，等待用户输入
+    RUNNING        → 流水线执行中
+    WAITING_RETRY  → 闸门返回 RETRY，等待回跳重试
+    FALLBACK       → 闸门返回 FALLBACK，执行降级兜底路径
+    DONE           → 流水线执行完成（含正常、降级、失败三种终态）
+    """
+    IDLE = "idle"
+    RUNNING = "running"
+    WAITING_RETRY = "waiting_retry"
+    FALLBACK = "fallback"
+    DONE = "done"
+
+
+class GateVerdict(str, Enum):
+    """闸门三路裁决 — v0.1 PASS/RETRY/FALLBACK 模型。"""
+    PASS = "PASS"
+    RETRY = "RETRY"
+    FALLBACK = "FALLBACK"
+
+
 # ═══════════════════════════════════════════════════════════
 # 学习者画像（Agent 1: 学情诊断 的输入/输出）
 # ═══════════════════════════════════════════════════════════

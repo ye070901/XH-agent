@@ -40,17 +40,23 @@ class GateResult(TypedDict, total=False):
     Attributes:
         passed:        整体是否通过
         score:         质量评分 0.0-1.0
+        verdict:       v0.1 三路裁决 "PASS" | "RETRY" | "FALLBACK"（新增）
         violations:    违规项描述列表
         gate_name:     闸门名称（用于日志/前端展示）
         llm_consulted: 是否经过了 LLM 复核
+        retry_hint:    RETRY 时附带的补充信息（提示上游如何改进）
+        fallback_data: FALLBACK 时附带的降级兜底数据
         details:       附加详情（各闸门自定义键）
     """
 
     passed: bool
     score: float
+    verdict: str
     violations: list[str]
     gate_name: str
     llm_consulted: bool
+    retry_hint: str
+    fallback_data: dict[str, Any]
     details: dict[str, Any]
 
 
@@ -246,6 +252,9 @@ def make_gate_result(
     violations: list[str] | None = None,
     gate_name: str = "",
     llm_consulted: bool = False,
+    verdict: str = "",
+    retry_hint: str = "",
+    fallback_data: dict[str, Any] | None = None,
     **details: Any,
 ) -> GateResult:
     """GateResult 工厂函数，确保必填字段完整。
@@ -256,16 +265,23 @@ def make_gate_result(
         violations:    违规项列表
         gate_name:     闸门名称
         llm_consulted: 是否经过了 LLM 复核
+        verdict:       v0.1 三路裁决 PASS/RETRY/FALLBACK
+        retry_hint:    RETRY 时的补充提示
+        fallback_data: FALLBACK 时的降级兜底数据
         **details:     附加详情键值对
 
     Returns:
         GateResult: 结构完整的判定结果。
     """
-    return GateResult(
+    result = GateResult(
         passed=passed,
         score=max(0.0, min(1.0, score)),
+        verdict=verdict or ("PASS" if passed else "FALLBACK"),
         violations=violations or [],
         gate_name=gate_name,
         llm_consulted=llm_consulted,
+        retry_hint=retry_hint,
+        fallback_data=fallback_data or {},
         details=dict(details),
     )
+    return result

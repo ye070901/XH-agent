@@ -179,6 +179,14 @@ class Settings:
     GATE_LLM_MODEL: str = os.getenv("GATE_LLM_MODEL", "")
     """闸门轻量LLM复核使用的模型，为空回退到 LLM_MODEL"""
 
+    # -- 闸门 v0.1 新增：三路裁决 PASS/RETRY/FALLBACK --
+    DIAGNOSIS_CONFIDENCE_THRESHOLD: float = _float_env("DIAGNOSIS_CONFIDENCE_THRESHOLD", 0.6)
+    """DiagnosisGate v0.1：overall_confidence ≥ 此值 → PASS，否则 → RETRY"""
+    RECALL_MAX_RETRIES: int = _int_env("RECALL_MAX_RETRIES", 3)
+    """RecallGate v0.1：RAG 检索重试上限，超限 → FALLBACK"""
+    RECALL_QUERY_REWRITE_MODEL: str = os.getenv("RECALL_QUERY_REWRITE_MODEL", "")
+    """RecallGate v0.1：Query 改写用的轻量 LLM 模型，为空回退到 GATE_LLM_MODEL → LLM_MODEL"""
+
     # ============================================================
     # EventBus
     # ============================================================

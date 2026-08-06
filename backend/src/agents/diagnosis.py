@@ -26,7 +26,12 @@ SYSTEM_PROMPT = """你是一个专业的学情诊断专家。你的任务是：
   - 例：不知道某个 API 的具体参数名 → 这不是 gap，这是检索查表的事
 - 至少输出 5 个知识点的评估
 
-输出必须为严格的 JSON 格式。"""
+输出必须为严格的 JSON 格式。
+
+## overall_confidence 计算规则
+取 knowledge_map 中所有条目的 confidence 值的算术平均值，保留 2 位小数。
+例如 knowledge_map 有 5 个知识点，confidence 分别为 0.8/0.6/0.9/0.7/0.5，
+则 overall_confidence = 0.70。"""
 
 
 class DiagnosisAgent(BaseAgent):
@@ -92,6 +97,7 @@ class DiagnosisAgent(BaseAgent):
     ],
     "learning_style": "practice_first|theory_first|visual|project_based",
     "recommended_difficulty": "beginner|intermediate|advanced",
+    "overall_confidence": 0.85,
     "summary": "学习者整体画像总结（50-100字）"
 }}
 
@@ -99,7 +105,10 @@ class DiagnosisAgent(BaseAgent):
 - knowledge_map 至少包含 5 个知识点
 - skill_gaps 按优先级从高到低排列
 - 每个评估都附上 evidence 说明依据
-- 置信度低于 0.3 的评估请特别标注"""
+- 置信度低于 0.3 的评估请特别标注
+
+【打分强制约束】overall_confidence必须如实评估学情诊断结果可信度，严禁刻意抬高置信分数；
+0=完全没有依据，1=完全确定；依据知识库召回内容客观输出分数，禁止为了通过闸门而虚高打分。"""
 
     def _format_pretests(self, tests: list) -> str:
         if not tests:
