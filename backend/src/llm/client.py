@@ -170,7 +170,9 @@ class LLMClient:
                     temperature=temperature,
                 )
                 if response_json:
-                    kwargs["response_format"] = {"type": "json_object"}
+                    # 移除 response_format：MiniMax 不支持此参数
+                    # JSON 解析由 _parse_json 方法处理
+                    pass
 
                 # asyncio.wait_for 包裹线程调用以实现超时
                 response = await asyncio.wait_for(
@@ -430,6 +432,11 @@ class LLMClient:
             if result:
                 return result
 
+        # ── 尝试 5：处理被截断的 JSON（补全缺失的闭合括号）──
+        truncated_result = LLMClient._try_fix_truncated_json(text)
+        if truncated_result:
+            return truncated_result
+
         logger.warning(f"[LLM] JSON 解析失败，原始文本前 200 字符: {text[:200]}")
         return {}
 
@@ -507,6 +514,39 @@ class LLMClient:
         )
 
         return text
+
+    @staticmethod
+    def _try_fix_truncated_json(text: str) -> dict[str, Any] | None:
+        """尝试修复被截断的 JSON（补全缺失的闭合括号）。
+
+        处理情况：LLM 返回被截断的 JSON，末尾缺少 } 或 ]。
+        """
+        # 去除 markdown 代码块标记
+        text = re.sub(r"```json\s*", "", text)
+        text = re.sub(r"```\s*", "", text)
+        text = text.strip()
+
+        # 如果以 } 结尾，说明是完整的
+        if text.endswith("}") or text.endswith("]"):
+            return None
+
+        # 计算未闭合的括号
+        brace_count = text.count("{") - text.count("}")
+        bracket_count = text.count("[") - text.count("]")
+
+        # 尝试补全
+        fixed = text
+        for _ in range(bracket_count):
+            fixed += "]"
+        for _ in range(brace_count):
+            fixed += "}"
+
+        try:
+            result = json.loads(fixed)
+            logger.info(f"[LLM] 补全截断 JSON 成功")
+            return result
+        except json.JSONDecodeError:
+            return None
 
     # ═══════════════════════════════════════════════════════════
     # 演示模式

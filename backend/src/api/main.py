@@ -11,8 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from backend.src.config import settings
-from backend.src.graph.orchestrator import workflow_engine
 from backend.src.knowledge.store import knowledge_base
+from backend.src.scheduler.pipeline import scheduler
+from backend.src.api.ws import router as ws_router
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
 """FastAPI 应用入口 — 知识库 + RAG 版本。v0.2.0"""
@@ -43,6 +44,8 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+app.include_router(ws_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,57 +82,118 @@ async def health():
 
 @app.post("/api/generate")
 async def generate(request: dict):
-    """MVP 一键生成：输入学习者信息，返回诊断结果 + 学习资源。
+    """主接口：用户输入工业机器人调试问题，返回生成结果。
 
-    示例请求:
-    {
-        "name": "张三",
-        "education_level": "bachelor",
-        "major": "计算机科学",
-        "work_years": 1,
-        "industry": "互联网",
-        "positions": ["Python开发"],
-        "skills_used": ["Python", "Flask"],
-        "pretest_results": [],
-        "learning_goal": "学习LangGraph构建AI Agent",
-        "resource_types": ["lecture", "guide", "quiz"]
-    }
+    入参（硬性约束，不可变更）：
+        {"user_input": "FANUC 机器人报 SRVO-068 怎么处理"}
+
+    出参（硬性约束，不可变更）：
+        {
+            "status": "ok",
+            "result": {
+                "answer": "...",
+                "sources": ["..."],
+                "confidence": 0.85
+            },
+            "metrics": {
+                "inputgate_ms": 12,
+                "diagnosisgate_ms": 45,
+                "recallgate_ms": 230,
+                "rag_recall_count": 15,
+                "rag_top_k": 5,
+                "total_latency_ms": 2800
+            }
+        }
     """
-    learner_data = {
-        "education_level": request.get("education_level", "bachelor"),
-        "major": request.get("major", ""),
-        "school": request.get("school", ""),
-        "work_years": request.get("work_years", 0),
-        "industry": request.get("industry", ""),
-        "positions": request.get("positions", []),
-        "skills_used": request.get("skills_used", []),
-        "pretest_results": request.get("pretest_results", []),
-        "learning_goal": request.get("learning_goal", ""),
-    }
-    resource_types = request.get("resource_types", ["lecture", "guide", "quiz"])
+    user_input = request.get("user_input", "").strip()
+    if not user_input:
+        raise HTTPException(status_code=422, detail="user_input 为必填字段，不能为空")
 
-    logger.info(f"[API] 开始生成, 目标: {learner_data.get('learning_goal', '')}")
+    logger.info(f"[API] /api/generate 请求: {user_input[:80]}...")
 
     try:
-        result = await workflow_engine.run(
-            learner_data=learner_data,
-            resource_types=resource_types,
+        result = await scheduler.run_pipeline(
+            user_input={"learner_data": {"learning_goal": user_input}},
+            task_id="",
         )
 
-        return {
-            "task_id": result.get("task_id", ""),
-            "status": result.get("status", "completed"),
-            "diagnosis": result.get("diagnosis_result", {}),
-            "resources": result.get("generated_resources", []),
-            "audit": result.get("audit_result", []),
-            "corrected_resources": result.get("corrected_resources", []),
-            "correction_stats": result.get("correction_stats", {}),
-            "agent_log": result.get("agent_log", []),
+        # 提取 metrics（从 gate_results 和 elapsed_ms）
+        metrics = {
+            "inputgate_ms": result.get("gate_results", {}).get("input_gate", {}).get("duration_ms", 0),
+            "diagnosisgate_ms": result.get("gate_results", {}).get("diagnosis_gate", {}).get("duration_ms", 0),
+            "recallgate_ms": result.get("gate_results", {}).get("recall_gate", {}).get("duration_ms", 0),
+            "rag_recall_count": len(result.get("retrieved_chunks", [])),
+            "rag_top_k": 5,
+            "total_latency_ms": result.get("elapsed_ms", 0),
         }
 
+        # 构建 answer（从生成资源提取）
+        resources = result.get("generated_resources", [])
+        answer = _build_answer(resources)
+        sources = _build_sources(result.get("retrieved_chunks", []))
+
+        # 计算 confidence（基于审核结果）
+        confidence = _calc_confidence(result)
+
+        return {
+            "status": "ok",
+            "result": {
+                "answer": answer,
+                "sources": sources,
+                "confidence": confidence,
+            },
+            "metrics": metrics,
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"[API] 生成失败: {e}")
+        logger.error(f"[API] /api/generate 异常: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _build_answer(resources: list) -> str:
+    """从生成资源构建 answer 文本。"""
+    if not resources:
+        return "未生成相关内容"
+    parts = []
+    for r in resources:
+        title = r.get("title", "")
+        content = r.get("content", "")
+        if content:
+            parts.append(f"## {title}\n\n{content[:500]}...")
+        else:
+            parts.append(f"## {title}")
+    return "\n\n".join(parts)
+
+
+def _build_sources(chunks: list) -> list[str]:
+    """从检索 chunks 构建 sources 列表。"""
+    sources = []
+    seen = set()
+    for chunk in chunks:
+        doc_id = chunk.get("doc_id", "")
+        doc_title = chunk.get("doc_title", "")
+        key = f"{doc_id}"
+        if key not in seen:
+            seen.add(key)
+            sources.append(f"{doc_title} ({doc_id[:8]})")
+    return sources
+
+
+def _calc_confidence(result: dict) -> float:
+    """从结果计算 confidence 分数。"""
+    status = result.get("status", "")
+    if status == "gate_blocked":
+        return 0.3
+    if status == "error":
+        return 0.1
+
+    audit = result.get("audit_result", {})
+    if isinstance(audit, dict):
+        score = audit.get("confidence_score", 0.5)
+        return round(score, 2)
+    return 0.75
 
 
 # ═══════════════════════════════════════════════════════════
