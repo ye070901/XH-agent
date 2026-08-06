@@ -1,13 +1,20 @@
-"""闸门3：RAG 召回质量检测（硬规则 + 临界区间 LLM 复核）。
+"""闸门3 v0.1：RAG 召回质量检测（三路裁决 PASS / RETRY / FALLBACK）。
 
-硬规则：
-  - 召回文档数量 ≥ GATE3_MIN_RECALL_COUNT
-  - 每篇文档 relevance_score ≥ GATE3_MIN_SIMILARITY
+与原 recall_gate.py（硬规则 + LLM 复核相似度分类）不同，
+v0.1 采用简明的三路裁决模型：
 
-LLM复核区间：
-  - 相似度 ≥ GATE3_LLM_REVIEW_SIM_UPPER → 直接采纳
-  - 相似度 <  GATE3_LLM_REVIEW_SIM_LOWER → 直接丢弃
-  - 相似度落入 [lower, upper] 区间 → LLM 校验文档与 Query 的语义相关性
+判定流程：
+  1. 提取 state["retrieved_chunks"]
+  2. 召回文档数 >= 1 → PASS
+  3. 召回数 == 0 且 retry_count < RECALL_MAX_RETRIES(3) → RETRY
+     - 调用轻量 LLM 改写 Query
+     - 新 Query 写入 retry_hint / details["new_query"]
+  4. 召回数 == 0 且 retry_count >= RECALL_MAX_RETRIES → FALLBACK
+
+Query 改写策略：
+  - 从原始 Query 中提取核心名词/技术术语
+  - 用轻量 LLM 生成同义但不完全相同的检索 Query
+  - LLM 不可用时降级为简单关键词拼接
 """
 
 from __future__ import annotations
@@ -19,211 +26,166 @@ from backend.src.quality_gate.base import (
     GateStrategy,
     make_gate_result,
 )
+from backend.src.schemas import GateVerdict
 
 
 class RecallGate(BaseGate):
-    """闸门3：RAG 召回质量检测。
+    """闸门3：RAG 召回质量检测 — 三路裁决 PASS / RETRY / FALLBACK。
 
-    判定流程：
-      1. 提取 state["retrieved_chunks"]
-      2. 硬规则：数量阈值 + 相似度阈值
-      3. 对相似度落入临界区间的文档，LLM 复核语义相关性
-      4. 综合判定：通过/驳回 + 过滤后的有效文档列表
+    RETRY 时调用轻量 LLM 改写 Query 并附带 new_query。
     """
 
     GATE_NAME = "RAG召回质量检测"
-    STRATEGY = GateStrategy.HARD_RULE_WITH_LLM_FALLBACK
+    STRATEGY = GateStrategy.HARD_RULE_ONLY  # 判定本身不调 LLM
     REQUIRED_STATE_KEYS = {"retrieved_chunks"}
 
+    # Query 改写的 LLM system prompt
+    QUERY_REWRITE_SYSTEM_PROMPT = (
+        "你是一个搜索引擎查询优化助手。"
+        "你的任务是将用户输入的自然语言问题改写为更简洁、关键词密集的检索查询。"
+        "输出仅为改写后的查询字符串，不要有任何额外内容。"
+        "规则："
+        "1. 提取核心技术术语和名词（如产品型号、错误代码、协议名）"
+        "2. 去除语气词和冗余描述"
+        "3. 保持原意，不要引入新概念"
+        "4. 长度控制在 5-20 个词"
+    )
+
     async def check(self, state: dict) -> GateResult:
-        """硬规则：召回数量 + 相似度阈值校验。
+        """三路裁决核心逻辑。
 
-        Args:
-            state: 含 retrieved_chunks 和 learner_data 字段的全局状态。
-
-        Returns:
-            GateResult: 综合评分 + 违规列表 + 过滤后的有效文档。
+        1. 提取 retrieved_chunks
+        2. 数量 >= 1 → PASS
+        3. 数量 == 0 → 判断 retry_count → RETRY 或 FALLBACK
         """
-        chunks: list[dict] = state.get("retrieved_chunks", [])
-        violations: list[str] = []
-        scores: list[float] = []
+        chunks_raw = state.get("retrieved_chunks", [])
+        retry_count: int = state.get("recall_retry_count", 0)
 
-        # ── 校验1：召回数量 ──
-        total_count = len(chunks)
-        if total_count < settings.GATE3_MIN_RECALL_COUNT:
-            violations.append(
-                f"召回文档数量不足：{total_count}篇 < {settings.GATE3_MIN_RECALL_COUNT}篇"
+        # ── 防御：None / 非 list → 上游异常，直接 FALLBACK ──
+        if not isinstance(chunks_raw, list):
+            return make_gate_result(
+                passed=False,
+                score=0.0,
+                verdict=GateVerdict.FALLBACK.value,
+                violations=[
+                    f"retrieved_chunks 类型异常（{type(chunks_raw).__name__}），"
+                    "上游 RAG 检索可能发生错误"
+                ],
+                gate_name=self.GATE_NAME,
+                total_chunks=0,
             )
 
-        # ── 校验2：逐文档相似度分类 ──
-        direct_pass: list[dict] = []
-        llm_review_list: list[dict] = []
-        direct_drop: list[dict] = []
+        chunk_count = len(chunks_raw)
 
-        for chunk in chunks:
-            sim = chunk.get("relevance_score", 0.0)
-            if sim >= settings.GATE3_LLM_REVIEW_SIM_UPPER:
-                direct_pass.append(chunk)
-                scores.append(sim)
-            elif sim >= settings.GATE3_LLM_REVIEW_SIM_LOWER:
-                llm_review_list.append(chunk)
-                scores.append(sim)
-            else:
-                direct_drop.append(chunk)
-                # 低于下限仍计入评分但不纳入有效
-
-        if direct_drop:
-            violations.append(
-                f"{len(direct_drop)}篇文档相似度过低（< "
-                f"{settings.GATE3_LLM_REVIEW_SIM_LOWER}），已自动丢弃"
+        # ── PASS：有召回结果 ──
+        if chunk_count >= 1:
+            return make_gate_result(
+                passed=True,
+                score=1.0,
+                verdict=GateVerdict.PASS.value,
+                gate_name=self.GATE_NAME,
+                total_chunks=chunk_count,
             )
 
-        # ── 综合评分 ──
-        if scores:
-            avg_score = sum(scores) / len(scores)
-        else:
-            avg_score = 0.0
+        # ── 无召回 → 判断重试次数 ──
+        if retry_count < settings.RECALL_MAX_RETRIES:
+            # RETRY：改写 Query
+            original_query = self._extract_query(state)
+            new_query = await self._rewrite_query(original_query)
 
-        # 有效文档数（直接通过）不足时标记
-        effective_remaining = len(direct_pass) + len(llm_review_list)
-        if effective_remaining < settings.GATE3_MIN_RECALL_COUNT:
-            violations.append(
-                f"有效文档数不足：{effective_remaining}篇 < "
-                f"{settings.GATE3_MIN_RECALL_COUNT}篇（不含已丢弃文档）"
+            return make_gate_result(
+                passed=False,
+                score=0.0,
+                verdict=GateVerdict.RETRY.value,
+                violations=[
+                    f"召回文档数为 0（第 {retry_count + 1}/{settings.RECALL_MAX_RETRIES} 次）"
+                ],
+                gate_name=self.GATE_NAME,
+                retry_hint=f"已改写 Query: '{new_query}'，请用新 Query 重新检索",
+                total_chunks=0,
+                retry_count=retry_count + 1,
+                new_query=new_query,
+                original_query=original_query,
             )
 
-        passed = len(violations) == 0 and effective_remaining >= settings.GATE3_MIN_RECALL_COUNT
-
+        # ── FALLBACK：重试已达上限 ──
         return make_gate_result(
-            passed=passed,
-            score=avg_score,
-            violations=violations,
+            passed=False,
+            score=0.0,
+            verdict=GateVerdict.FALLBACK.value,
+            violations=[
+                f"连续 {settings.RECALL_MAX_RETRIES} 次召回为 0，知识库暂无相关数据"
+            ],
             gate_name=self.GATE_NAME,
-            total_chunks=total_count,
-            direct_pass_count=len(direct_pass),
-            llm_review_count=len(llm_review_list),
-            direct_drop_count=len(direct_drop),
-            # 附上分类后的文档列表，供后续 LLM 复核和下游使用
-            direct_pass_chunks=direct_pass,
-            llm_review_chunks=llm_review_list,
+            total_chunks=0,
+            retry_count=retry_count,
         )
 
     # ═══════════════════════════════════════════════════════════
-    # LLM 复核
+    # Query 改写
     # ═══════════════════════════════════════════════════════════
 
-    def _should_trigger_llm_review(self, result: GateResult) -> bool:
-        """存在临界区间文档时触发 LLM 复核。"""
-        details = result.get("details", {})
-        return details.get("llm_review_count", 0) > 0
+    async def _rewrite_query(self, original_query: str) -> str:
+        """调用轻量 LLM 改写检索 Query。
 
-    async def _llm_review(self, state: dict, hard_result: GateResult) -> GateResult:
-        """对临界区间文档逐篇 LLM 复核语义相关性。
-
-        核心逻辑：对每一篇落入 [lower, upper] 区间的文档，
-        用轻量 LLM 判断其内容是否与用户 Query 语义相关。
-        相关 → 纳入；不相关 → 丢弃。
-
-        LLM复核任意环节失败时，保守沿用原始硬规则判定结果。
+        LLM 不可用时降级为简单关键词提取（取最长的 3-5 个词拼接）。
         """
-        details = hard_result.get("details", {})
-        llm_review_list: list[dict] = details.get("llm_review_chunks", [])
-        direct_pass_chunks: list[dict] = details.get("direct_pass_chunks", [])
+        if not original_query.strip():
+            return "工业机器人 调试"
 
-        if not llm_review_list:
-            return hard_result
+        try:
+            from backend.src.llm.client import llm
 
-        query = self._extract_query(state)
-        self._log(f"LLM 复核 {len(llm_review_list)} 篇临界文档的语义相关性")
-
-        confirmed: list[dict] = []
-        rejected: int = 0
-        llm_failed_count: int = 0
-
-        for idx, chunk in enumerate(llm_review_list):
-            content = chunk.get("content", "")[:800]
-            prompt = (
-                f"## 用户Query\n{query}\n\n"
-                f"## 文档内容\n{content}\n\n"
-                f"请判断以上文档内容是否与用户Query语义相关。"
-                f'只输出 JSON：{{"relevant": true/false, "reason": "简短理由"}}'
+            model = (
+                settings.RECALL_QUERY_REWRITE_MODEL
+                or settings.GATE_LLM_MODEL
+                or settings.LLM_MODEL
             )
 
-            try:
-                from backend.src.llm.client import llm
-
-                review = await llm.call_json(
-                    system_prompt=(
-                        "你是一个RAG检索质量审核助手。"
-                        "判断文档内容与用户查询是否语义相关。"
-                        "宽松标准：只要文档主题与查询领域有交集即可认为相关。"
-                    ),
-                    user_message=prompt,
-                    temperature=0.1,
-                )
-
-                if isinstance(review, dict) and not review.get("_parse_error"):
-                    if review.get("relevant", False):
-                        confirmed.append(chunk)
-                    else:
-                        rejected += 1
-                else:
-                    # JSON 解析失败，保守沿用硬规则：将文档保留在临界区间
-                    llm_failed_count += 1
-                    confirmed.append(chunk)
-
-            except Exception as e:
-                # LLM 调用异常，保守沿用硬规则：保留文档
-                self._log(f"LLM 复核 chunk#{idx} 异常: {e}，保守沿用硬规则保留文档")
-                llm_failed_count += 1
-                confirmed.append(chunk)
-
-        # 如果 LLM 复核大面积失败（≥50% chunk 出错），直接回退硬规则结果
-        total_reviewed = len(llm_review_list)
-        if total_reviewed > 0 and llm_failed_count / total_reviewed >= 0.5:
-            self._log(
-                f"LLM 复核大面积失败 ({llm_failed_count}/{total_reviewed})，"
-                f"保守沿用原始硬规则判定结果"
-            )
-            return hard_result
-
-        # ── 汇总最终有效文档 ──
-        final_chunks = direct_pass_chunks + confirmed
-        final_count = len(final_chunks)
-
-        all_scores = [c.get("relevance_score", 0.0) for c in final_chunks]
-        final_score = sum(all_scores) / len(all_scores) if all_scores else 0.0
-
-        passed = final_count >= settings.GATE3_MIN_RECALL_COUNT
-        violations: list[str] = []
-        if not passed:
-            violations.append(
-                f"LLM复核后有效文档数不足：{final_count}篇 < {settings.GATE3_MIN_RECALL_COUNT}篇"
+            rewritten = await llm.call(
+                system_prompt=self.QUERY_REWRITE_SYSTEM_PROMPT,
+                user_message=f"原始问题：{original_query}",
+                model=model,
+                temperature=0.2,
             )
 
-        return make_gate_result(
-            passed=passed,
-            score=final_score,
-            violations=violations,
-            gate_name=self.GATE_NAME,
-            llm_consulted=True,
-            total_chunks=details.get("total_chunks", 0),
-            direct_pass_count=details.get("direct_pass_count", 0),
-            llm_review_count=len(llm_review_list),
-            llm_confirmed_count=len(confirmed),
-            llm_rejected_count=rejected,
-            llm_failed_count=llm_failed_count,
-            final_valid_count=final_count,
-            final_chunks=final_chunks,
-        )
+            if rewritten and len(rewritten.strip()) >= 3:
+                self._log(f"Query 改写: '{original_query[:50]}...' → '{rewritten[:80]}'")
+                return rewritten.strip()
+
+        except Exception as exc:
+            self._log(f"LLM Query 改写失败 ({exc})，降级为关键词提取")
+
+        # 降级：关键词提取
+        return self._keyword_extract_fallback(original_query)
+
+    @staticmethod
+    def _keyword_extract_fallback(query: str) -> str:
+        """LLM 不可用时的关键词提取降级策略。
+
+        提取最长的 3-5 个词作为检索 Query。
+        """
+        import re
+
+        # 去掉标点，按空格/标点分词
+        tokens = re.split(r"[，,。\.！!？?\s]+", query)
+        # 过滤过短词（< 2 字符），按长度降序取 top 5
+        meaningful = sorted(
+            [t for t in tokens if len(t) >= 2],
+            key=len,
+            reverse=True,
+        )[:5]
+        if not meaningful:
+            return "工业机器人 故障排查"
+        return " ".join(meaningful)
 
     # ═══════════════════════════════════════════════════════════
-    # 私有
+    # 私有：提取原始 Query
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
     def _extract_query(state: dict) -> str:
-        """从 state 中提取用户原始 Query，用于 LLM 复核语义匹配。
+        """从 state 中提取用户原始 Query。
 
         优先级：learner_data.learning_goal → diagnosis_result.summary → 兜底。
         """
