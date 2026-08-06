@@ -309,7 +309,7 @@ try:
     kb_docs = health.json().get("kb_docs", 0)
     st.caption(
         f"🟢 后端运行中 | LLM: {health.json().get('llm', 'N/A')} | "
-        f"知识库文档: {kb_docs} 篇 | API: v0.2.0"
+        f"知识库文档: {kb_docs} 篇 | API: v0.3.0"
     )
 except Exception:
     st.caption(

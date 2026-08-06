@@ -16,7 +16,7 @@ from backend.src.scheduler.pipeline import scheduler
 from backend.src.api.ws import router as ws_router
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
-"""FastAPI 应用入口 — 知识库 + RAG 版本。v0.2.0"""
+"""FastAPI 应用入口 — 知识库 + RAG 版本。v0.3.0"""
 
 # 定位项目根目录 XH-agent
 root_path = Path(__file__).parent.parent.parent.parent
@@ -26,7 +26,7 @@ sys.path.append(str(root_path))
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("=" * 60)
-    logger.info("领域知识个性化生成系统 v0.2.0 KB-RAG")
+    logger.info("领域知识个性化生成系统 v0.3.0 KB-RAG")
     logger.info(f"LLM: {settings.LLM_PROVIDER}/{settings.LLM_MODEL}")
     # 初始化知识库
     await knowledge_base.initialize()
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="领域知识个性化生成系统",
     description="XH-202630 揭榜挂帅 — 多智能体协同决策 + RAG",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
@@ -206,13 +206,22 @@ async def kb_upload(request: dict):
     """上传单篇 Markdown 文档到知识库。
 
     请求: {"doc_id": "...", "title": "...", "content": "Markdown 正文"}
+
+    异常:
+        422: 缺少必填字段
+        503: ChromaDB 连接失败
+        500: 其他错误
     """
     doc_id = request.get("doc_id", "")
     title = request.get("title", "")
     content = request.get("content", "")
 
-    if not doc_id or not title or not content:
-        raise HTTPException(status_code=422, detail="doc_id, title, content 均为必填")
+    if not doc_id:
+        raise HTTPException(status_code=422, detail="doc_id 为必填字段")
+    if not title:
+        raise HTTPException(status_code=422, detail="title 为必填字段")
+    if not content:
+        raise HTTPException(status_code=422, detail="content 为必填字段")
 
     try:
         chunks = await knowledge_base.add_document(
@@ -224,14 +233,21 @@ async def kb_upload(request: dict):
             "title": title,
             "chunks_count": len(chunks),
         }
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
     except Exception as e:
         logger.error(f"[API] 上传文档失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 
 @app.post("/api/knowledge/import")
 async def kb_import():
-    """批量导入 data/raw/ 下所有 .md 文件到知识库。"""
+    """批量导入 data/raw/ 下所有 .md 文件到知识库。
+
+    异常:
+        500: ChromaDB 异常
+    """
     raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
     if not raw_dir.exists():
         return {"status": "ok", "imported": 0, "message": "data/raw/ 目录不存在"}
@@ -251,8 +267,15 @@ async def kb_import():
         except Exception as e:
             logger.warning(f"[API] 读取文件失败: {md_file} — {e}")
 
-    count = await knowledge_base.add_documents_batch(docs)
-    return {"status": "ok", "imported": count, "total": len(md_files)}
+    try:
+        count = await knowledge_base.add_documents_batch(docs)
+        return {"status": "ok", "imported": count, "total": len(md_files)}
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 批量导入失败: {e}")
+        raise HTTPException(status_code=500, detail=f"批量导入失败: {str(e)}")
 
 
 @app.get("/api/knowledge/search")
@@ -260,25 +283,60 @@ async def kb_search(q: str = "", top_k: int = 5):
     """检索知识库。
 
     参数: ?q=查询文本&top_k=5
+
+    异常:
+        500: ChromaDB 异常
     """
     if not q.strip():
         return {"query": "", "results": []}
 
-    results = await knowledge_base.search(query=q, top_k=top_k)
-    return {"query": q, "results": results, "count": len(results)}
+    try:
+        results = await knowledge_base.search(query=q, top_k=top_k)
+        return {"query": q, "results": results, "count": len(results)}
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 检索失败: {e}")
+        raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
 @app.get("/api/knowledge/stats")
 async def kb_stats():
-    """知识库统计信息。"""
-    return await knowledge_base.get_stats()
+    """知识库统计信息。
+
+    异常:
+        500: ChromaDB 异常
+    """
+    try:
+        return await knowledge_base.get_stats()
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 获取统计信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
 
 
 @app.delete("/api/knowledge/{doc_id}")
 async def kb_delete(doc_id: str):
-    """删除指定文档及其全部 chunks。"""
-    ok = await knowledge_base.delete_document(doc_id)
-    if ok:
-        return {"status": "ok", "doc_id": doc_id}
-    else:
-        raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
+    """删除指定文档及其全部 chunks。
+
+    异常:
+        404: 文档不存在
+        500: ChromaDB 异常
+    """
+    try:
+        ok = await knowledge_base.delete_document(doc_id)
+        if ok:
+            return {"status": "ok", "doc_id": doc_id}
+        else:
+            raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
+    except HTTPException:
+        raise
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 删除文档失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
