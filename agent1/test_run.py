@@ -6,8 +6,8 @@
 包含 3 组测试用例，模拟不同层次学习者的学情诊断。
 """
 
-import os
 import sys
+import os
 
 # 将项目根目录加入 sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -52,7 +52,9 @@ def pretty_print(title: str, data: dict):
         print("🔴 技能短板:")
         print("-" * 60)
         for gap in gaps:
-            severity_tag = {"高": "🔴", "中": "🟡", "低": "🟢"}.get(gap.get("severity", ""), "⚪")
+            severity_tag = {"高": "🔴", "中": "🟡", "低": "🟢"}.get(
+                gap.get("severity", ""), "⚪"
+            )
             print(f"  {severity_tag} [{gap.get('severity', '?')}] {gap['skill']}")
             print(f"    说明: {gap.get('description', '')}")
             prereqs = gap.get("prerequisite_for", [])
@@ -141,16 +143,8 @@ def test_case_2():
             {"name": "Graph状态管理", "score": 55, "total": 100},
         ],
         "project_experience": [
-            {
-                "name": "基于LLM的问答机器人",
-                "role": "主要开发者",
-                "description": "使用LangChain构建RAG问答系统",
-            },
-            {
-                "name": "数据爬取与分析工具",
-                "role": "独立完成",
-                "description": "Scrapy + Pandas 数据流水线",
-            },
+            {"name": "基于LLM的问答机器人", "role": "主要开发者", "description": "使用LangChain构建RAG问答系统"},
+            {"name": "数据爬取与分析工具", "role": "独立完成", "description": "Scrapy + Pandas 数据流水线"},
         ],
         "study_time": {
             "total_hours": 45,
