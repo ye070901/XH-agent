@@ -226,11 +226,14 @@ class KnowledgeBase:
         return success
 
     # ═══════════════════════════════════════════════════════════
-    # 检索
+    # Day4: 检索 + CRUD
     # ═══════════════════════════════════════════════════════════
 
     async def search(self, query: str, top_k: int = 10) -> list[dict]:
-        """语义检索。ChromaDB 模式用向量检索，文件降级模式用关键词匹配。"""
+        """语义检索。ChromaDB 模式用向量检索，文件降级模式用关键词匹配。
+
+        relevance_score = 1 - distance/2，限制在 [0, 1] 区间。
+        """
         if not query.strip():
             return []
         if self._collection is not None:
@@ -245,7 +248,7 @@ class KnowledgeBase:
         return self._keyword_search(query, top_k)
 
     def _format_search_results(self, results: dict) -> list[dict]:
-        """ChromaDB 原始结果 → 统一格式 [{doc_id, doc_title, chunk_index, content, relevance_score}]。"""
+        """ChromaDB 原始结果 → 统一格式，relevance_score = 1 - distance/2。"""
         formatted: list[dict] = []
         ids_list = results.get("ids", [[]])[0]
         docs_list = results.get("documents", [[]])[0]
@@ -254,12 +257,13 @@ class KnowledgeBase:
         for i in range(len(ids_list)):
             meta = metas_list[i] if i < len(metas_list) else {}
             dist = distances[i] if i < len(distances) else 0.0
+            score = round(max(0.0, min(1.0, 1.0 - dist / 2.0)), 4)
             formatted.append({
                 "doc_id": meta.get("doc_id", ""),
                 "doc_title": meta.get("doc_title", ""),
                 "chunk_index": meta.get("chunk_index", 0),
                 "content": docs_list[i] if i < len(docs_list) else "",
-                "relevance_score": round(max(0.0, min(1.0, 1.0 - dist)), 4),
+                "relevance_score": score,
             })
         return formatted
 
@@ -279,6 +283,166 @@ class KnowledgeBase:
         for r in results:
             r["relevance_score"] = round(min(1.0, r.get("_score", 0) / max_kw), 4)
         return results
+
+    async def delete_document(self, doc_id: str) -> bool:
+        """删除文档全部 chunks。ChromaDB 模式按 doc_id 过滤删除，文件模式移除内存及落盘文件。"""
+        if not doc_id:
+            return False
+        if self._collection is not None:
+            try:
+                existing = self._collection.get(where={"doc_id": doc_id})
+                if existing and existing.get("ids"):
+                    self._collection.delete(ids=existing["ids"])
+                    logger.info(f"[知识库] 删除: {doc_id} ({len(existing['ids'])} chunks)")
+                    return True
+            except Exception as e:
+                logger.warning(f"[知识库] ChromaDB 删除异常: {e}")
+            return False
+        before = len(self._docs)
+        self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
+        if self._fallback_dir:
+            fb_file = self._fallback_dir / f"{doc_id}.md"
+            if fb_file.exists():
+                fb_file.unlink()
+        deleted = len(self._docs) < before
+        if deleted:
+            logger.info(f"[知识库] 文件模式删除: {doc_id}")
+        return deleted
+
+    async def get_stats(self) -> dict:
+        """返回知识库统计信息: {mode, total_chunks, total_documents, collection_name}。"""
+        if self._collection is not None:
+            try:
+                total_chunks = self._collection.count()
+                ids = self._collection.get()["ids"]
+                doc_ids = {cid.rsplit("_chunk_", 1)[0] for cid in ids}
+                total_documents = len(doc_ids)
+            except Exception:
+                total_chunks, total_documents = 0, 0
+            return {
+                "mode": "chroma",
+                "total_chunks": total_chunks,
+                "total_documents": total_documents,
+                "collection_name": settings.CHROMA_COLLECTION_NAME,
+            }
+        doc_ids = {d.get("doc_id", "") for d in self._docs}
+        return {
+            "mode": "file",
+            "total_chunks": len(self._docs),
+            "total_documents": len(doc_ids),
+            "collection_name": "file_fallback",
+        }
+
+
+# 全局单例
+knowledge_base = KnowledgeBase()
+ # ═══════════════════════════════════════════════════════════
+    # Day4: 检索 + CRUD
+    # ═══════════════════════════════════════════════════════════
+
+async def search(self, query: str, top_k: int = 10) -> list[dict]:
+        """语义检索。ChromaDB 模式用向量检索，文件降级模式用关键词匹配。
+
+        relevance_score = 1 - distance/2，限制在 [0, 1] 区间。
+        """
+        if not query.strip():
+            return []
+        if self._collection is not None:
+            try:
+                n = min(top_k, max(1, self._collection.count()))
+                if n == 0:
+                    return []
+                results = self._collection.query(query_texts=[query], n_results=n)
+                return self._format_search_results(results)
+            except Exception as e:
+                logger.warning(f"[知识库] ChromaDB 检索异常 ({e})，降级到关键词匹配")
+        return self._keyword_search(query, top_k)
+
+def _format_search_results(self, results: dict) -> list[dict]:
+        """ChromaDB 原始结果 → 统一格式，relevance_score = 1 - distance/2。"""
+        formatted: list[dict] = []
+        ids_list = results.get("ids", [[]])[0]
+        docs_list = results.get("documents", [[]])[0]
+        metas_list = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        for i in range(len(ids_list)):
+            meta = metas_list[i] if i < len(metas_list) else {}
+            dist = distances[i] if i < len(distances) else 0.0
+            score = round(max(0.0, min(1.0, 1.0 - dist / 2.0)), 4)
+            formatted.append({
+                "doc_id": meta.get("doc_id", ""),
+                "doc_title": meta.get("doc_title", ""),
+                "chunk_index": meta.get("chunk_index", 0),
+                "content": docs_list[i] if i < len(docs_list) else "",
+                "relevance_score": score,
+            })
+        return formatted
+
+def _keyword_search(self, query: str, top_k: int) -> list[dict]:
+        """关键词匹配检索（文件降级模式）。"""
+        keywords = query.lower().split()
+        scored: list[tuple[int, dict]] = []
+        for doc in self._docs:
+            hits = sum(1 for kw in keywords if kw in doc["content"].lower())
+            if hits > 0:
+                d = doc.copy()
+                d["_score"] = hits
+                scored.append((hits, d))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        results = [d for _, d in scored[:top_k]]
+        max_kw = max(1, len(keywords))
+        for r in results:
+            r["relevance_score"] = round(min(1.0, r.get("_score", 0) / max_kw), 4)
+        return results
+
+async def delete_document(self, doc_id: str) -> bool:
+        """删除文档全部 chunks。ChromaDB 模式按 doc_id 过滤删除，文件模式移除内存及落盘文件。"""
+        if not doc_id:
+            return False
+        if self._collection is not None:
+            try:
+                existing = self._collection.get(where={"doc_id": doc_id})
+                if existing and existing.get("ids"):
+                    self._collection.delete(ids=existing["ids"])
+                    logger.info(f"[知识库] 删除: {doc_id} ({len(existing['ids'])} chunks)")
+                    return True
+            except Exception as e:
+                logger.warning(f"[知识库] ChromaDB 删除异常: {e}")
+            return False
+        before = len(self._docs)
+        self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
+        if self._fallback_dir:
+            fb_file = self._fallback_dir / f"{doc_id}.md"
+            if fb_file.exists():
+                fb_file.unlink()
+        deleted = len(self._docs) < before
+        if deleted:
+            logger.info(f"[知识库] 文件模式删除: {doc_id}")
+        return deleted
+
+async def get_stats(self) -> dict:
+        """返回知识库统计信息: {mode, total_chunks, total_documents, collection_name}。"""
+        if self._collection is not None:
+            try:
+                total_chunks = self._collection.count()
+                ids = self._collection.get()["ids"]
+                doc_ids = {cid.rsplit("_chunk_", 1)[0] for cid in ids}
+                total_documents = len(doc_ids)
+            except Exception:
+                total_chunks, total_documents = 0, 0
+            return {
+                "mode": "chroma",
+                "total_chunks": total_chunks,
+                "total_documents": total_documents,
+                "collection_name": settings.CHROMA_COLLECTION_NAME,
+            }
+        doc_ids = {d.get("doc_id", "") for d in self._docs}
+        return {
+            "mode": "file",
+            "total_chunks": len(self._docs),
+            "total_documents": len(doc_ids),
+            "collection_name": "file_fallback",
+        }
 
 
 # 全局单例
