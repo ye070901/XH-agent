@@ -229,5 +229,8 @@ class DiagnosisGate(BaseGate):
             "learning_style": "practice_first",
             "recommended_difficulty": "beginner",
             "overall_confidence": 0.1,
-            "summary": f"[FALLBACK] 诊断数据不可用，已降级为默认初级用户。学习目标：{goal}。建议从基础入门内容开始。",
+            "summary": (
+                f"[FALLBACK] 诊断数据不可用，已降级为默认初级用户。"
+                f"学习目标：{goal}。建议从基础入门内容开始。"
+            ),
         }

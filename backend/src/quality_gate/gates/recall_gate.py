@@ -79,7 +79,6 @@ class RecallGate(BaseGate):
 
         # ── PASS：有召回结果 ──
         if chunk_count >= 1:
-            chunks: list[dict] = chunks_raw  # type narrowing
             return make_gate_result(
                 passed=True,
                 score=1.0,

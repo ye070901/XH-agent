@@ -18,14 +18,12 @@ from pathlib import Path
 _project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(_project_root))
 
-import pytest
-from backend.src.scheduler.pipeline_v0 import (
+from backend.src.scheduler.pipeline_v0 import (  # noqa: E402
     PipelineSchedulerV0,
     _build_default_steps,
     make_initial_state,
 )
-from backend.src.schemas import PipelineState
-
+from backend.src.schemas import PipelineState  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 辅助

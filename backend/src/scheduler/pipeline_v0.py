@@ -27,7 +27,6 @@ from backend.src.quality_gate.gates.input_gate import InputGate
 from backend.src.quality_gate.gates.recall_gate import RecallGate
 from backend.src.schemas import GateVerdict, PipelineState
 
-
 # ═══════════════════════════════════════════════════════════
 # Step 返回值结构
 # ═══════════════════════════════════════════════════════════
@@ -81,7 +80,11 @@ async def mock_agent2_query(state: dict) -> dict:
     learner = state.get("learner_data", {})
 
     # 优先用 recall 改写后的 query，其次诊断 summary，最后 learner goal
-    query = state.get("_pending_query") or diag.get("summary", "") or learner.get("learning_goal", "")
+    query = (
+        state.get("_pending_query")
+        or diag.get("summary", "")
+        or learner.get("learning_goal", "")
+    )
     state["rag_query"] = str(query) if query else "工业机器人 调试"
     state.pop("_pending_query", None)
 
@@ -127,7 +130,7 @@ async def mock_agent2_generate(state: dict) -> dict:
             "citations": [],
         }
     ]
-    logger.info(f"  [mock Agent2_generate] 资源数=1")
+    logger.info("  [mock Agent2_generate] 资源数=1")
     return _step_result(GateVerdict.PASS.value)
 
 
@@ -137,7 +140,7 @@ async def mock_agent3_review(state: dict) -> dict:
         "verdict": "approved",
         "confidence_score": 0.85,
     }
-    logger.info(f"  [mock Agent3_review] verdict=approved")
+    logger.info("  [mock Agent3_review] verdict=approved")
     return _step_result(GateVerdict.PASS.value)
 
 

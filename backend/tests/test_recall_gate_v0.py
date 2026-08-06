@@ -16,10 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import pytest
 from src.quality_gate.gates.recall_gate import RecallGate
 from src.schemas import GateVerdict
-
 
 # ═══════════════════════════════════════════════════════════
 # 辅助
@@ -37,7 +35,11 @@ def _make_state(chunks: list[dict], retry_count: int = 0) -> dict:
     }
 
 
-def _make_chunk(doc_id: str = "doc_001", title: str = "测试文档", content: str = "测试内容") -> dict:
+def _make_chunk(
+    doc_id: str = "doc_001",
+    title: str = "测试文档",
+    content: str = "测试内容",
+) -> dict:
     return {
         "doc_id": doc_id,
         "doc_title": title,

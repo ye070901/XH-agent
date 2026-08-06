@@ -22,7 +22,6 @@ from backend.src.quality_gate.gates.input_gate import InputGate
 from backend.src.quality_gate.gates.recall_gate import RecallGate
 from backend.src.schemas import GateVerdict
 
-
 # ============================================================
 # Mock 数据
 # ============================================================
@@ -150,7 +149,7 @@ async def main():
 
     # 汇总
     print(f"\n{'=' * 60}")
-    print(f"  Summary")
+    print("  Summary")
     print(f"{'=' * 60}")
     for k, v in results.items():
         status = "OK" if v == GateVerdict.PASS.value else v

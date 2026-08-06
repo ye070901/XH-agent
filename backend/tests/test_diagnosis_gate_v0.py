@@ -1,8 +1,8 @@
 """DiagnosisGate 单元测试 — 闸门2 v0.1（三路裁决）。
 
 覆盖场景：
-  - 1 PASS：overall_confidence ≥ 0.6 + recommended_difficulty 存在 + skill_gaps 非空
-  - 2 RETRY：confidence < 0.6（低置信度触发 RETRY）
+  - 1 PASS：overall_confidence ≥ 0.3 + recommended_difficulty 存在 + skill_gaps 非空
+  - 2 RETRY：confidence < 0.3（低置信度触发 RETRY）
   - 3 RETRY：recommended_difficulty 缺失
   - 4 RETRY：skill_gaps 为空
   - 5 FALLBACK：diagnosis_result 为空 dict（不可解析）
@@ -18,10 +18,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import pytest
 from src.quality_gate.gates.diagnosis_gate import DiagnosisGate
 from src.schemas import GateVerdict
-
 
 # ═══════════════════════════════════════════════════════════
 # 辅助
