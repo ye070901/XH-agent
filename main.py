@@ -1,6 +1,6 @@
 """XH-Agent FastAPI 服务入口 — 项目根目录启动文件。
 
-唯一接口：POST /api/generate
+接口：POST /api/generate + /api/knowledge/*
 启动命令：cd XH-agent && python main.py
 
 模式兼容：
@@ -20,7 +20,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -35,6 +35,7 @@ if str(_BACKEND) not in sys.path:
 from backend.src.config import settings  # noqa: E402
 from backend.src.exceptions import XHError  # noqa: E402
 from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
+from backend.src.knowledge.store import knowledge_base  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 枚举（与前端表单下拉框一一对应）
@@ -163,7 +164,7 @@ async def lifespan(app: FastAPI):
     """启动/关闭时的初始化与清理。"""
     mode_label = "[Demo 演示模式]" if settings.is_demo_mode else "[Real LLM 模式]"
     logger.info("=" * 60)
-    logger.info(f"  XH-Agent 领域知识个性化生成系统 v0.1.0  {mode_label}")
+    logger.info(f"  XH-Agent 领域知识个性化生成系统 v0.2.0  {mode_label}")
     logger.info(f"  LLM: {settings.LLM_PROVIDER}/{settings.LLM_MODEL}")
     logger.info(f"  Base URL: {settings.LLM_BASE_URL}")
     logger.info(f"  Server : {settings.HOST}:{settings.PORT}")
@@ -173,6 +174,12 @@ async def lifespan(app: FastAPI):
     warnings = settings.validate()
     for w in warnings:
         logger.warning(f"  [Config Warning] {w}")
+
+    # 初始化知识库
+    await knowledge_base.initialize()
+    stats = await knowledge_base.get_stats()
+    logger.info(f"  知识库: {stats['mode']} 模式, {stats['total_documents']} 篇文档, {stats['total_chunks']} chunks")
+    logger.info("=" * 60)
 
     yield
 
@@ -189,7 +196,7 @@ app = FastAPI(
         "XH-202630 揭榜挂帅 — 多智能体协同决策系统。"
         "输入学习者画像，3 Agent 协同输出诊断报告 + 个性化学习资源 + 审核报告。"
     ),
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -248,21 +255,27 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 @app.get("/")
 async def root():
     """服务根路径 — 快速健康检查。"""
+    stats = await knowledge_base.get_stats()
     return {
         "service": "XH-Agent",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "mode": "demo" if settings.is_demo_mode else "real",
         "status": "running",
+        "kb_mode": stats["mode"],
+        "kb_docs": stats["total_documents"],
     }
 
 
 @app.get("/health")
 async def health():
     """健康检查端点。"""
+    stats = await knowledge_base.get_stats()
     return {
         "status": "healthy",
         "llm": f"{settings.LLM_PROVIDER}/{settings.LLM_MODEL}",
         "demo_mode": settings.is_demo_mode,
+        "kb_docs": stats["total_documents"],
+        "kb_mode": stats["mode"],
     }
 
 
@@ -326,6 +339,91 @@ async def generate(request: GenerateRequest):
         f"audit_items={len(response['audit'])}"
     )
     return response
+
+
+# ═══════════════════════════════════════════════════════════
+# 知识库管理 API
+# ═══════════════════════════════════════════════════════════
+
+
+@app.post("/api/knowledge/upload")
+async def kb_upload(request: dict):
+    """上传单篇 Markdown 文档到知识库。
+
+    请求: {"doc_id": "...", "title": "...", "content": "Markdown 正文"}
+    """
+    doc_id = request.get("doc_id", "")
+    title = request.get("title", "")
+    content = request.get("content", "")
+
+    if not doc_id or not title or not content:
+        raise HTTPException(status_code=422, detail="doc_id, title, content 均为必填")
+
+    try:
+        chunks = await knowledge_base.add_document(
+            doc_id=doc_id, title=title, content=content
+        )
+        return {
+            "status": "ok",
+            "doc_id": doc_id,
+            "title": title,
+            "chunks_count": len(chunks),
+        }
+    except Exception as e:
+        logger.error(f"[API] 上传文档失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/knowledge/import")
+async def kb_import():
+    """批量导入 data/raw/ 下所有 .md 文件到知识库。"""
+    raw_dir = _PROJECT_ROOT / "data" / "raw"
+    if not raw_dir.exists():
+        return {"status": "ok", "imported": 0, "message": "data/raw/ 目录不存在"}
+
+    md_files = list(raw_dir.glob("**/*.md"))
+    if not md_files:
+        return {"status": "ok", "imported": 0, "message": "data/raw/ 下无 .md 文件"}
+
+    docs = []
+    for md_file in md_files:
+        try:
+            content = md_file.read_text(encoding="utf-8")
+            doc_id = md_file.stem
+            lines = content.strip().split("\n")
+            title = lines[0].lstrip("# ").strip() if lines else doc_id
+            docs.append({"doc_id": doc_id, "title": title, "content": content})
+        except Exception as e:
+            logger.warning(f"[API] 读取文件失败: {md_file} — {e}")
+
+    count = await knowledge_base.add_documents_batch(docs)
+    return {"status": "ok", "imported": count, "total": len(md_files)}
+
+
+@app.get("/api/knowledge/search")
+async def kb_search(q: str = "", top_k: int = 5):
+    """检索知识库。参数: ?q=查询文本&top_k=5"""
+    if not q.strip():
+        return {"query": "", "results": []}
+
+    results = await knowledge_base.search(query=q, top_k=top_k)
+    return {"query": q, "results": results, "count": len(results)}
+
+
+@app.get("/api/knowledge/stats")
+async def kb_stats():
+    """知识库统计信息。"""
+    return await knowledge_base.get_stats()
+
+
+@app.delete("/api/knowledge/{doc_id}")
+async def kb_delete(doc_id: str):
+    """删除指定文档及其全部 chunks。"""
+    ok = await knowledge_base.delete_document(doc_id)
+    if ok:
+        return {"status": "ok", "doc_id": doc_id}
+    else:
+        raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
 
 
 # ═══════════════════════════════════════════════════════════

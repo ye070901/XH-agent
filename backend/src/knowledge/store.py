@@ -1,4 +1,4 @@
-"""知识库 — ChromaDB 向量检索 + OpenAI Embedding。"""
+"""知识库 — ChromaDB 向量检索 + 内置 Embedding。"""
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ class KnowledgeBase:
     """
     领域知识库。
 
-    优先使用 ChromaDB + OpenAI Embedding 进行语义向量检索。
+    优先使用 ChromaDB 内置 Embedding 进行语义向量检索。
     ChromaDB 不可用时回退到文件系统关键词匹配检索。
     """
 
@@ -22,33 +22,67 @@ class KnowledgeBase:
         self._doc_count = 0
 
     def _build_embedding_function(self):
-        """根据配置构建 Embedding 函数。"""
+        """构建 Embedding 函数。
+
+        优先级:
+          1. OpenAI API (EMBEDDING_PROVIDER=openai) — 需要 LLM_API_KEY 且 API 支持 /v1/embeddings
+          2. 本地模型 (EMBEDDING_PROVIDER=local) — sentence-transformers 中文模型
+          3. ChromaDB 内置 ONNX (返回 None) — all-MiniLM-L6-v2, 约 80MB, 自动下载
+        """
         import chromadb.utils.embedding_functions as ef
 
         provider = settings.EMBEDDING_PROVIDER.lower()
         api_key = settings.LLM_API_KEY
         model = settings.EMBEDDING_MODEL
 
-        if not api_key:
-            logger.warning("[知识库] LLM_API_KEY 为空，ChromaDB 将使用默认 all-MiniLM-L6-v2")
-            return None
-
+        # ── OpenAI ──
         if provider == "openai":
+            if not api_key:
+                logger.warning("[知识库] EMBEDDING_PROVIDER=openai 但 LLM_API_KEY 为空，使用 ChromaDB 内置 ONNX")
+                return None
             base_url = settings.LLM_BASE_URL or "https://api.openai.com/v1"
             logger.info(f"[知识库] OpenAI Embedding: {model}, base_url={base_url}")
-            return ef.OpenAIEmbeddingFunction(
-                api_key=api_key,
-                model_name=model,
-                api_base=base_url,
-            )
+            try:
+                return ef.OpenAIEmbeddingFunction(
+                    api_key=api_key,
+                    model_name=model,
+                    api_base=base_url,
+                )
+            except Exception as e:
+                logger.warning(f"[知识库] OpenAI Embedding 初始化失败: {e}，使用 ChromaDB 内置 ONNX")
+                return None
+
+        # ── ChromaDB 内置 ONNX 模型 (all-MiniLM-L6-v2, ~80MB) ──
+        elif provider == "chroma":
+            logger.info("[知识库] 使用 ChromaDB 内置 ONNX Embedding (all-MiniLM-L6-v2)")
+            return None
+
+        # ── 本地中文模型 ──
+        elif provider == "local":
+            try:
+                fn = ef.SentenceTransformerEmbeddingFunction(
+                    model_name="shibing624/text2vec-base-chinese",
+                )
+                logger.info("[知识库] Embedding: 本地中文模型 text2vec-base-chinese")
+                return fn
+            except Exception as e:
+                logger.warning(f"[知识库] 本地 embedding 初始化失败: {e}，使用 ChromaDB 内置 ONNX")
+                return None
+
+        # ── 默认：ChromaDB 内置 ONNX all-MiniLM-L6-v2 ──
         else:
-            logger.warning(f"[知识库] 不支持的 EMBEDDING_PROVIDER={provider}，使用默认")
+            logger.info("[知识库] 使用 ChromaDB 内置 ONNX Embedding (all-MiniLM-L6-v2)")
             return None
 
     async def initialize(self):
-        """初始化：先尝试 ChromaDB + Embedding，失败则用文件系统"""
-        # 尝试 ChromaDB
+        """初始化 ChromaDB + Embedding，失败则用文件检索模式。"""
         try:
+            import os
+
+            # 设置 HuggingFace 镜像以加速下载（国内网络）
+            if "HF_ENDPOINT" not in os.environ:
+                os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+
             import chromadb
             from chromadb.config import Settings as ChromaSettings
 
@@ -62,7 +96,6 @@ class KnowledgeBase:
                 settings=ChromaSettings(anonymized_telemetry=False),
             )
 
-            # 检查集合是否存在（已存在的集合不能修改 embedding_function）
             existing = self._client.list_collections()
             coll_name = settings.CHROMA_COLLECTION_NAME
 
@@ -80,35 +113,54 @@ class KnowledgeBase:
                 )
                 logger.info(f"[知识库] 创建新集合 '{coll_name}'")
 
-            self._doc_count = self._collection.count()
-            self._initialized = True
-            logger.info(f"[知识库] ChromaDB 模式, dir={persist_dir}, 已有 {self._doc_count} chunks")
-            return
-        except Exception as e:
-            logger.info(f"[知识库] ChromaDB 不可用({e})，使用文件检索模式")
+            # 自检：写一条测试数据验证 embedding 可用
+            try:
+                self._collection.add(
+                    ids=["__health_check__"],
+                    documents=["health check"],
+                    metadatas=[{"doc_id": "__test__"}],
+                )
+                self._collection.delete(ids=["__health_check__"])
+            except Exception as probe_err:
+                logger.warning(f"[知识库] Embedding 自检失败 ({probe_err})，降级文件检索")
+                self._collection = None
 
-        # 回退：从文件系统加载（data/raw/ 递归扫描 .md + data/knowledge_base/ 兼容旧路径）
+            if self._collection is not None:
+                self._doc_count = self._collection.count()
+                self._initialized = True
+                logger.info(f"[知识库] ChromaDB 模式就绪, dir={persist_dir}, 已有 {self._doc_count} chunks")
+                return
+        except Exception as e:
+            logger.info(f"[知识库] ChromaDB 不可用 ({e})，使用文件检索模式")
+
+        # ── 文件检索降级 ──
+        await self._init_file_mode()
+        self._initialized = True
+
+    async def _init_file_mode(self):
+        """从 data/raw/ 和 data/knowledge_base/ 递归加载 .md 文件。"""
         raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
         kb_dir = Path(__file__).parent.parent.parent.parent / "data" / "knowledge_base"
         search_dirs = [d for d in (raw_dir, kb_dir) if d.exists()]
+        loaded_ids = set()
         for search_dir in search_dirs:
-            for md_file in search_dir.glob("**/*.md"):
+            for md_file in sorted(search_dir.glob("**/*.md"), key=lambda p: p.name):
                 try:
+                    doc_id = md_file.stem
+                    if doc_id in loaded_ids:
+                        continue
+                    loaded_ids.add(doc_id)
                     content = md_file.read_text(encoding="utf-8")
-                    title = md_file.stem
-                    self._docs.append(
-                        {
-                            "doc_id": md_file.name,
-                            "doc_title": title,
-                            "chunk_index": 0,
-                            "content": content[:2000],
-                        }
-                    )
+                    self._docs.append({
+                        "doc_id": doc_id,
+                        "doc_title": md_file.stem,
+                        "chunk_index": 0,
+                        "content": content[:2000],
+                    })
                 except Exception:
                     pass
         if self._docs:
             logger.info(f"[知识库] 文件检索模式，加载了 {len(self._docs)} 篇文档")
-        self._initialized = True
 
     async def add_document(self, doc_id: str, title: str, content: str) -> list[dict]:
         """添加文档，返回 chunks 列表。"""
@@ -126,14 +178,14 @@ class KnowledgeBase:
             )
             self._doc_count = self._collection.count()
         else:
-            self._docs.append(
-                {
-                    "doc_id": doc_id,
-                    "doc_title": title,
-                    "chunk_index": 0,
-                    "content": content[:2000],
-                }
-            )
+            # 文件模式去重
+            self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
+            self._docs.append({
+                "doc_id": doc_id,
+                "doc_title": title,
+                "chunk_index": 0,
+                "content": content[:2000],
+            })
 
         logger.info(f"[知识库] 添加文档 '{title}': {len(chunks)} chunks")
         return [
@@ -201,7 +253,7 @@ class KnowledgeBase:
         if not query.strip():
             return self._docs[:top_k] if self._docs else []
 
-        # ChromaDB 模式
+        # ChromaDB 向量检索
         if self._collection:
             try:
                 n_results = min(top_k, max(1, self._collection.count()))
@@ -215,17 +267,14 @@ class KnowledgeBase:
                     for i in range(len(ids_list)):
                         meta = metas_list[i] if i < len(metas_list) else {}
                         dist = distances[i] if i < len(distances) else 0
-                        # cosine 距离转相似度: 1 - distance（distance ∈ [0,2] for cosine）
                         score = max(0.0, min(1.0, 1.0 - (dist / 2.0)))
-                        formatted.append(
-                            {
-                                "doc_id": meta.get("doc_id", ""),
-                                "doc_title": meta.get("doc_title", ""),
-                                "chunk_index": meta.get("chunk_index", 0),
-                                "content": docs_list[i] if i < len(docs_list) else "",
-                                "relevance_score": round(score, 4),
-                            }
-                        )
+                        formatted.append({
+                            "doc_id": meta.get("doc_id", ""),
+                            "doc_title": meta.get("doc_title", ""),
+                            "chunk_index": meta.get("chunk_index", 0),
+                            "content": docs_list[i] if i < len(docs_list) else "",
+                            "relevance_score": round(score, 4),
+                        })
                     return formatted
             except Exception as e:
                 logger.warning(f"[知识库] ChromaDB 检索异常: {e}")
@@ -241,17 +290,13 @@ class KnowledgeBase:
         scored.sort(key=lambda x: x[0], reverse=True)
         results = [d for _, d in scored[:top_k]]
         for r in results:
-            r["relevance_score"] = round(r.get("score", 0) / max(1, len(keywords)), 4)
+            r["relevance_score"] = round(
+                r.get("score", 0) / max(1, len(keywords)), 4
+            )
         return results
 
     def _chunk_text(self, text: str, chunk_size: int = 512, overlap: int = 64) -> list[str]:
-        """按段落切分文本，含滑动窗口 overlap。
-
-        策略：
-        1. 先按 \\n\\n 拆分为段落
-        2. 将段落累积到接近 chunk_size 时产生一个 chunk
-        3. 下一个 chunk 从上一 chunk 末尾 overlap 字符处开始（取最后一段落的内容）
-        """
+        """按段落切分文本，含滑动窗口 overlap。"""
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         if not paragraphs:
             return [text[:chunk_size]] if text.strip() else []
@@ -264,7 +309,6 @@ class KnowledgeBase:
             else:
                 if current.strip():
                     chunks.append(current.strip())
-                # overlap: 当前 chunk 末尾 overlap 字符作为下一个 chunk 的起始上下文
                 if overlap > 0 and chunks:
                     tail = current.strip()[-overlap:] if len(current.strip()) > overlap else ""
                     current = tail + "\n\n" + p + "\n\n" if tail else p + "\n\n"
