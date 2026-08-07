@@ -114,3 +114,5 @@ SRVO-068 条目本身没有规定一个可以替代硬件修复的特殊系统�
 - [FANUC Robot Safety Handbook B-80687EN/15](https://www.fanuc.eu/~/media/files/pdf/products/robots/educational%20cell/safety%20manual%20for%20fanuc%20educational%20cell.pdf?la=en)
 - [FANUC Robot MyPortal](https://www.fanucamerica.com/support/myportal/robot-myportal-registration)
 - [FANUC R-30iB Controller Maintenance Manual B-83195EN/08（公开检索版）](https://studylib.net/doc/27459949/r-30ib-controller-maintenance-manual-b-83195en-08-4-pdf-free)
+
+<!-- self_check: K3_20260807 ✓ ①②③④⑤⑥⑦ -->

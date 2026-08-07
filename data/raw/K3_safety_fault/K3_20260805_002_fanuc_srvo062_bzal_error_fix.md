@@ -108,3 +108,4 @@ SRVO-062 的排查重点是绝对位置备份回路，而不是伺服通讯链�
 1. [FANUC 官方手册支持入口](https://www.fanuc.co.jp/en/support/manual)。完整手册通常需通过 FANUC 支持门户按设备序列号或服务权限获取。
 2. [R-30iB Controller Maintenance Manual B-83195EN/08（公开镜像，用于定位 SRVO-062、SRVO-068 与标定章节）](https://studylib.net/doc/27459949/r-30ib-controller-maintenance-manual-b-83195en-08-4-pdf-free)。
 
+<!-- self_check: K3_20260807 ✓ ①②③④⑤⑥⑦ -->
