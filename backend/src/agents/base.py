@@ -21,7 +21,12 @@ from typing import Any
 
 from loguru import logger
 
-from ..llm.client import llm
+try:
+    # 完整项目（backend/src）中 llm 为 agents 的兄弟包
+    from ..llm.client import llm
+except ImportError:
+    # 独立工作目录运行兜底：无 llm 兄弟包时使用本地演示 LLM（离线，不发真实请求）
+    from .llm_demo import llm
 
 # ═══════════════════════════════════════════════════════════
 # 三类 Agent 固定温度预设（CLAUDE.md §3）

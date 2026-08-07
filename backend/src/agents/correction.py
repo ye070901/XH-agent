@@ -26,6 +26,7 @@ import time
 import uuid
 
 from .base import BaseAgent
+from .event_bus import event_bus
 
 SYSTEM_PROMPT = """你是一个严格的内容修正专家。你的任务是：
 1. 根据审核报告（audit_result）中标记的问题，逐条修正学习资源中的错误
@@ -86,6 +87,17 @@ class CorrectionAgent(BaseAgent):
             system_prompt=SYSTEM_PROMPT,
             temperature=0.2,  # 低温保证修正准确性，与诊断 Agent 一致
         )
+
+    async def run(self, state: dict) -> dict:
+        """EventBus 埋点包装：start → super().run() → done。
+
+        ① 函数最开头发布 ``agent.start``
+        ② return 之前发布 ``agent.done``
+        """
+        event_bus.publish("agent.start", {"agent_name": self.__class__.__name__})
+        result = await super().run(state)
+        event_bus.publish("agent.done", {"agent_name": self.__class__.__name__})
+        return result
 
     # ═══════════════════════════════════════════════════════════
     # 主入口

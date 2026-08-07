@@ -4,15 +4,17 @@ Agent 2: 领域知识生成 Agent
 负责: 角色5 实现
 
 MVP 版本: 直接用 LLM 自身知识生成内容（不依赖外部知识库）
-Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
+Phase 2b: 接入 RAG 知识库，约束生成 + 溯源（本期不实现，见 process() 标记）
 
 输入: state["diagnosis_result"] + state["resource_types"]
-输出: state["generated_resources"] (list of GeneratedResource)
+输出: state["generated_resources"]（list[dict]，最多 3 条）
+      每条资源字段: resource_id / type / title / content(markdown) / difficulty / key_takeaways
 """
 
 import uuid
 
 from .base import BaseAgent
+from .event_bus import event_bus
 
 SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作者。你的任务是：
 1. 根据学习者的知识盲区（skill_gaps）和推荐难度，用你的专业知识生成个性化学习资源
@@ -38,6 +40,9 @@ class GenerationAgent(BaseAgent):
     REQUIRED_STATE_KEYS = {"diagnosis_result"}
     OPTIONAL_STATE_KEYS = {"learner_data", "resource_types", "task_id", "agent_log", "status"}
 
+    # 单次生成资源数量上限，防止 token 过度消耗
+    MAX_RESOURCES = 3
+
     def __init__(self):
         super().__init__(
             name="知识生成Agent",
@@ -45,28 +50,83 @@ class GenerationAgent(BaseAgent):
             temperature=0.5,
         )
 
-    async def process(self, state: dict) -> dict:
-        diagnosis = state.get("diagnosis_result", {})
+    async def run(self, state: dict) -> dict:
+        """统一入口：读取 diagnosis_result + resource_types → 生成 → 写回 state。
+
+        EventBus 埋点：
+          ① 函数最开头发布 ``agent.start``
+          ② return 之前发布 ``agent.done``
+        """
+        event_bus.publish("agent.start", {"agent_name": self.__class__.__name__})
+
+        state.setdefault("agent_log", [])
+        diagnosis_result = state.get("diagnosis_result", {})
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
 
-        resources = []
-        for rtype in resource_types:
-            result = await self._generate_one(diagnosis, rtype)
-            if result:
-                result["resource_type"] = rtype
-                result["resource_id"] = str(uuid.uuid4())
-                resources.append(result)
+        resources = await self.process(diagnosis_result, resource_types)
+        state["generated_resources"] = resources
 
+        state["agent_log"].append(
+            {
+                "agent": self.name,
+                "level": "info",
+                "stage": "complete",
+                "message": f"生成完成: {len(resources)} 个资源",
+            }
+        )
         self.log(f"生成完成: {len(resources)} 个资源")
-        return {"generated_resources": resources}
 
-    async def _generate_one(self, diagnosis: dict, rtype: str) -> dict:
-        gaps = diagnosis.get("skill_gaps", [])
-        difficulty = diagnosis.get("recommended_difficulty", "beginner")
-        learning_style = diagnosis.get("learning_style", "unknown")
-        learning_goal = diagnosis.get("summary", "")
+        event_bus.publish("agent.done", {"agent_name": self.__class__.__name__})
+        return state
 
-        prompt = f"""## 学习者画像
+    async def process(self, diagnosis_result: dict, resource_types: list[str]) -> list[dict]:
+        """根据诊断结果与资源类型，生成个性化学习资源（最多 3 条）。
+
+        Args:
+            diagnosis_result: Agent1 学情诊断结果 dict
+                              （含 skill_gaps / recommended_difficulty /
+                              learning_style / summary）
+            resource_types:   请求的资源类型列表（lecture / guide / quiz）
+
+        Returns:
+            list[dict]: 每条含 resource_id / type / title / content /
+                        difficulty / key_takeaways；单个类型生成失败则跳过。
+        """
+        gaps = diagnosis_result.get("skill_gaps", [])
+        difficulty = diagnosis_result.get("recommended_difficulty", "beginner")
+        learning_style = diagnosis_result.get("learning_style", "unknown")
+        learning_goal = diagnosis_result.get("summary", "")
+
+        # Phase 2b接入：此处将接入 RAG 知识库检索（retrieved_chunks），
+        # 用 KB 原文约束生成 + 溯源标注。MVP 阶段只用 LLM 自身知识，不做 RAG 检索。
+
+        resources: list[dict] = []
+        for rtype in resource_types[: self.MAX_RESOURCES]:
+            prompt = self._build_prompt(
+                gaps=gaps,
+                difficulty=difficulty,
+                learning_style=learning_style,
+                learning_goal=learning_goal,
+                rtype=rtype,
+            )
+            result = await self.call_llm_json(prompt)
+            if not result or result.get("_parse_error"):
+                self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
+                continue
+            resources.append(self._build_resource(rtype, difficulty, result))
+
+        return resources
+
+    def _build_prompt(
+        self,
+        gaps: list[dict],
+        difficulty: str,
+        learning_style: str,
+        learning_goal: str,
+        rtype: str,
+    ) -> str:
+        """构建单类型资源的生成 prompt。"""
+        return f"""## 学习者画像
 - 学习目标总结：{learning_goal}
 - 知识盲区（按优先级）：{self._fmt_gaps(gaps)}
 - 推荐难度：{difficulty}
@@ -75,16 +135,15 @@ class GenerationAgent(BaseAgent):
 ## 生成任务
 请用你的专业知识，生成一份 {rtype} 类型的个性化学习资源。
 
-输出 JSON：
+## 输出 JSON
 {{
     "title": "资源标题（要具体、有吸引力）",
     "content": "Markdown 格式的完整内容（含代码示例和命令行时用 `````` 标注语言类型）",
-    "difficulty_level": "{difficulty}",
-    "estimated_duration_minutes": 30,
+    "difficulty": "{difficulty}",
     "key_takeaways": ["学完你能掌握什么1", "学完你能掌握什么2", "学完你能掌握什么3"]
 }}
 
-要求：
+## 硬性要求
 1. 内容必须准确——这是教育场景，教错了比不教更糟
 2. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
 3. 难度匹配 {difficulty} 水平：
@@ -96,14 +155,44 @@ class GenerationAgent(BaseAgent):
    - theory_first: 先讲清楚为什么再给代码
 5. 优先覆盖 critical 和 high 优先级的知识盲区"""
 
-        return await self.call_llm_json(prompt)
+    def _build_resource(self, rtype: str, recommended_difficulty: str, result: dict) -> dict:
+        """把 LLM 返回的结果规整为统一的资源字段结构。"""
+        return {
+            "resource_id": str(uuid.uuid4()),
+            "type": rtype,
+            "title": result.get("title", f"{rtype} 学习资源"),
+            "content": result.get("content", ""),
+            "difficulty": (
+                result.get("difficulty")
+                or result.get("difficulty_level")
+                or recommended_difficulty
+            ),
+            "key_takeaways": result.get("key_takeaways", []),
+        }
 
-    def _fmt_gaps(self, gaps: list) -> str:
+    def _fmt_gaps(self, gaps: list[dict]) -> str:
+        """格式化知识盲区列表为可读文本，最多展示前 5 条。"""
         if not gaps:
             return "学习者未提供具体知识盲区，请根据学习目标生成通用的入门内容"
-        return "\n".join(
-            f"- [{g.get('priority', '?')}] {g.get('topic', '未知')} "
-            f"(当前{g.get('current_level', 0):.1f} → 目标{g.get('target_level', 1.0):.1f}): "
-            f"{g.get('reason', '')}"
-            for g in gaps[:5]
-        )
+
+        lines = []
+        for g in gaps[:5]:
+            priority = g.get("priority", "?")
+            topic = g.get("topic", "未知")
+            reason = g.get("reason", "")
+
+            # float() 类型保护：LLM JSON 中的数值可能是 int/float/str
+            try:
+                curr_lv = float(g.get("current_level", 0.0))
+            except (ValueError, TypeError):
+                curr_lv = 0.0
+            try:
+                target_lv = float(g.get("target_level", 1.0))
+            except (ValueError, TypeError):
+                target_lv = 1.0
+
+            lines.append(
+                f"- [{priority}] {topic} (当前 {curr_lv:.1f} → 目标 {target_lv:.1f}): {reason}"
+            )
+
+        return "\n".join(lines)
