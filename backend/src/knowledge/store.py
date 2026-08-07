@@ -182,12 +182,28 @@ class KnowledgeBase:
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
 
         if self._collection is not None:
-            metadatas = [
-                {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
-                for i in range(len(chunks))
-            ]
-            self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
-            logger.info(f"[知识库] ChromaDB 写入: '{title}' → {len(chunks)} chunks")
+            try:
+                metadatas = [
+                    {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
+                    for i in range(len(chunks))
+                ]
+                self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
+                logger.info(f"[知识库] ChromaDB 写入: '{title}' → {len(chunks)} chunks")
+            except Exception as chroma_err:
+                # ChromaDB 写入失败，降级到文件模式
+                logger.warning(f"[知识库] ChromaDB 写入失败: {chroma_err}，切换文件模式")
+                self._collection = None
+                self._init_fallback_mode()
+                # 写入文件
+                if self._fallback_dir:
+                    (self._fallback_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
+                self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
+                for i, c in enumerate(chunks):
+                    self._docs.append({
+                        "doc_id": doc_id, "doc_title": title,
+                        "chunk_index": i, "content": c,
+                    })
+                logger.info(f"[知识库] 文件降级写入: '{title}' → {len(chunks)} chunks")
         else:
             if self._fallback_dir:
                 (self._fallback_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
