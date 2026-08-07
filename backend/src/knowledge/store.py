@@ -61,7 +61,8 @@ class KnowledgeBase:
         provider = settings.EMBEDDING_PROVIDER.lower()
 
         if provider == "chroma":
-            logger.info("[知识库] 使用 ChromaDB 内置 ONNX Embedding (all-MiniLM-L6-v2)")
+            logger.info(
+                "[知识库] 使用 ChromaDB 内置 ONNX Embedding (all-MiniLM-L6-v2)")
             return None
 
         if provider == "openai" and api_key:
@@ -142,7 +143,11 @@ class KnowledgeBase:
     async def _init_fallback_mode(self) -> None:
         """文件降级：加载已有降级 md + 扫描 data/raw/ 目录作为初始语料。
 
+Updated upstream
         Day5增强：对data/raw/扫描文档应用_chunk_text切分，提升文件模式检索精度。
+
+        Day5增强：对data/raw/扫描文档应用_text_chunk切分，提升文件模式检索精度。
+Stashed changes
         降级后search()通过关键词匹配正常返回结果，不报错。
         """
         fb_dir = Path(settings.CHROMA_PERSIST_DIR) / "fallback_docs"
@@ -214,8 +219,10 @@ class KnowledgeBase:
             else:
                 if current.strip():
                     chunks.append(current.strip())
-                tail = current.strip()[-overlap:] if len(current.strip()) > overlap else ""
-                current = (tail + "\n\n" + p + "\n\n") if tail else (p + "\n\n")
+                tail = current.strip(
+                )[-overlap:] if len(current.strip()) > overlap else ""
+                current = (tail + "\n\n" + p +
+                           "\n\n") if tail else (p + "\n\n")
 
         if current.strip():
             chunks.append(current.strip())
@@ -235,11 +242,13 @@ class KnowledgeBase:
                 {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
                 for i in range(len(chunks))
             ]
-            self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
+            self._collection.add(
+                ids=chunk_ids, documents=chunks, metadatas=metadatas)
             logger.info(f"[知识库] ChromaDB 写入: '{title}' → {len(chunks)} chunks")
         else:
             if self._fallback_dir:
-                (self._fallback_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
+                (self._fallback_dir /
+                 f"{doc_id}.md").write_text(content, encoding="utf-8")
             # 文件模式去重：先移除旧记录再追加
             self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
             for i, c in enumerate(chunks):
@@ -270,7 +279,8 @@ class KnowledgeBase:
                 )
                 success += 1
             except Exception as e:
-                logger.warning(f"[知识库] 批量导入单篇失败: {doc.get('title', '?')} — {e}")
+                logger.warning(
+                    f"[知识库] 批量导入单篇失败: {doc.get('title', '?')} — {e}")
         logger.info(f"[知识库] 批量导入完成: {success}/{len(docs)}")
         return success
 
@@ -299,7 +309,8 @@ class KnowledgeBase:
                 if n == 0:
                     result = []
                 else:
-                    results = self._collection.query(query_texts=[query], n_results=n)
+                    results = self._collection.query(
+                        query_texts=[query], n_results=n)
                     result = self._format_search_results(results)
             except Exception as e:
                 logger.warning(f"[知识库] ChromaDB 检索异常 ({e})，降级到关键词匹配")
@@ -359,7 +370,8 @@ class KnowledgeBase:
         results = [d for _, d in scored[:top_k]]
         max_kw = max(1, len(keywords))
         for r in results:
-            r["relevance_score"] = round(min(1.0, r.get("_score", 0) / max_kw), 4)
+            r["relevance_score"] = round(
+                min(1.0, r.get("_score", 0) / max_kw), 4)
         return results
 
     async def delete_document(self, doc_id: str) -> bool:
@@ -371,7 +383,8 @@ class KnowledgeBase:
                 existing = self._collection.get(where={"doc_id": doc_id})
                 if existing and existing.get("ids"):
                     self._collection.delete(ids=existing["ids"])
-                    logger.info(f"[知识库] 删除: {doc_id} ({len(existing['ids'])} chunks)")
+                    logger.info(
+                        f"[知识库] 删除: {doc_id} ({len(existing['ids'])} chunks)")
                     return True
             except Exception as e:
                 logger.warning(f"[知识库] ChromaDB 删除异常: {e}")
@@ -415,12 +428,19 @@ class KnowledgeBase:
         }
 
     # ═══════════════════════════════════════════════════════════
+Updated upstream
     # Day5: 性能统计基线 + 文件自动回退增强
+
+    # Day5: 性能统计基线 — 检索耗时监控（实现在上方search()中）
+ Stashed changes
     # ═══════════════════════════════════════════════════════════
     #   - search() 起止记录 perf_counter，输出 elapsed_ms 日志
     #   - 单次检索基线 < 200ms，超标输出 warning
     #   - _init_fallback_mode() 增强：data/raw/ 文档自动切分加载
+ Updated upstream
     #     （实现在上方 _init_fallback_mode 方法中）
+
+ Stashed changes
     # ═══════════════════════════════════════════════════════════
 
     # ═══════════════════════════════════════════════════════════
@@ -488,8 +508,13 @@ class KnowledgeBase:
         coll_match = current["collection_name"] == snapshot["collection_name"]
         verified = chunks_match and docs_match and coll_match
 
+ Updated upstream
         chunk_flag = "✓" if chunks_match else "✗"
         doc_flag = "✓" if docs_match else "✗"
+
+        chunk_flag = '✓' if chunks_match else '✗'
+        doc_flag = '✓' if docs_match else '✗'
+ Stashed changes
         logger.info(
             f"[知识库] 持久化校验结果 | verified={verified} "
             f"chunks: {snapshot['total_chunks']}→{current['total_chunks']}({chunk_flag}) "
@@ -595,9 +620,12 @@ class KnowledgeBase:
             "errors": errors,
         }
 
+ Updated upstream
     async def evaluate_search_quality(
         self, test_cases: Optional[list[dict]] = None
-    ) -> list[dict]:
+
+    async def evaluate_search_quality(self, test_cases: Optional[list[dict]] = None) -> list[dict]:
+Stashed changes
         """Day6新增：检索质量评测。
 
         兼容K1~K3测试文档检索，验证3条检索案例中至少2条相关内容排在返回Top1。
@@ -608,8 +636,12 @@ class KnowledgeBase:
 
         Returns:
             list[dict]: 每条测试用例的评测结果，含：
+Updated upstream
                 {query, top1_doc_id, top1_title, top1_score, passed,
                  matched_keywords, elapsed_ms}
+=======
+                {query, top1_doc_id, top1_title, top1_score, passed, matched_keywords, elapsed_ms}
+ Stashed changes
         """
         # K1~K3默认测试用例（覆盖工业机器人三个领域）
         if test_cases is None:
@@ -690,4 +722,8 @@ class KnowledgeBase:
 
 
 # 全局单例 — 所有模块通过此实例访问知识库
+Updated upstream
 knowledge_base = KnowledgeBase()
+=======
+knowledge_base = KnowledgeBase()
+>>>>>>> Stashed changes
