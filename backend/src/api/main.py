@@ -30,9 +30,6 @@ async def lifespan(app: FastAPI):
     logger.info(f"LLM: {settings.LLM_PROVIDER}/{settings.LLM_MODEL}")
     # 初始化知识库
     await knowledge_base.initialize()
-    stats = await knowledge_base.get_stats()
-    logger.info(f"知识库: {stats['mode']} 模式, {stats['total_documents']} 篇文档, "
-                f"{stats['total_chunks']} chunks")
     logger.info("=" * 60)
     yield
     logger.info("系统关闭")
@@ -56,9 +53,23 @@ app.add_middleware(
 )
 
 
+async def _get_kb_stats() -> dict:
+    """获取知识库统计信息。"""
+    try:
+        return await knowledge_base.get_stats()
+    except Exception as e:
+        logger.warning(f"[API] 获取KB统计失败: {e}")
+        return {
+            "mode": "unknown",
+            "total_documents": 0,
+            "total_chunks": 0,
+            "collection_name": settings.CHROMA_COLLECTION_NAME,
+        }
+
+
 @app.get("/")
 async def root():
-    stats = await knowledge_base.get_stats()
+    stats = await _get_kb_stats()
     return {
         "name": "领域知识个性化生成系统",
         "version": "0.2.0",
@@ -70,7 +81,7 @@ async def root():
 
 @app.get("/health")
 async def health():
-    stats = await knowledge_base.get_stats()
+    stats = await _get_kb_stats()
     return {
         "status": "healthy",
         "llm": f"{settings.LLM_PROVIDER}/{settings.LLM_MODEL}",
@@ -303,16 +314,9 @@ async def kb_search(q: str = "", top_k: int = 5):
 
 @app.get("/api/knowledge/stats")
 async def kb_stats():
-    """知识库统计信息。
-
-    异常:
-        500: ChromaDB 异常
-    """
+    """知识库统计信息。"""
     try:
-        return await knowledge_base.get_stats()
-    except ConnectionError as e:
-        logger.error(f"[API] ChromaDB 连接失败: {e}")
-        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+        return await _get_kb_stats()
     except Exception as e:
         logger.error(f"[API] 获取统计信息失败: {e}")
         raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
