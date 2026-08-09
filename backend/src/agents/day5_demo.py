@@ -69,7 +69,7 @@ async def main() -> None:
 
     print("\n=== 生成结果 ===")
     for i, res in enumerate(state.get("generated_resources", []), 1):
-        print(f"{i}. [{res['type']}] {res['title']} (difficulty={res['difficulty']})")
+        print(f"{i}. [{res['resource_type']}] {res['title']} (difficulty={res['difficulty_level']})")
         print(f"   key_takeaways: {res.get('key_takeaways', [])}")
 
     print("\n=== 链路完成 ===")

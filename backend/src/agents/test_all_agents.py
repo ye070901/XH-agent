@@ -159,8 +159,20 @@ CORRECTION_STATE = {
     ],
 }
 
-#: 生成资源必需的字段
-GENERATION_FIELDS = ("resource_id", "type", "title", "content", "difficulty", "key_takeaways")
+#: 生成资源必需的字段（与 schemas.GeneratedResource 对齐）
+GENERATION_FIELDS = (
+    "resource_id",
+    "learner_id",
+    "resource_type",
+    "title",
+    "content",
+    "citations",
+    "difficulty_level",
+    "target_skill_gaps",
+    "estimated_duration_minutes",
+    "prerequisites",
+    "key_takeaways",
+)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -339,7 +351,7 @@ class TestGenerationAgent:
         for res in resources:
             for key in GENERATION_FIELDS:
                 assert key in res, f"资源缺少字段: {key}"
-        assert [r["type"] for r in resources] == ["lecture", "guide", "quiz"]
+        assert [r["resource_type"] for r in resources] == ["lecture", "guide", "quiz"]
         assert result["agent_log"][-1]["message"].startswith("生成完成")
 
     # ── 边界输入 ──
@@ -350,7 +362,7 @@ class TestGenerationAgent:
             {"return_value": dict(VALID_RESOURCE)},
         )
         assert len(result["generated_resources"]) == 1
-        assert result["generated_resources"][0]["type"] == "lecture"
+        assert result["generated_resources"][0]["resource_type"] == "lecture"
 
     def test_resource_count_capped_at_3(self):
         """边界：请求超过 3 种类型 → 按 MAX_RESOURCES 截断为 3 条。"""
@@ -370,7 +382,7 @@ class TestGenerationAgent:
             {"return_value": dict(VALID_RESOURCE)},
         )
         assert len(result["generated_resources"]) == 1
-        assert result["generated_resources"][0]["type"] == "guide"
+        assert result["generated_resources"][0]["resource_type"] == "guide"
 
     def test_fmt_gaps_float_type_protection(self):
         """边界：skill_gaps 的数值是非法字符串 → float() 类型保护回退 0.0/1.0，不崩溃。"""

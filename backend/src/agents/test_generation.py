@@ -34,7 +34,7 @@ from agents.generation import GenerationAgent
 MOCK_RESOURCE = {
     "title": "LangGraph 入门讲义（mock）",
     "content": "# LangGraph 入门讲义\n\n这是 mock 返回的 Markdown 内容。",
-    "difficulty": "beginner",
+    "difficulty_level": "beginner",
     "key_takeaways": ["理解 StateGraph", "掌握节点与边"],
 }
 
@@ -57,13 +57,18 @@ MOCK_DIAGNOSIS = {
     "summary": "学习 LangGraph 开发 AI Agent",
 }
 
-#: 每条资源必须包含的字段
+#: 每条资源必须包含的字段（与 schemas.GeneratedResource 对齐）
 REQUIRED_FIELDS = (
     "resource_id",
-    "type",
+    "learner_id",
+    "resource_type",
     "title",
     "content",
-    "difficulty",
+    "citations",
+    "difficulty_level",
+    "target_skill_gaps",
+    "estimated_duration_minutes",
+    "prerequisites",
     "key_takeaways",
 )
 
@@ -120,7 +125,7 @@ class GenerationAgentTest(unittest.TestCase):
         )
         self._assert_resource_count(state)
         self.assertEqual(len(state["generated_resources"]), 1)
-        self.assertEqual(state["generated_resources"][0]["type"], "lecture")
+        self.assertEqual(state["generated_resources"][0]["resource_type"], "lecture")
 
     def test_resource_count_capped_at_3(self) -> None:
         """请求超过 3 种类型 → 上限截断为 3 条。"""

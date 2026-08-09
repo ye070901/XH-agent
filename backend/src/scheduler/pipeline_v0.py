@@ -6,7 +6,9 @@ v0.1 支持：
   - step 列表可配置，按顺序执行
   - RETRY：回跳到指定步骤重新执行，最多 N 次
   - FALLBACK：跳过剩余步骤走降级输出
-  - 未就绪的 Agent 用 mock_agent 占位
+  - Day8 联调：移除 mock_agent，注册 diagnosis / generation / correction
+    三个真实 Agent 到 step 执行列表；执行步骤输出 [AgentX] 终端日志；
+    EventBus 事件落盘 logs/eventbus.log（gate → agent → gate 事件链）
 
 架构约束：
   - 全部阈值从 config.settings 读取
@@ -17,11 +19,16 @@ v0.1 支持：
 from __future__ import annotations
 
 import time
+import uuid
 from typing import Any, Callable
 
 from loguru import logger
 
+from backend.src.agents.correction import CorrectionAgent
+from backend.src.agents.diagnosis import DiagnosisAgent
+from backend.src.agents.generation_v2 import GenerationAgent as GenerationAgentV2
 from backend.src.config import settings
+from backend.src.event_broadcast import EventType, event_bus
 from backend.src.quality_gate.gates.diagnosis_gate import DiagnosisGate
 from backend.src.quality_gate.gates.input_gate import InputGate
 from backend.src.quality_gate.gates.recall_gate import RecallGate
@@ -46,53 +53,86 @@ def _step_result(
 
 
 # ═══════════════════════════════════════════════════════════
-# mock Agent 占位函数
+# 真实 Agent 注册与执行包装（Day8 联调）
 # ═══════════════════════════════════════════════════════════
 
 
-async def mock_agent1_diagnosis(state: dict) -> dict:
-    """mock Agent1：返回模拟诊断结果。"""
-    state["diagnosis_result"] = {
-        "knowledge_map": {
-            "FANUC - 基础操作": {"level": 0.8, "confidence": 0.9},
-            "FANUC - 示教器编程": {"level": 0.6, "confidence": 0.7},
-        },
-        "skill_gaps": [
-            {
-                "topic": "工具坐标系标定",
-                "current_level": 0.2,
-                "target_level": 0.8,
-                "priority": "high",
-                "reason": "缺少实操经验",
-            }
-        ],
-        "learning_style": "practice_first",
-        "recommended_difficulty": "beginner",
-        "overall_confidence": 0.85,
-        "summary": "mock 学情诊断。",
-    }
+async def _run_agent_step(state: dict, agent, label: str) -> dict:
+    """执行单个真实 Agent，并输出 [AgentX] 终端日志 + EventBus 广播。
+
+    BaseAgent.run() 不抛异常，失败时 state["status"]="error"，
+    据此判定执行失败并广播 agent_error。
+    """
+    task_id = state.get("task_id", "")
+    logger.info(f"[{label}] {agent.name} 开始执行 (task_id={task_id[:8]}...)")
+    await event_bus.broadcast(
+        task_id, EventType.AGENT_START,
+        {"agent": agent.name, "label": label},
+    )
+
+    state = await agent.run(state)
+
+    if state.get("status") == "error":
+        logger.error(f"[{label}] {agent.name} 执行失败")
+        await event_bus.broadcast(
+            task_id, EventType.AGENT_ERROR,
+            {"agent": agent.name, "label": label,
+             "error": state.get("error", ""), "error_type": state.get("error_type", "")},
+        )
+        return _step_result(GateVerdict.FALLBACK.value)
+
+    logger.info(f"[{label}] {agent.name} 执行完成")
+    await event_bus.broadcast(
+        task_id, EventType.AGENT_DONE,
+        {"agent": agent.name, "label": label},
+    )
     return _step_result(GateVerdict.PASS.value)
 
 
-async def mock_agent2_query(state: dict) -> dict:
+async def _run_agent1_diagnosis(state: dict) -> dict:
+    """Agent1：注册真实 DiagnosisAgent（学情诊断）。"""
+    return await _run_agent_step(state, DiagnosisAgent(), "Agent1")
+
+
+async def _run_agent2_generate(state: dict) -> dict:
+    """Agent2_generate：注册真实 GenerationAgent（领域知识生成，融合版 v2）。"""
+    return await _run_agent_step(state, GenerationAgentV2(), "Agent2")
+
+
+async def _run_agent3_correction(state: dict) -> dict:
+    """Agent3_correction：注册真实 CorrectionAgent（保真修正）。
+
+    3-Agent 链路无审核 Agent，审计结果置空列表 → 修正直通（仅一致性检查）。
+    """
+    state.setdefault("audit_result", [])
+    return await _run_agent_step(state, CorrectionAgent(), "Agent3")
+
+
+# ═══════════════════════════════════════════════════════════
+# 胶水步骤（非 LLM Agent，去 mock_ 前缀）
+# ═══════════════════════════════════════════════════════════
+
+
+async def _build_rag_query(state: dict) -> dict:
     """mock Agent2 Step1：从诊断结果构建 RAG 检索 Query。"""
     diag = state.get("diagnosis_result", {})
     learner = state.get("learner_data", {})
 
-    # 优先用 recall 改写后的 query，其次诊断 summary，最后 learner goal
+    # 优先用 recall 改写后的 query，其次 learner 实际学习目标（域相关），
+    # 最后诊断 summary（demo 诊断 summary 为通用画像，不适合做检索词）
     query = (
         state.get("_pending_query")
-        or diag.get("summary", "")
         or learner.get("learning_goal", "")
+        or diag.get("summary", "")
     )
     state["rag_query"] = str(query) if query else "工业机器人 调试"
     state.pop("_pending_query", None)
 
-    logger.info(f"  [mock Agent2_query] RAG Query = '{state['rag_query'][:60]}'")
+    logger.info(f"  [Agent2_query] RAG Query = '{state['rag_query'][:60]}'")
     return _step_result(GateVerdict.PASS.value)
 
 
-async def mock_rag_search(state: dict) -> dict:
+async def _run_rag_search(state: dict) -> dict:
     """mock RAG 检索：调用真实 knowledge_base.search()。
 
     如果 state 中有 new_query（RecallGate 改写后），优先使用。
@@ -111,56 +151,52 @@ async def mock_rag_search(state: dict) -> dict:
 
         chunks = await knowledge_base.search(str(query), top_k=8)
         state["retrieved_chunks"] = chunks
-        logger.info(f"  [mock RAG_search] '{str(query)[:50]}' -> {len(chunks)} chunks")
+        logger.info(f"  [RAG_search] '{str(query)[:50]}' -> {len(chunks)} chunks")
     except Exception as exc:
-        logger.warning(f"  [mock RAG_search] 检索失败: {exc}，返回空列表")
+        logger.warning(f"  [RAG_search] 检索失败: {exc}，返回空列表")
         state["retrieved_chunks"] = []
 
     return _step_result(GateVerdict.PASS.value)
 
 
-async def mock_agent2_generate(state: dict) -> dict:
-    """mock Agent2 Step2：模拟 KB 约束生成。"""
-    chunks = state.get("retrieved_chunks", [])
-    state["generated_resources"] = [
-        {
-            "resource_id": "mock_gen_001",
-            "title": f"基于 {len(chunks)} 篇知识库文档生成的学习方案",
-            "content": "[mock] 个性化学习资源内容...",
-            "citations": [],
-        }
+def _calc_output_confidence(diag: dict) -> float:
+    """计算诊断置信度：优先 overall_confidence，缺失时按 knowledge_map 求均值。
+
+    真实 DiagnosisAgent（demo 模式）输出无 overall_confidence 字段，
+    对齐 DiagnosisGate._calc_avg_confidence 的均值逻辑。
+    """
+    confidence = diag.get("overall_confidence", 0)
+    if confidence:
+        return float(confidence)
+    knowledge_map = diag.get("knowledge_map", {})
+    confs = [
+        v.get("confidence", 0)
+        for v in knowledge_map.values()
+        if isinstance(v, dict) and v.get("confidence")
     ]
-    logger.info("  [mock Agent2_generate] 资源数=1")
-    return _step_result(GateVerdict.PASS.value)
+    return round(sum(confs) / len(confs), 4) if confs else 0
 
 
-async def mock_agent3_review(state: dict) -> dict:
-    """mock Agent3：模拟内容审核。"""
-    state["audit_result"] = {
-        "verdict": "approved",
-        "confidence_score": 0.85,
-    }
-    logger.info("  [mock Agent3_review] verdict=approved")
-    return _step_result(GateVerdict.PASS.value)
-
-
-async def mock_output(state: dict) -> dict:
-    """mock Output：格式化最终输出。降级模式返回 fallback status。"""
+async def _run_output(state: dict) -> dict:
+    """Output：格式化最终输出。降级模式返回 fallback status。"""
     diag = state.get("diagnosis_result", {})
     resources = state.get("generated_resources", [])
     audit = state.get("audit_result", {})
     is_fallback = state.get("_is_fallback", False)
+
+    # audit_result 可能是 dict（旧 mock）或 list（3-Agent 真实链路置空表）
+    audit_verdict = audit.get("verdict", "unknown") if isinstance(audit, dict) else "unknown"
 
     state["final_output"] = {
         "status": "fallback" if is_fallback else "ok",
         "pipeline_state": PipelineState.DONE.value,
         "diagnosis": {
             "difficulty": diag.get("recommended_difficulty", "?"),
-            "confidence": diag.get("overall_confidence", 0),
+            "confidence": _calc_output_confidence(diag),
             "gaps": len(diag.get("skill_gaps", [])),
         },
         "resources_count": len(resources),
-        "audit_verdict": audit.get("verdict", "unknown"),
+        "audit_verdict": audit_verdict,
     }
     if is_fallback:
         state["final_output"]["message"] = "知识库暂无相关数据，请尝试更换问题描述"
@@ -179,17 +215,17 @@ async def mock_output(state: dict) -> dict:
 
 
 def _build_default_steps() -> list[tuple[str, Callable, int]]:
-    """构建默认 step 列表。"""
+    """构建默认 step 列表（Day8：注册 diagnosis / generation / correction 真实 Agent）。"""
     return [
-        ("InputGate",         _run_input_gate,         -1),  # 0
-        ("Agent1",            mock_agent1_diagnosis,    -1),  # 1
-        ("DiagnosisGate",   _run_diagnosis_gate,      1),  # 2 → RETRY 回跳 Agent1
-        ("Agent2_query",      mock_agent2_query,        -1),  # 3
-        ("RAG_search",        mock_rag_search,          -1),  # 4
-        ("RecallGate",      _run_recall_gate,          4),  # 5 → RETRY 回跳 RAG_search
-        ("Agent2_generate",   mock_agent2_generate,     -1),  # 6
-        ("Agent3_review",     mock_agent3_review,       -1),  # 7
-        ("Output",            mock_output,              -1),  # 8
+        ("InputGate",         _run_input_gate,           -1),  # 0
+        ("Agent1",            _run_agent1_diagnosis,     -1),  # 1
+        ("DiagnosisGate",     _run_diagnosis_gate,        1),  # 2 → RETRY 回跳 Agent1
+        ("Agent2_query",      _build_rag_query,          -1),  # 3
+        ("RAG_search",        _run_rag_search,           -1),  # 4
+        ("RecallGate",        _run_recall_gate,            4),  # 5 → RETRY 回跳 RAG_search
+        ("Agent2_generate",   _run_agent2_generate,      -1),  # 6
+        ("Agent3_correction", _run_agent3_correction,    -1),  # 7
+        ("Output",            _run_output,               -1),  # 8
     ]
 
 
@@ -201,8 +237,17 @@ async def _run_input_gate(state: dict) -> dict:
     gate = InputGate()
     state = await gate.validate(state)
     result = state["gate_results"][InputGate.GATE_NAME]
+    task_id = state.get("task_id", "")
     if not result.get("passed"):
+        await event_bus.broadcast(
+            task_id, EventType.GATE_FAIL,
+            {"gate": InputGate.GATE_NAME, "verdict": GateVerdict.FALLBACK.value},
+        )
         return _step_result(GateVerdict.FALLBACK.value)
+    await event_bus.broadcast(
+        task_id, EventType.GATE_PASS,
+        {"gate": InputGate.GATE_NAME, "verdict": GateVerdict.PASS.value},
+    )
     return _step_result(GateVerdict.PASS.value)
 
 
@@ -211,12 +256,25 @@ async def _run_diagnosis_gate(state: dict) -> dict:
     state = await gate.validate(state)
     result = state["gate_results"][DiagnosisGate.GATE_NAME]
     verdict = result.get("verdict", GateVerdict.FALLBACK.value)
+    task_id = state.get("task_id", "")
 
     # RETRY 时，把 retry_hint 写入 state 供 Agent1 重试时参考
     if verdict == GateVerdict.RETRY.value:
         hint = result.get("retry_hint", "")
         state["_diagnosis_retry_hint"] = hint
         logger.info(f"  [DiagnosisGate] RETRY hint: {hint[:100]}")
+
+    if verdict == GateVerdict.PASS.value:
+        await event_bus.broadcast(
+            task_id, EventType.GATE_PASS,
+            {"gate": DiagnosisGate.GATE_NAME, "verdict": verdict},
+        )
+    else:
+        await event_bus.broadcast(
+            task_id, EventType.GATE_FAIL,
+            {"gate": DiagnosisGate.GATE_NAME, "verdict": verdict,
+             "retry_hint": result.get("retry_hint", "")},
+        )
 
     return _step_result(verdict)
 
@@ -226,6 +284,20 @@ async def _run_recall_gate(state: dict) -> dict:
     state = await gate.validate(state)
     result = state["gate_results"][RecallGate.GATE_NAME]
     verdict = result.get("verdict", GateVerdict.FALLBACK.value)
+    task_id = state.get("task_id", "")
+
+    if verdict == GateVerdict.PASS.value:
+        await event_bus.broadcast(
+            task_id, EventType.GATE_PASS,
+            {"gate": RecallGate.GATE_NAME, "verdict": verdict},
+        )
+    else:
+        await event_bus.broadcast(
+            task_id, EventType.GATE_FAIL,
+            {"gate": RecallGate.GATE_NAME, "verdict": verdict,
+             "retry_hint": result.get("retry_hint", "")},
+        )
+
     return _step_result(verdict)
 
 
@@ -270,6 +342,8 @@ class PipelineSchedulerV0:
         state.setdefault("gate_results", {})
         state.setdefault("recall_retry_count", 0)
         state.setdefault("_retry_counts", {})
+        # EventBus 定向广播依赖 task_id；缺失则自动生成
+        state.setdefault("task_id", str(uuid.uuid4()))
 
         t_start = time.monotonic()
         self._set_state(PipelineState.RUNNING)
@@ -346,6 +420,16 @@ class PipelineSchedulerV0:
         elapsed_ms = int((time.monotonic() - t_start) * 1000)
         state["pipeline_state"] = PipelineState.DONE.value
         state["elapsed_ms"] = elapsed_ms
+
+        # ── 广播工作流完成事件（含降级标记）──
+        await event_bus.broadcast(
+            state["task_id"], EventType.WORKFLOW_COMPLETE,
+            {
+                "pipeline_state": state["pipeline_state"],
+                "elapsed_ms": elapsed_ms,
+                "is_fallback": state.get("_is_fallback", False),
+            },
+        )
 
         logger.info("=" * 60)
         logger.info(f"  PipelineSchedulerV0 DONE ({elapsed_ms}ms)")

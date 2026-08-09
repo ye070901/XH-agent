@@ -8,8 +8,13 @@ Phase 2b: 接入 RAG 知识库，约束生成 + 溯源（本期不实现，见 p
 
 输入: state["diagnosis_result"] + state["resource_types"]
 输出: state["generated_resources"]（list[dict]，最多 3 条）
-      每条资源字段: resource_id / type / title / content(markdown) / difficulty / key_takeaways
+      每条资源字段与 schemas.GeneratedResource 对齐:
+      resource_id / learner_id / resource_type / title / content(markdown) /
+      citations / difficulty_level / target_skill_gaps / estimated_duration_minutes /
+      prerequisites / key_takeaways
 """
+
+from __future__ import annotations
 
 import uuid
 
@@ -31,14 +36,23 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
 - 难度匹配学习者水平：beginner 多用比喻和注释，advanced 减少解释直接给代码
 - learning_style 为 practice_first 时多给实操示例，theory_first 时先讲原理
 
-输出必须为严格的 JSON 格式。"""
+输出必须为严格的 JSON 格式。
+
+【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
 
 
 class GenerationAgent(BaseAgent):
     """领域知识生成 Agent — 角色5 在此实现"""
 
     REQUIRED_STATE_KEYS = {"diagnosis_result"}
-    OPTIONAL_STATE_KEYS = {"learner_data", "resource_types", "task_id", "agent_log", "status"}
+    OPTIONAL_STATE_KEYS = {
+        "learner_data",
+        "resource_types",
+        "task_id",
+        "agent_log",
+        "status",
+        "learner_id",  # schemas.GeneratedResource.learner_id，从 state 透传
+    }
 
     # 单次生成资源数量上限，防止 token 过度消耗
     MAX_RESOURCES = 3
@@ -62,8 +76,9 @@ class GenerationAgent(BaseAgent):
         state.setdefault("agent_log", [])
         diagnosis_result = state.get("diagnosis_result", {})
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
+        learner_id = state.get("learner_id", "")
 
-        resources = await self.process(diagnosis_result, resource_types)
+        resources = await self.process(diagnosis_result, resource_types, learner_id)
         state["generated_resources"] = resources
 
         state["agent_log"].append(
@@ -79,7 +94,12 @@ class GenerationAgent(BaseAgent):
         event_bus.publish("agent.done", {"agent_name": self.__class__.__name__})
         return state
 
-    async def process(self, diagnosis_result: dict, resource_types: list[str]) -> list[dict]:
+    async def process(
+        self,
+        diagnosis_result: dict,
+        resource_types: list[str],
+        learner_id: str = "",
+    ) -> list[dict]:
         """根据诊断结果与资源类型，生成个性化学习资源（最多 3 条）。
 
         Args:
@@ -87,15 +107,24 @@ class GenerationAgent(BaseAgent):
                               （含 skill_gaps / recommended_difficulty /
                               learning_style / summary）
             resource_types:   请求的资源类型列表（lecture / guide / quiz）
+            learner_id:       学习者 ID，透传到每条资源的
+                              schemas.GeneratedResource.learner_id
 
         Returns:
-            list[dict]: 每条含 resource_id / type / title / content /
-                        difficulty / key_takeaways；单个类型生成失败则跳过。
+            list[dict]: 每条字段与 schemas.GeneratedResource 对齐
+                        （resource_id / resource_type / title / content /
+                        difficulty_level / citations / target_skill_gaps /
+                        estimated_duration_minutes / prerequisites /
+                        key_takeaways / learner_id）；
+                        单个类型生成失败则跳过。
         """
         gaps = diagnosis_result.get("skill_gaps", [])
         difficulty = diagnosis_result.get("recommended_difficulty", "beginner")
         learning_style = diagnosis_result.get("learning_style", "unknown")
         learning_goal = diagnosis_result.get("summary", "")
+
+        # schemas.GeneratedResource.target_skill_gaps：本次生成覆盖的盲区知识点
+        target_skill_gaps = [g.get("topic", "") for g in gaps if g.get("topic")]
 
         # Phase 2b接入：此处将接入 RAG 知识库检索（retrieved_chunks），
         # 用 KB 原文约束生成 + 溯源标注。MVP 阶段只用 LLM 自身知识，不做 RAG 检索。
@@ -113,7 +142,9 @@ class GenerationAgent(BaseAgent):
             if not result or result.get("_parse_error"):
                 self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
                 continue
-            resources.append(self._build_resource(rtype, difficulty, result))
+            resources.append(
+                self._build_resource(rtype, difficulty, result, target_skill_gaps, learner_id)
+            )
 
         return resources
 
@@ -139,7 +170,8 @@ class GenerationAgent(BaseAgent):
 {{
     "title": "资源标题（要具体、有吸引力）",
     "content": "Markdown 格式的完整内容（含代码示例和命令行时用 `````` 标注语言类型）",
-    "difficulty": "{difficulty}",
+    "difficulty_level": "{difficulty}",
+    "estimated_duration_minutes": 30,
     "key_takeaways": ["学完你能掌握什么1", "学完你能掌握什么2", "学完你能掌握什么3"]
 }}
 
@@ -155,18 +187,38 @@ class GenerationAgent(BaseAgent):
    - theory_first: 先讲清楚为什么再给代码
 5. 优先覆盖 critical 和 high 优先级的知识盲区"""
 
-    def _build_resource(self, rtype: str, recommended_difficulty: str, result: dict) -> dict:
-        """把 LLM 返回的结果规整为统一的资源字段结构。"""
+    def _build_resource(
+        self,
+        rtype: str,
+        recommended_difficulty: str,
+        result: dict,
+        target_skill_gaps: list[str] | None = None,
+        learner_id: str = "",
+    ) -> dict:
+        """把 LLM 返回的结果规整为 schemas.GeneratedResource 对齐的字段结构。
+
+        字段名与 schemas.py 的 GeneratedResource 严格一致：
+        resource_id / learner_id / resource_type / title / content /
+        citations / difficulty_level / target_skill_gaps /
+        estimated_duration_minutes / prerequisites / key_takeaways。
+        """
         return {
             "resource_id": str(uuid.uuid4()),
-            "type": rtype,
+            "learner_id": learner_id,
+            "resource_type": rtype,
             "title": result.get("title", f"{rtype} 学习资源"),
             "content": result.get("content", ""),
-            "difficulty": (
-                result.get("difficulty")
-                or result.get("difficulty_level")
+            # MVP 阶段无 RAG 溯源，citations 为空数组
+            # （schemas 注释：空数组 = 疑似未约束生成，Agent 3 将标记为 critical）
+            "citations": result.get("citations", []),
+            "difficulty_level": (
+                result.get("difficulty_level")
+                or result.get("difficulty")  # 兼容旧字段名
                 or recommended_difficulty
             ),
+            "target_skill_gaps": target_skill_gaps or [],
+            "estimated_duration_minutes": result.get("estimated_duration_minutes", 30),
+            "prerequisites": result.get("prerequisites", []),
             "key_takeaways": result.get("key_takeaways", []),
         }
 

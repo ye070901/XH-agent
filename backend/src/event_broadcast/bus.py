@@ -23,11 +23,19 @@ import asyncio
 import json
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 from loguru import logger
 
 from backend.src.config import settings
+
+# ═══════════════════════════════════════════════════════════
+# 事件审计日志（Day8：开启日志输出 → logs/eventbus.log）
+# ═══════════════════════════════════════════════════════════
+
+# 锚定仓库根目录 backend/src/event_broadcast/bus.py → parents[3] = 仓库根
+_EVENT_LOG_FILE = Path(__file__).resolve().parents[3] / "logs" / "eventbus.log"
 
 # ═══════════════════════════════════════════════════════════
 # 事件类型枚举
@@ -136,6 +144,9 @@ class EventBus:
             "timestamp": time.time(),
         }
 
+        # ── 审计日志落盘（logs/eventbus.log，失败仅降级不阻断广播）──
+        self._write_file_log(event)
+
         # ── 推送 ──
         subscribers = self._subscriptions.get(task_id, [])
         delivered = 0
@@ -229,6 +240,32 @@ class EventBus:
                 f"[EventBus] data 包含非基础序列化类型，"
                 f"仅允许 dict/list/str/int/float/bool/None: {e}"
             ) from e
+
+    # ═══════════════════════════════════════════════════════════
+    # 审计日志（Day8 开启：logs/eventbus.log）
+    # ═══════════════════════════════════════════════════════════
+
+    def _write_file_log(self, event: dict[str, Any]) -> None:
+        """事件追加写审计日志 logs/eventbus.log（JSONL，UTF-8）。
+
+        每条事件一行：原始字段（task_id / event_type / data / timestamp）+
+        可读时间戳 ts_iso。文件写入失败只降级记录，不影响广播。
+        """
+        try:
+            _EVENT_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            line = json.dumps(
+                {
+                    **event,
+                    "ts_iso": time.strftime(
+                        "%Y-%m-%d %H:%M:%S", time.localtime(event["timestamp"])
+                    ),
+                },
+                ensure_ascii=False,
+            )
+            with _EVENT_LOG_FILE.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
+        except Exception as exc:  # noqa: BLE001 - 日志失败不允许影响广播
+            logger.debug(f"[EventBus] 文件日志写入失败: {exc}")
 
     # ═══════════════════════════════════════════════════════════
     # 僵尸回收

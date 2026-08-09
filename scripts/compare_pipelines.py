@@ -91,6 +91,79 @@ async def run_v0_pipeline(learning_goal: str) -> dict:
 
 
 # ============================================================
+# 旧版管道 mock（本地占位）
+# ============================================================
+# Day8：pipeline_v0 已移除 mock_agent 并注册真实 Agent。
+# 旧版管道仅做 mock 对比，此处内联等效占位数据（不再依赖 pipeline_v0 的 mock）。
+
+
+async def _legacy_agent1_diagnosis(state: dict) -> dict:
+    """旧版 Agent1 mock：返回模拟诊断结果。"""
+    state["diagnosis_result"] = {
+        "knowledge_map": {
+            "FANUC - 基础操作": {"level": 0.8, "confidence": 0.9},
+            "FANUC - 示教器编程": {"level": 0.6, "confidence": 0.7},
+        },
+        "skill_gaps": [
+            {
+                "topic": "工具坐标系标定",
+                "current_level": 0.2,
+                "target_level": 0.8,
+                "priority": "high",
+                "reason": "缺少实操经验",
+            }
+        ],
+        "learning_style": "practice_first",
+        "recommended_difficulty": "beginner",
+        "overall_confidence": 0.85,
+        "summary": "mock 学情诊断。",
+    }
+    return state
+
+
+async def _legacy_agent2_generate(state: dict) -> dict:
+    """旧版 Agent2 mock：模拟 KB 约束生成。"""
+    chunks = state.get("retrieved_chunks", [])
+    state["generated_resources"] = [
+        {
+            "resource_id": "mock_gen_001",
+            "title": f"基于 {len(chunks)} 篇知识库文档生成的学习方案",
+            "content": "[mock] 个性化学习资源内容...",
+            "citations": [],
+        }
+    ]
+    return state
+
+
+async def _legacy_agent3_review(state: dict) -> dict:
+    """旧版 Agent3 mock：模拟内容审核。"""
+    state["audit_result"] = {
+        "verdict": "approved",
+        "confidence_score": 0.85,
+    }
+    return state
+
+
+async def _legacy_output(state: dict) -> dict:
+    """旧版 Output mock：格式化最终输出。"""
+    diag = state.get("diagnosis_result", {})
+    resources = state.get("generated_resources", [])
+    audit = state.get("audit_result", {})
+    state["final_output"] = {
+        "status": "ok",
+        "pipeline_state": "done",
+        "diagnosis": {
+            "difficulty": diag.get("recommended_difficulty", "?"),
+            "confidence": diag.get("overall_confidence", 0),
+            "gaps": len(diag.get("skill_gaps", [])),
+        },
+        "resources_count": len(resources),
+        "audit_verdict": audit.get("verdict", "unknown"),
+    }
+    return state
+
+
+# ============================================================
 # 旧版管道模拟
 # ============================================================
 
@@ -122,9 +195,8 @@ async def run_legacy_pipeline(learning_goal: str) -> dict:
         return {"pipeline": "legacy", "pipeline_state": "gate_blocked", "elapsed_ms": elapsed,
                 "gate_trace": gate_trace, "final_output": {}, "blocked_at": "InputGate"}
 
-    # [2] Agent1 mock
-    from backend.src.scheduler.pipeline_v0 import mock_agent1_diagnosis
-    await mock_agent1_diagnosis(state)
+    # [2] Agent1 mock（本地占位）
+    await _legacy_agent1_diagnosis(state)
 
     # [3] DiagnosisGate (旧版)
     from backend.src.quality_gate.gates import DiagnosisGate
@@ -155,11 +227,10 @@ async def run_legacy_pipeline(learning_goal: str) -> dict:
         return {"pipeline": "legacy", "pipeline_state": "gate_blocked", "elapsed_ms": elapsed,
                 "gate_trace": gate_trace, "final_output": {}, "blocked_at": "RecallGate"}
 
-    # [6-8] Agent2 + Agent3 + Output (mock)
-    from backend.src.scheduler.pipeline_v0 import mock_agent2_generate, mock_agent3_review, mock_output
-    await mock_agent2_generate(state)
-    await mock_agent3_review(state)
-    await mock_output(state)
+    # [6-8] Agent2 + Agent3 + Output (mock，本地占位)
+    await _legacy_agent2_generate(state)
+    await _legacy_agent3_review(state)
+    await _legacy_output(state)
 
     elapsed = int((time.monotonic() - t0) * 1000)
     return {

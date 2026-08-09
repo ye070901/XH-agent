@@ -194,7 +194,7 @@ def _show_output(agent, result: dict) -> None:
               f"skill_gaps 数量={gaps}, diagnosis_result={dx}")
     elif name == "GenerationAgent":
         res = result.get("generated_resources", [])
-        print(f"  │      generated_resources 数量={len(res)}, 类型={[r['type'] for r in res]}")
+        print(f"  │      generated_resources 数量={len(res)}, 类型={[r['resource_type'] for r in res]}")
     elif name == "CorrectionAgent":
         stats = result.get("correction_stats", {})
         logs = result.get("correction_log", [])
