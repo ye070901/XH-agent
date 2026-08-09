@@ -143,11 +143,7 @@ class KnowledgeBase:
     async def _init_fallback_mode(self) -> None:
         """文件降级：加载已有降级 md + 扫描 data/raw/ 目录作为初始语料。
 
-Updated upstream
         Day5增强：对data/raw/扫描文档应用_chunk_text切分，提升文件模式检索精度。
-
-        Day5增强：对data/raw/扫描文档应用_text_chunk切分，提升文件模式检索精度。
-Stashed changes
         降级后search()通过关键词匹配正常返回结果，不报错。
         """
         fb_dir = Path(settings.CHROMA_PERSIST_DIR) / "fallback_docs"
@@ -428,19 +424,11 @@ Stashed changes
         }
 
     # ═══════════════════════════════════════════════════════════
-Updated upstream
     # Day5: 性能统计基线 + 文件自动回退增强
-
-    # Day5: 性能统计基线 — 检索耗时监控（实现在上方search()中）
- Stashed changes
-    # ═══════════════════════════════════════════════════════════
     #   - search() 起止记录 perf_counter，输出 elapsed_ms 日志
     #   - 单次检索基线 < 200ms，超标输出 warning
     #   - _init_fallback_mode() 增强：data/raw/ 文档自动切分加载
- Updated upstream
     #     （实现在上方 _init_fallback_mode 方法中）
-
- Stashed changes
     # ═══════════════════════════════════════════════════════════
 
     # ═══════════════════════════════════════════════════════════
@@ -508,13 +496,8 @@ Updated upstream
         coll_match = current["collection_name"] == snapshot["collection_name"]
         verified = chunks_match and docs_match and coll_match
 
- Updated upstream
-        chunk_flag = "✓" if chunks_match else "✗"
-        doc_flag = "✓" if docs_match else "✗"
-
         chunk_flag = '✓' if chunks_match else '✗'
         doc_flag = '✓' if docs_match else '✗'
- Stashed changes
         logger.info(
             f"[知识库] 持久化校验结果 | verified={verified} "
             f"chunks: {snapshot['total_chunks']}→{current['total_chunks']}({chunk_flag}) "
@@ -620,12 +603,7 @@ Updated upstream
             "errors": errors,
         }
 
- Updated upstream
-    async def evaluate_search_quality(
-        self, test_cases: Optional[list[dict]] = None
-
     async def evaluate_search_quality(self, test_cases: Optional[list[dict]] = None) -> list[dict]:
-Stashed changes
         """Day6新增：检索质量评测。
 
         兼容K1~K3测试文档检索，验证3条检索案例中至少2条相关内容排在返回Top1。
@@ -636,12 +614,8 @@ Stashed changes
 
         Returns:
             list[dict]: 每条测试用例的评测结果，含：
-Updated upstream
                 {query, top1_doc_id, top1_title, top1_score, passed,
                  matched_keywords, elapsed_ms}
-=======
-                {query, top1_doc_id, top1_title, top1_score, passed, matched_keywords, elapsed_ms}
- Stashed changes
         """
         # K1~K3默认测试用例（覆盖工业机器人三个领域）
         if test_cases is None:
@@ -722,8 +696,4 @@ Updated upstream
 
 
 # 全局单例 — 所有模块通过此实例访问知识库
-Updated upstream
 knowledge_base = KnowledgeBase()
-=======
-knowledge_base = KnowledgeBase()
->>>>>>> Stashed changes
