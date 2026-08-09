@@ -96,9 +96,18 @@ class KnowledgeBase:
         """
         if self._initialized:
             return
-        try:
-            import os
 
+        # 检查ONNX模型是否存在，避免下载阻塞
+        import os
+        onnx_path = os.path.expanduser("~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz")
+        if os.path.exists(onnx_path):
+            size = os.path.getsize(onnx_path)
+            if size < 70_000_000:  # ONNX模型约79MB，不完整则跳过
+                logger.warning(f"[知识库] ONNX模型不完整 ({size/1024/1024:.1f}MB < 79MB)，跳过ChromaDB初始化")
+                await self._init_fallback_mode()
+                return
+
+        try:
             # 设置 HuggingFace 镜像以加速下载（国内网络）
             if "HF_ENDPOINT" not in os.environ:
                 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
@@ -234,13 +243,28 @@ class KnowledgeBase:
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
 
         if self._collection is not None:
-            metadatas = [
-                {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
-                for i in range(len(chunks))
-            ]
-            self._collection.add(
-                ids=chunk_ids, documents=chunks, metadatas=metadatas)
-            logger.info(f"[知识库] ChromaDB 写入: '{title}' → {len(chunks)} chunks")
+            try:
+                metadatas = [
+                    {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
+                    for i in range(len(chunks))
+                ]
+                self._collection.add(
+                    ids=chunk_ids, documents=chunks, metadatas=metadatas)
+                logger.info(f"[知识库] ChromaDB 写入: '{title}' → {len(chunks)} chunks")
+            except Exception as chroma_err:
+                # ChromaDB 1.5.9 API 兼容性问题，降级到文件模式
+                logger.warning(f"[知识库] ChromaDB 写入失败: {chroma_err}，切换文件模式")
+                self._collection = None
+                await self._init_fallback_mode()
+                if self._fallback_dir:
+                    (self._fallback_dir / f"{doc_id}.md").write_text(content, encoding="utf-8")
+                self._docs = [d for d in self._docs if d.get("doc_id") != doc_id]
+                for i, c in enumerate(chunks):
+                    self._docs.append({
+                        "doc_id": doc_id, "doc_title": title,
+                        "chunk_index": i, "content": c,
+                    })
+                logger.info(f"[知识库] 文件降级写入: '{title}' → {len(chunks)} chunks")
         else:
             if self._fallback_dir:
                 (self._fallback_dir /
