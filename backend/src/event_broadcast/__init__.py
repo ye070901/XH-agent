@@ -19,4 +19,3 @@
 from backend.src.event_broadcast.bus import EventBus, EventType, event_bus
 
 __all__ = ["EventBus", "EventType", "event_bus"]
-
