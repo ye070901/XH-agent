@@ -19,6 +19,7 @@ Thumbs.db
 
 # ChromaDB 向量数据
 data/chroma/
+backend/data/
 
 # 前端
 frontend/node_modules/

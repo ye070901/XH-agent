@@ -1,9 +1,15 @@
 # ====================== 导入块全部置顶，连续无中断 ======================
+# 0. 先修正 sys.path，确保项目根目录在 import 路径中
+import sys
+from pathlib import Path
+
+root_path = Path(__file__).parent.parent.parent.parent  # XH-agent/
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
 # 1. 项目内部模块导入
 # 2. Python 标准库
-import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 # 3. 第三方依赖库
 from fastapi import FastAPI, HTTPException
@@ -17,10 +23,6 @@ from backend.src.api.ws import router as ws_router
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
 """FastAPI 应用入口 — 知识库 + RAG 版本。v0.3.0"""
-
-# 定位项目根目录 XH-agent
-root_path = Path(__file__).parent.parent.parent.parent
-sys.path.append(str(root_path))
 
 
 @asynccontextmanager
@@ -116,15 +118,30 @@ async def generate(request: dict):
             }
         }
     """
+    # 兼容两种请求格式：
+    #   - 前端: {"learning_goal": "...", "education_level": "...", ...}
+    #   - 直接调用: {"user_input": "..."}
     user_input = request.get("user_input", "").strip()
-    if not user_input:
-        raise HTTPException(status_code=422, detail="user_input 为必填字段，不能为空")
+    learning_goal = request.get("learning_goal", "").strip()
 
-    logger.info(f"[API] /api/generate 请求: {user_input[:80]}...")
+    if not user_input and not learning_goal:
+        raise HTTPException(status_code=422, detail="user_input 或 learning_goal 为必填字段，不能为空")
+
+    # 构建 learner_data：优先用前端完整 payload
+    if learning_goal and not user_input:
+        # 前端格式 → 整个 request 就是 learner_data
+        learner_data = request
+        log_hint = learning_goal[:80]
+    else:
+        # 直接调用格式 → 只传 user_input
+        learner_data = {"learning_goal": user_input}
+        log_hint = user_input[:80]
+
+    logger.info(f"[API] /api/generate 请求: {log_hint}...")
 
     try:
         result = await scheduler.run_pipeline(
-            user_input={"learner_data": {"learning_goal": user_input}},
+            user_input={"learner_data": learner_data},
             task_id="",
         )
 
@@ -139,7 +156,7 @@ async def generate(request: dict):
         }
 
         # 构建 answer（从生成资源提取）
-        resources = result.get("generated_resources", [])
+        resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
         answer = _build_answer(resources)
         sources = _build_sources(result.get("retrieved_chunks", []))
 
@@ -147,13 +164,18 @@ async def generate(request: dict):
         confidence = _calc_confidence(result)
 
         return {
-            "status": "ok",
+            "status": result.get("status", "ok"),
             "result": {
                 "answer": answer,
                 "sources": sources,
                 "confidence": confidence,
             },
             "metrics": metrics,
+            # ── app_v2.py 需要的字段 ──
+            "diagnosis": result.get("diagnosis_result", {}),
+            "resources": resources,
+            "audit": result.get("audit_result", []),
+            "agent_log": result.get("agent_log", []),
         }
 
     except HTTPException:

@@ -75,6 +75,7 @@ class GenerationAgent(BaseAgent):
         """
         diagnosis = state.get("diagnosis_result", {})
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
+        retrieved_chunks = state.get("retrieved_chunks", [])
 
         # 安全上限：防止请求过多类型导致 token 爆炸
         resource_types = resource_types[: self.MAX_RESOURCES]
@@ -83,7 +84,7 @@ class GenerationAgent(BaseAgent):
         errors = []
         for rtype in resource_types:
             try:
-                result = await self._generate_one(diagnosis, rtype)
+                result = await self._generate_one(diagnosis, rtype, retrieved_chunks)
                 if result:
                     result["resource_type"] = rtype
                     result["resource_id"] = str(uuid.uuid4())
@@ -102,13 +103,14 @@ class GenerationAgent(BaseAgent):
             **({"generation_errors": errors} if errors else {}),
         }
 
-    async def _generate_one(self, diagnosis: dict, rtype: str) -> dict:
+    async def _generate_one(self, diagnosis: dict, rtype: str, retrieved_chunks: list | None = None) -> dict:
         """为单一资源类型生成内容。
 
         Args:
-            diagnosis: 诊断结果 dict，含 skill_gaps / recommended_difficulty
-                / learning_style / summary
-            rtype:     资源类型字符串（lecture / guide / quiz）
+            diagnosis:        诊断结果 dict，含 skill_gaps / recommended_difficulty
+                              / learning_style / summary
+            rtype:            资源类型字符串（lecture / guide / quiz）
+            retrieved_chunks: RAG 知识库检索结果列表
 
         Returns:
             LLM 返回的 dict；LLM 解析失败时返回 {}（由调用方过滤）。
@@ -118,19 +120,27 @@ class GenerationAgent(BaseAgent):
         learning_style = diagnosis.get("learning_style", "unknown")
         learning_goal = diagnosis.get("summary", "")
 
+        # ── 构建知识库上下文（RAG 约束生成）──
+        kb_context = self._fmt_knowledge_base(retrieved_chunks or [])
+
         prompt = f"""## 学习者画像
 - 学习目标总结：{learning_goal}
 - 知识盲区（按优先级）：{self._fmt_gaps(gaps)}
 - 推荐难度：{difficulty}
 - 学习风格：{learning_style}
 
+{ kb_context }
+
 ## 生成任务
-请用你的专业知识，生成一份 {rtype} 类型的个性化学习资源。
+请**严格基于上述知识库参考资料**，生成一份 {rtype} 类型的个性化学习资源。
 
 ## 输出 JSON
 {{
     "title": "资源标题（要具体、有吸引力）",
     "content": "Markdown 格式的完整内容（含代码示例和命令行时用 `````` 标注语言类型）",
+    "citations": [
+        {{"ref_index": 1, "original_text": "引用的原文片段", "usage": "在内容中的用途说明"}}
+    ],
     "difficulty_level": "{difficulty}",
     "estimated_duration_minutes": 30,
     "key_takeaways": ["学完你能掌握什么1", "学完你能掌握什么2", "学完你能掌握什么3"]
@@ -138,19 +148,21 @@ class GenerationAgent(BaseAgent):
 
 ## 硬性要求
 1. 内容必须准确——这是教育场景，教错了比不教更糟
-2. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
-3. 难度匹配 {difficulty} 水平：
+2. **内容必须基于上方知识库参考资料**，不得编造知识库中没有的技术细节
+3. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
+4. 难度匹配 {difficulty} 水平：
    - beginner: 多用生活类比，每行代码加注释
    - intermediate: 适当减少注释，引入进阶概念
    - advanced: 精简解释，给高质量代码和架构思考
-4. 学习风格为 {learning_style}：
+5. 学习风格为 {learning_style}：
    - practice_first: 先给代码再解释原理
    - theory_first: 先讲清楚为什么再给代码
-5. 三种资源固定内容结构：
+6. 三种资源固定内容结构：
    - lecture: 引言 → 3~4小节（概念+可运行代码）→ 总结
    - guide: 概述 → 前置准备 → 分步操作（命令+代码+预期输出）→ 常见问题
    - quiz: 基础选择题2道（含选项/标准答案/解析）→ 进阶题1道 → 挑战实操题1道
-6. 优先覆盖 critical 和 high 优先级的知识盲区"""
+7. 优先覆盖 critical 和 high 优先级的知识盲区
+8. citations 中至少引用 2 条知识库原文片段"""
 
         return await self.call_llm_json(prompt)
 
@@ -184,6 +196,36 @@ class GenerationAgent(BaseAgent):
             )
 
         return "\n".join(lines)
+
+    @staticmethod
+    def _fmt_knowledge_base(chunks: list) -> str:
+        """将 RAG 检索到的知识库 chunks 格式化为 LLM prompt 中的参考资料。
+
+        取前 6 条最相关的 chunk，去重（按 doc_title），
+        每条截取前 500 字符防止 prompt 过长。
+        """
+        if not chunks:
+            return "## 知识库参考资料\n（无可用知识库资料，请基于你的专业知识生成内容）"
+
+        seen_titles: set[str] = set()
+        unique_chunks: list[dict] = []
+        for c in chunks:
+            title = c.get("doc_title", "")
+            if title not in seen_titles:
+                seen_titles.add(title)
+                unique_chunks.append(c)
+            if len(unique_chunks) >= 6:
+                break
+
+        parts = ["## 知识库参考资料（以下是系统检索到的权威文档，请严格基于这些资料生成内容）"]
+        for i, c in enumerate(unique_chunks, 1):
+            title = c.get("doc_title", "未知文档")
+            content = c.get("content", "")
+            # 截取关键部分，防止 prompt 过长
+            excerpt = content[:500] + ("…" if len(content) > 500 else "")
+            parts.append(f"\n### 资料 {i}：{title}\n{excerpt}")
+
+        return "\n".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════

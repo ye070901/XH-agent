@@ -448,7 +448,7 @@ workflow.add_conditional_edges(
 
 def call_backend(data: dict) -> dict | None:
     try:
-        r = requests.post(f"{API_BASE}/api/generate", json=data, timeout=120)
+        r = requests.post(f"{API_BASE}/api/generate", json=data, timeout=300)
         if r.status_code == 200:
             return r.json()
         st.error(f"API ({r.status_code})")

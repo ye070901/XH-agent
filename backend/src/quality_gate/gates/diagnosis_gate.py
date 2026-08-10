@@ -49,14 +49,18 @@ class DiagnosisGate(BaseGate):
         1. 解析 JSON → 失败则 FALLBACK
         2. 逐项检查 → 任一失败则 RETRY
         3. 全过 → PASS
+
+        learner_data 稀疏时（仅 learning_goal 无其他信息），
+        自动放松置信度阈值：模型数据依据不足时不应强行打高分。
         """
         diag: dict = state.get("diagnosis_result", {})
 
         # ── 情况1：JSON 完全不可解析 → FALLBACK ──
         if not isinstance(diag, dict) or not diag:
+            effective_threshold = settings.DIAGNOSIS_CONFIDENCE_THRESHOLD
             logger.info(
                 f"[DiagnosisGate] overall_confidence=N/A, "
-                f"threshold={settings.DIAGNOSIS_CONFIDENCE_THRESHOLD}, "
+                f"threshold={effective_threshold}, "
                 f"verdict=FALLBACK"
             )
             return make_gate_result(
@@ -67,6 +71,9 @@ class DiagnosisGate(BaseGate):
                 gate_name=self.GATE_NAME,
                 fallback_data=self._build_fallback_diagnosis(state),
             )
+
+        # ── 根据 learner_data 稀疏程度调整阈值 ──
+        effective_threshold = self._get_effective_threshold(state)
 
         violations: list[str] = []
         retry_reasons: list[str] = []
@@ -94,10 +101,9 @@ class DiagnosisGate(BaseGate):
                 f"overall_confidence 值域异常（{confidence}），"
                 "置信度必须在 0-1 之间，请检查诊断逻辑后重新输出"
             )
-        elif confidence < settings.DIAGNOSIS_CONFIDENCE_THRESHOLD:
+        elif confidence < effective_threshold:
             violations.append(
-                f"overall_confidence={confidence:.2f} < "
-                f"{settings.DIAGNOSIS_CONFIDENCE_THRESHOLD}"
+                f"overall_confidence={confidence:.2f} < {effective_threshold}"
             )
             retry_reasons.append(
                 f"诊断置信度过低（{confidence:.2f}），"
@@ -144,9 +150,10 @@ class DiagnosisGate(BaseGate):
         # ── 全过 → PASS ──
         if not violations:
             conf_val = confidence if isinstance(confidence, (int, float)) else 0.0
+            sparse = "（稀疏模式）" if effective_threshold != settings.DIAGNOSIS_CONFIDENCE_THRESHOLD else ""
             logger.info(
                 f"[DiagnosisGate] overall_confidence={conf_val}, "
-                f"threshold={settings.DIAGNOSIS_CONFIDENCE_THRESHOLD}, "
+                f"threshold={effective_threshold}{sparse}, "
                 f"verdict=PASS"
             )
             return make_gate_result(
@@ -160,7 +167,7 @@ class DiagnosisGate(BaseGate):
         conf_val = confidence if isinstance(confidence, (int, float)) else 0.0
         logger.info(
             f"[DiagnosisGate] overall_confidence={conf_val}, "
-            f"threshold={settings.DIAGNOSIS_CONFIDENCE_THRESHOLD}, "
+            f"threshold={effective_threshold}, "
             f"verdict=RETRY"
         )
         return make_gate_result(
@@ -175,6 +182,27 @@ class DiagnosisGate(BaseGate):
     # ═══════════════════════════════════════════════════════════
     # 私有辅助
     # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _get_effective_threshold(state: dict) -> float:
+        """根据 learner_data 稀疏程度调整置信度阈值。
+
+        learner_data 只含 learning_goal（无学历/专业/经历/测试数据）
+        → 模型依据不足，使用宽松阈值 0.05，避免无限 RETRY。
+        learner_data 包含丰富画像 → 使用配置的标准阈值。
+
+        Returns:
+            float: 适用于当前 learner_data 的有效置信度阈值。
+        """
+        learner = state.get("learner_data", {}) or {}
+        has_rich_data = any(
+            learner.get(k)
+            for k in ("education_level", "major", "work_years", "skills_used", "pretest_results")
+            if learner.get(k)  # 过滤掉 0 / "" / [] / None
+        )
+        if not has_rich_data:
+            return 0.05
+        return settings.DIAGNOSIS_CONFIDENCE_THRESHOLD
 
     @staticmethod
     def _calc_avg_confidence(knowledge_map: dict) -> float:
