@@ -91,9 +91,15 @@ class TestDiagnosisGateRetry:
     """部分不满足 → RETRY。"""
 
     async def test_low_confidence_triggers_retry(self):
-        """overall_confidence < 0.3 → RETRY + retry_hint 含置信度提示。"""
+        """overall_confidence < 0.3（且 learner_data 丰富，不走稀疏模式）→ RETRY。"""
         gate = DiagnosisGate()
         state = _make_state(_valid_diagnosis(overall_confidence=0.2))
+        # 必须提供丰富的 learner_data，否则 _get_effective_threshold 会降为 0.05 稀疏模式
+        state["learner_data"] = {
+            "learning_goal": "学习 FANUC 机器人编程",
+            "major": "自动化",
+            "education_level": "本科",
+        }
         result = await gate.check(state)
 
         assert result["verdict"] == GateVerdict.RETRY.value, (

@@ -110,7 +110,7 @@ class KnowledgeBase:
         try:
             # 设置 HuggingFace 镜像以加速下载（国内网络）
             if "HF_ENDPOINT" not in os.environ:
-                os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
+                os.environ["HF_ENDPOINT"] = settings.HF_ENDPOINT
 
             import chromadb
             from chromadb.config import Settings as ChromaSettings

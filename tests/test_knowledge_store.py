@@ -3,13 +3,7 @@
 测试覆盖6个核心方法：
   initialize、_chunk_text、add_documents_batch、search、delete_document、get_stats
 
-<<<<<<< Updated upstream
-多套测试套件：
-  TestBuildEmbeddingFunction   — Embedding函数构建（chroma/openai/fallback三分支）
-  TestInitialize               — 初始化流程 + 文件降级模式
-=======
 两套测试套件：
->>>>>>> Stashed changes
   TestKnowledgeBaseFileMode    — 文件降级模式（ChromaDB不可用时的兜底逻辑）
   TestKnowledgeBaseChromaDB   — ChromaDB完整模式（使用mock模拟向量检索）
 
@@ -28,11 +22,7 @@ Day6集成测试：持久化校验、种子文档批量导入、检索质量评�
     # 仅运行ChromaDB mock测试
     python -m pytest tests/test_knowledge_store.py -v -k "ChromaDB"
 
-<<<<<<< Updated upstream
-    # 输出覆盖率（需安装 pytest-cov）
-=======
     # 输出覆盖率
->>>>>>> Stashed changes
     python -m pytest tests/test_knowledge_store.py \
         --cov=backend.src.knowledge.store --cov-report=term
 """
@@ -1044,34 +1034,15 @@ class TestKnowledgeBaseChromaDB:
         kb = KnowledgeBase()
         kb._initialized = True
 
-<<<<<<< Updated upstream
-=======
         # Mock ChromaDB Collection
->>>>>>> Stashed changes
         mock_collection = MagicMock()
         mock_collection.count.return_value = 10
         mock_collection.query.return_value = {
             "ids": [["doc1_chunk_0", "doc2_chunk_0"]],
-<<<<<<< Updated upstream
-            "documents": [[
-                "FANUC SRVO-068 故障代码处理指南",
-                "ABB RobotStudio 仿真操作",
-            ]],
-            "metadatas": [[
-                {
-                    "doc_id": "doc1", "doc_title": "FANUC SRVO-068 故障",
-                    "chunk_index": 0,
-                },
-                {
-                    "doc_id": "doc2", "doc_title": "ABB RobotStudio",
-                    "chunk_index": 0,
-                },
-=======
             "documents": [["FANUC SRVO-068 故障代码处理指南", "ABB RobotStudio 仿真操作"]],
             "metadatas": [[
                 {"doc_id": "doc1", "doc_title": "FANUC SRVO-068 故障", "chunk_index": 0},
                 {"doc_id": "doc2", "doc_title": "ABB RobotStudio", "chunk_index": 0},
->>>>>>> Stashed changes
             ]],
             "distances": [[0.2, 0.8]],
         }
@@ -1101,51 +1072,13 @@ class TestKnowledgeBaseChromaDB:
         assert "relevance_score" in results[0]
 
     @pytest.mark.asyncio
-<<<<<<< Updated upstream
-    async def test_search_empty_collection(self, kb_chroma):
-        """空集合检索返回空列表。"""
-        # 注意：search内部 n=min(top_k, max(1, count))，count=1时n=1
-        # 需要同时让count=0且query无结果来模拟空集合
-        kb_chroma._collection.count.return_value = 1
-        kb_chroma._collection.query.return_value = {
-            "ids": [[]], "documents": [[]],
-            "metadatas": [[]], "distances": [[]],
-        }
-=======
     async def test_search_emtpy_collection(self, kb_chroma):
         """空集合检索返回空列表。"""
         kb_chroma._collection.count.return_value = 0
->>>>>>> Stashed changes
         results = await kb_chroma.search("FANUC", top_k=5)
         assert results == []
 
     @pytest.mark.asyncio
-<<<<<<< Updated upstream
-    async def test_search_chroma_query_exception_fallback(self, kb_chroma):
-        """ChromaDB query抛异常 → 自动降级到关键词匹配（保持collection非None）。
-
-        覆盖 search() 中 except Exception 分支（lines 311-313）。
-        """
-        # 让query抛异常但collection保持非None
-        kb_chroma._collection.query.side_effect = RuntimeError("ChromaDB query crash")
-        # 同时往 _docs 灌入测试数据，使关键词检索能返回结果
-        kb_chroma._docs = [
-            {"doc_id": "test", "doc_title": "FANUC", "chunk_index": 0,
-             "content": "FANUC SRVO-068 DTERR 故障代码脉冲编码器数据传输异常。"},
-        ]
-        results = await kb_chroma.search("FANUC SRVO-068", top_k=5)
-        assert isinstance(results, list), "异常后不应崩溃，应返回关键词检索结果"
-        # 由于有关键词匹配文档，应返回至少1条
-        assert len(results) >= 1
-
-    @pytest.mark.asyncio
-    async def test_search_chroma_fallback(self, kb_chroma):
-        """ChromaDB检索异常时自动降级到关键词匹配（collection设为None的场景）。"""
-        kb_chroma._collection.query.side_effect = RuntimeError("ChromaDB down")
-        kb_chroma._collection = None
-        docs = make_test_docs(1)
-        await kb_chroma.add_documents_batch(docs)
-=======
     async def test_search_chroma_fallback_to_keyword(self, kb_chroma):
         """ChromaDB检索异常时自动降级到关键词匹配。"""
         kb_chroma._collection.query.side_effect = RuntimeError("ChromaDB connection lost")
@@ -1156,7 +1089,6 @@ class TestKnowledgeBaseChromaDB:
         # 注意：search内部catch异常后会调用_keyword_search，但此时_docs可能为空
         # 所以先重置_collection为None，让search走关键词路径
         kb_chroma._collection = None
->>>>>>> Stashed changes
         results = await kb_chroma.search("FANUC 故障", top_k=5)
         assert isinstance(results, list)
 
@@ -1165,10 +1097,6 @@ class TestKnowledgeBaseChromaDB:
     def test_similarity_formula(self, kb_chroma):
         """相似度计算公式验证：relevance_score = max(0, min(1, 1 - distance/2))。
 
-<<<<<<< Updated upstream
-        distance=0.0 → score=1.0 / distance=1.0 → score=0.5
-        distance=2.0 → score=0.0 / distance=3.0 → score=0.0(截断)
-=======
         测试点：
           distance=0.0 → score=1.0（完全匹配）
           distance=0.4 → score=0.8
@@ -1176,36 +1104,10 @@ class TestKnowledgeBaseChromaDB:
           distance=2.0 → score=0.0（完全不相关）
           distance=3.0 → score=0.0（下限截断，不会为负）
           distance=-0.5 → score=1.0（上限截断，不会大于1）
->>>>>>> Stashed changes
         """
         mock_results = {
             "ids": [["test_chunk_0"]],
             "documents": [["测试文档内容"]],
-<<<<<<< Updated upstream
-            "metadatas": [[{
-                "doc_id": "test", "doc_title": "测试", "chunk_index": 0,
-            }]],
-            "distances": [[0.0]],
-        }
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert formatted[0]["relevance_score"] == 1.0
-
-        mock_results["distances"] = [[0.4]]
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert formatted[0]["relevance_score"] == 0.8
-
-        mock_results["distances"] = [[1.0]]
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert formatted[0]["relevance_score"] == 0.5
-
-        mock_results["distances"] = [[2.0]]
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert formatted[0]["relevance_score"] == 0.0
-
-        mock_results["distances"] = [[3.0]]
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert formatted[0]["relevance_score"] == 0.0, "distance=3.0 → 下限截断为0"
-=======
             "metadatas": [[{"doc_id": "test", "doc_title": "测试", "chunk_index": 0}]],
             "distances": [[0.0]],
         }
@@ -1227,80 +1129,23 @@ class TestKnowledgeBaseChromaDB:
         mock_results["distances"] = [[3.0]]
         formatted = kb_chroma._format_search_results(mock_results)
         assert formatted[0]["relevance_score"] == 0.0, "distance=3.0 → score=0.0（下限截断）"
->>>>>>> Stashed changes
 
     def test_similarity_decimal_precision(self, kb_chroma):
         """验证score保留4位小数。"""
         mock_results = {
             "ids": [["chunk_0"]],
             "documents": [["测试"]],
-<<<<<<< Updated upstream
-            "metadatas": [[{
-                "doc_id": "t", "doc_title": "t", "chunk_index": 0,
-            }]],
-=======
             "metadatas": [[{"doc_id": "t", "doc_title": "t", "chunk_index": 0}]],
->>>>>>> Stashed changes
             "distances": [[0.3333]],
         }
         formatted = kb_chroma._format_search_results(mock_results)
         score_str = f"{formatted[0]['relevance_score']:.4f}"
-<<<<<<< Updated upstream
-        parts = score_str.split(".")
-        assert len(parts[1]) <= 4, f"小数位数应≤4: {score_str}"
-
-    def test_format_search_results_missing_metas(self, kb_chroma):
-        """metadatas列表短于ids时不应崩溃，使用空dict兜底。"""
-        mock_results = {
-            "ids": [["c0", "c1"]],
-            "documents": [["doc0", "doc1"]],
-            "metadatas": [[{"doc_id": "d0", "doc_title": "t0", "chunk_index": 0}]],  # 只有1条
-            "distances": [[0.1, 0.2]],
-        }
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert len(formatted) == 2
-        # 第二条的meta应使用空dict兜底
-        assert formatted[1]["doc_id"] == ""
-
-    def test_format_search_results_missing_distances(self, kb_chroma):
-        """distances列表短于ids时不应崩溃，使用0.0兜底。"""
-        mock_results = {
-            "ids": [["c0", "c1"]],
-            "documents": [["doc0", "doc1"]],
-            "metadatas": [[
-                {"doc_id": "d0", "doc_title": "t0", "chunk_index": 0},
-                {"doc_id": "d1", "doc_title": "t1", "chunk_index": 0},
-            ]],
-            "distances": [[0.1]],  # 只有1条
-        }
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert len(formatted) == 2
-        # 第二条的distance兜底为0.0 → score = 1.0
-        assert formatted[1]["relevance_score"] == 1.0
-
-    def test_format_search_results_missing_documents(self, kb_chroma):
-        """documents列表短于ids时不应崩溃，使用空字符串兜底。"""
-        mock_results = {
-            "ids": [["c0", "c1"]],
-            "documents": [["doc0"]],  # 只有1条
-            "metadatas": [[
-                {"doc_id": "d0", "doc_title": "t0", "chunk_index": 0},
-                {"doc_id": "d1", "doc_title": "t1", "chunk_index": 0},
-            ]],
-            "distances": [[0.1, 0.2]],
-        }
-        formatted = kb_chroma._format_search_results(mock_results)
-        assert len(formatted) == 2
-        assert formatted[1]["content"] == ""
-
-=======
         # 1 - 0.3333/2 = 0.83335, round to 4 decimals = 0.8334
         # Actually: 1 - 0.3333/2 = 1 - 0.16665 = 0.83335, round(0.83335, 4) = 0.8334
         # Let me just verify it's 4 decimal places
         parts = score_str.split(".")
         assert len(parts[1]) <= 4, f"小数位数应≤4: {score_str}"
 
->>>>>>> Stashed changes
     # ── 测试3: delete_document ──
 
     @pytest.mark.asyncio
@@ -1311,11 +1156,7 @@ class TestKnowledgeBaseChromaDB:
         kb_chroma._collection.delete.assert_called_once()
 
     @pytest.mark.asyncio
-<<<<<<< Updated upstream
-    async def test_delete_document_chroma_empty(self, kb_chroma):
-=======
     async def test_delete_document_chroma_empty_ids(self, kb_chroma):
->>>>>>> Stashed changes
         """ChromaDB模式删除不存在文档返回False。"""
         kb_chroma._collection.get.return_value = {"ids": []}
         result = await kb_chroma.delete_document("nonexistent")
@@ -1328,16 +1169,6 @@ class TestKnowledgeBaseChromaDB:
         result = await kb_chroma.delete_document("doc1")
         assert result is False
 
-<<<<<<< Updated upstream
-    @pytest.mark.asyncio
-    async def test_delete_document_chroma_get_returns_none(self, kb_chroma):
-        """ChromaDB get返回None时delete_document返回False不崩溃。"""
-        kb_chroma._collection.get.return_value = None
-        result = await kb_chroma.delete_document("doc1")
-        assert result is False
-
-=======
->>>>>>> Stashed changes
     # ── 测试4: get_stats ──
 
     @pytest.mark.asyncio
@@ -1345,23 +1176,14 @@ class TestKnowledgeBaseChromaDB:
         """ChromaDB模式统计信息正确。"""
         stats = await kb_chroma.get_stats()
         assert stats["mode"] == "chroma"
-<<<<<<< Updated upstream
-        assert stats["total_chunks"] == 10
-        assert stats["total_documents"] == 2
-=======
         assert stats["total_chunks"] == 10  # mock返回10
         assert stats["total_documents"] == 2  # doc1(2 chunks) + doc2(1 chunk)
->>>>>>> Stashed changes
         assert stats["collection_name"] == "domain_knowledge"
 
     @pytest.mark.asyncio
     async def test_get_stats_chroma_exception(self, kb_chroma):
         """ChromaDB统计异常时返回0值。"""
-<<<<<<< Updated upstream
-        kb_chroma._collection.count.side_effect = RuntimeError("err")
-=======
         kb_chroma._collection.count.side_effect = RuntimeError("stats error")
->>>>>>> Stashed changes
         stats = await kb_chroma.get_stats()
         assert stats["total_chunks"] == 0
         assert stats["total_documents"] == 0
@@ -1379,15 +1201,6 @@ class TestKnowledgeBaseChromaDB:
         assert len(result) >= 1
         kb_chroma._collection.add.assert_called_once()
 
-<<<<<<< Updated upstream
-    @pytest.mark.asyncio
-    async def test_add_document_chroma_empty_content(self, kb_chroma):
-        """ChromaDB模式空内容文档不崩溃。"""
-        result = await kb_chroma.add_document("empty", "空", "")
-        assert isinstance(result, list)
-
-=======
->>>>>>> Stashed changes
     # ── Day5: ChromaDB模式性能基线 ──
 
     @pytest.mark.asyncio
@@ -1396,12 +1209,8 @@ class TestKnowledgeBaseChromaDB:
         t0 = time.perf_counter()
         results = await kb_chroma.search("FANUC SRVO-068 故障处理", top_k=5)
         elapsed_ms = (time.perf_counter() - t0) * 1000
-<<<<<<< Updated upstream
-        assert elapsed_ms < 100, f"Mock检索应<100ms，实际{elapsed_ms:.1f}ms"
-=======
         # Mock模式应极快（< 50ms）
         assert elapsed_ms < 100, f"Mock ChromaDB检索应<100ms，实际{elapsed_ms:.1f}ms"
->>>>>>> Stashed changes
         assert len(results) >= 1
 
     # ── Day6: ChromaDB持久化校验 ──
@@ -1415,23 +1224,6 @@ class TestKnowledgeBaseChromaDB:
         assert result["total_chunks_match"] is True
         assert result["total_documents_match"] is True
 
-<<<<<<< Updated upstream
-    @pytest.mark.asyncio
-    async def test_verify_persistence_chroma_mismatch(self, kb_chroma):
-        """Day6：ChromaDB模式chunks数量不一致 → verified=False。"""
-        await kb_chroma._record_persistence_snapshot()
-        # 修改collection.count使当前chunks与快照不一致
-        kb_chroma._collection.count.return_value = 999
-        kb_chroma._collection.get.return_value = {
-            "ids": ["a_chunk_0"] * 999,
-            "metadatas": [{"doc_id": "a", "doc_title": "X", "chunk_index": 0}] * 999,
-        }
-        result = await kb_chroma.verify_persistence()
-        assert result["verified"] is False
-        assert result["total_chunks_match"] is False
-
-=======
->>>>>>> Stashed changes
     # ── Day6: 检索质量评测（ChromaDB模式） ──
 
     @pytest.mark.asyncio
@@ -1443,36 +1235,9 @@ class TestKnowledgeBaseChromaDB:
             assert "elapsed_ms" in r
             assert "passed" in r
 
-<<<<<<< Updated upstream
-    @pytest.mark.asyncio
-    async def test_evaluate_search_quality_chroma_all_pass(self, kb_chroma):
-        """Day6：ChromaDB模式下期望关键词全部命中Top1。"""
-        # 定制mock query结果使关键词匹配通过
-        kb_chroma._collection.query.return_value = {
-            "ids": [["fanuc_chunk_0"]],
-            "documents": [[
-                "FANUC 示教器 PTP 点位编程 LIN 直线运动 CIRC 圆弧运动指令详解。",
-            ]],
-            "metadatas": [[{
-                "doc_id": "fanuc_doc", "doc_title": "FANUC 示教器PTP编程指南",
-                "chunk_index": 0,
-            }]],
-            "distances": [[0.15]],
-        }
-        results = await kb_chroma.evaluate_search_quality()
-        # K1查询关于FANUC PTP，应命中
-        k1_result = [r for r in results if r.get("expected_domain") == "K1"]
-        if k1_result:
-            assert k1_result[0]["passed"] is True
-
-
-# ═══════════════════════════════════════════════════════════════
-# 套件3: 集成测试
-=======
 
 # ═══════════════════════════════════════════════════════════════
 # 套件3: Day5+Day6 集成测试
->>>>>>> Stashed changes
 # ═══════════════════════════════════════════════════════════════
 
 class TestIntegrationDay5:
@@ -1489,37 +1254,13 @@ class TestIntegrationDay5:
         return kb
 
     @pytest.mark.asyncio
-<<<<<<< Updated upstream
-    async def test_full_crud_cycle(self, kb):
-        """全流程CRUD：添加→检索→统计→删除→验证删除。"""
-=======
     async def test_full_crud_cycle_file_mode(self, kb):
         """全流程CRUD测试：添加 → 检索 → 统计 → 删除 → 验证删除。"""
         # Step 1: 批量导入
->>>>>>> Stashed changes
         docs = make_test_docs(3)
         imported = await kb.add_documents_batch(docs)
         assert imported == 3
 
-<<<<<<< Updated upstream
-=======
-        # Step 2: 统计
->>>>>>> Stashed changes
-        stats = await kb.get_stats()
-        assert stats["total_documents"] == 3
-        assert stats["total_chunks"] > 0
-
-<<<<<<< Updated upstream
-        results = await kb.search("FANUC 机器人", top_k=5)
-        assert len(results) >= 1
-
-        deleted = await kb.delete_document("test_fanuc_prog")
-        assert deleted is True
-
-        stats2 = await kb.get_stats()
-        assert stats2["total_documents"] == 2
-
-=======
         # Step 3: 检索
         results = await kb.search("FANUC 机器人", top_k=5)
         assert len(results) >= 1
@@ -1533,35 +1274,23 @@ class TestIntegrationDay5:
         assert stats2["total_documents"] == 2
 
         # Step 6: 验证删除后检索不含被删文档
->>>>>>> Stashed changes
         for d in kb._docs:
             assert d.get("doc_id") != "test_fanuc_prog"
 
     @pytest.mark.asyncio
     async def test_performance_under_load(self, kb):
-<<<<<<< Updated upstream
-        """Day5：10篇文档检索耗时验证 < 200ms。"""
-=======
         """Day5：10篇文档检索耗时验证。"""
         # 添加10篇测试文档
->>>>>>> Stashed changes
         for i in range(10):
             await kb.add_document(
                 f"perf_doc_{i}",
                 f"性能测试文档{i}",
-<<<<<<< Updated upstream
-                ("FANUC 机器人 KUKA 安全 ISO 10218 故障代码 "
-                 "SRVO 离线仿真 RobotStudio " * 5 + f" 唯一_{i}"),
-            )
-
-=======
                 "FANUC 机器人 KUKA 安全规范 ISO 10218 故障代码 "
                 "SRVO 离线仿真 RobotStudio 碰撞检测。" * 5 + f" 唯一标识_{i}",
             )
 
         # 执行多次检索取平均
         total_ms = 0
->>>>>>> Stashed changes
         queries = [
             "FANUC 示教器编程",
             "SRVO-068 故障处理",
@@ -1569,10 +1298,6 @@ class TestIntegrationDay5:
             "KUKA 安全规范",
             "碰撞检测 编码器",
         ]
-<<<<<<< Updated upstream
-        total_ms = 0.0
-=======
->>>>>>> Stashed changes
         for q in queries:
             t0 = time.perf_counter()
             results = await kb.search(q, top_k=5)
@@ -1580,10 +1305,7 @@ class TestIntegrationDay5:
             assert isinstance(results, list)
 
         avg_ms = total_ms / len(queries)
-<<<<<<< Updated upstream
-=======
         # 文件模式关键词检索应极快
->>>>>>> Stashed changes
         assert avg_ms < 200, f"平均检索耗时{avg_ms:.1f}ms应<200ms"
         print(f"\n[性能基线] 10篇文档平均检索耗时: {avg_ms:.2f}ms")
 
@@ -1603,29 +1325,12 @@ class TestIntegrationDay6:
 
     @pytest.mark.asyncio
     async def test_persistence_workflow(self, kb):
-<<<<<<< Updated upstream
-        """Day6：持久化全流程 — 初始化→快照→修改→验证→重置→再验证。"""
-=======
         """Day6：持久化全流程 — 初始化→快照→修改→验证不一致→重新初始化→验证一致。"""
         # 模拟首次初始化：添加数据并记录快照
->>>>>>> Stashed changes
         docs = make_test_docs(3)
         await kb.add_documents_batch(docs)
         snapshot1 = await kb._record_persistence_snapshot()
 
-<<<<<<< Updated upstream
-        result1 = await kb.verify_persistence()
-        assert result1["verified"] is True
-
-        # 模拟重启后新实例
-        kb2 = KnowledgeBase()
-        kb2._initialized = True
-        kb2._collection = None
-        kb2._docs = list(kb._docs)
-        kb2._fallback_dir = kb._fallback_dir
-        kb2._persist_snapshot = snapshot1
-
-=======
         # 验证一致
         result1 = await kb.verify_persistence()
         assert result1["verified"] is True
@@ -1639,34 +1344,19 @@ class TestIntegrationDay6:
         kb2._persist_snapshot = snapshot1  # 快照数据保留
 
         # 验证重启后数据一致
->>>>>>> Stashed changes
         result2 = await kb2.verify_persistence()
         assert result2["verified"] is True
         assert result2["total_chunks_match"] is True
         assert result2["total_documents_match"] is True
 
     @pytest.mark.asyncio
-<<<<<<< Updated upstream
-    async def test_seed_import_with_quality(self, kb, tmp_path):
-        """Day6：种子导入后3条用例至少2条Top1命中。"""
-=======
     async def test_seed_import_with_quality_check(self, kb, tmp_path):
         """Day6：种子导入后检索质量验证 — 3条用例至少2条Top1命中。"""
         # 创建K1~K3种子文档
->>>>>>> Stashed changes
         seed_docs = make_test_docs(4)
         raw_dir = tmp_path / "seed_final"
         make_temp_md_files(raw_dir, seed_docs)
 
-<<<<<<< Updated upstream
-        result = await kb.import_seed_documents(raw_dir=str(raw_dir))
-        assert result["imported"] >= 3
-
-        quality_results = await kb.evaluate_search_quality()
-        passed = sum(1 for r in quality_results if r["passed"])
-        assert passed >= 2, (
-            f"检索质量评测未达标：期望≥2条，实际{passed}条。"
-=======
         # 批量导入种子文档
         result = await kb.import_seed_documents(raw_dir=str(raw_dir))
         assert result["imported"] >= 3, f"期望≥3篇导入成功，实际{result['imported']}"
@@ -1678,7 +1368,6 @@ class TestIntegrationDay6:
         # Day6交付标准：3条测试至少2条相关内容排在返回Top1
         assert passed >= 2, (
             f"检索质量评测未达标：期望≥2条通过，实际{passed}条通过。\n"
->>>>>>> Stashed changes
             f"评测详情：{quality_results}"
         )
         print(f"\n[检索质量评测] 通过: {passed}/3")
@@ -1686,16 +1375,6 @@ class TestIntegrationDay6:
     @pytest.mark.asyncio
     async def test_k1_k2_k3_compatibility(self, kb):
         """Day6：K1~K3三类检索案例兼容性验证。"""
-<<<<<<< Updated upstream
-        docs = make_test_docs(4)
-        await kb.add_documents_batch(docs)
-
-        k1 = await kb.search("FANUC 示教器 点位编程 PTP LIN", top_k=3)
-        k2 = await kb.search("RobotStudio 离线仿真 RAPID 工作站", top_k=3)
-        k3 = await kb.search("SRVO-068 故障代码 脉冲编码器 DTERR", top_k=3)
-        assert len(k1) >= 1 and len(k2) >= 1 and len(k3) >= 1
-        print(f"\n[K1~K3兼容] K1:{len(k1)} K2:{len(k2)} K3:{len(k3)}")
-=======
         # 添加覆盖三领域的文档
         docs = make_test_docs(4)
         await kb.add_documents_batch(docs)
@@ -1714,7 +1393,6 @@ class TestIntegrationDay6:
 
         k1c, k2c, k3c = len(k1_results), len(k2_results), len(k3_results)
         print(f"\n[K1~K3兼容性] K1返回{k1c}条, K2返回{k2c}条, K3返回{k3c}条")
->>>>>>> Stashed changes
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1751,27 +1429,15 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_text_chunking(self, kb):
         """超长文本切分不崩溃。"""
-<<<<<<< Updated upstream
-        # 使用段落分隔符\n\n确保可正常切分
-        long_text = "\n\n".join(
-            ["FANUC 机器人工业自动化内容。工业机器人编程与调试指南。"] * 100
-        )
-        chunks = kb._chunk_text(long_text)
-        assert len(chunks) >= 5, f"超长文本应切分多个chunk，实际{len(chunks)}"
-=======
         long_text = ("FANUC 机器人工业自动化内容。" * 200)  # 约2000字符× 200 = 40000字符
         chunks = kb._chunk_text(long_text)
         assert len(chunks) >= 5, f"超长文本应切分为多个chunk，实际{len(chunks)}"
->>>>>>> Stashed changes
 
     @pytest.mark.asyncio
     async def test_search_special_characters(self, kb):
         """特殊字符查询不崩溃。"""
         docs = make_test_docs(1)
         await kb.add_documents_batch(docs)
-<<<<<<< Updated upstream
-        for q in ["FANUC SRVO-068", "机器人!!!", "查询" * 50, "   "]:
-=======
         special_queries = [
             "FANUC SRVO-068",
             "机器人!!!",
@@ -1780,7 +1446,6 @@ class TestEdgeCases:
             "   ",  # 空白查询
         ]
         for q in special_queries:
->>>>>>> Stashed changes
             results = await kb.search(q, top_k=3)
             assert isinstance(results, list), f"查询'{q[:20]}'不应崩溃"
 
@@ -1788,165 +1453,55 @@ class TestEdgeCases:
     async def test_add_document_empty_content(self, kb):
         """空内容文档不崩溃。"""
         result = await kb.add_document("empty_doc", "空文档", "")
-<<<<<<< Updated upstream
-=======
-        # 空内容应返回空chunk列表或最小chunk
->>>>>>> Stashed changes
-        assert isinstance(result, list)
-
-    @pytest.mark.asyncio
-    async def test_duplicate_add_document(self, kb):
-        """重复添加同ID文档不产生重复数据。"""
-        await kb.add_document("dup_test", "标题A", "内容AAAA。")
-        await kb.add_document("dup_test", "标题B", "内容BBBB。")
-<<<<<<< Updated upstream
-        assert kb._docs[0]["doc_title"] == "标题B", "应替换而非累加"
-=======
         assert kb._docs[0]["doc_title"] == "标题B", "重复添加应替换"
->>>>>>> Stashed changes
 
     @pytest.mark.asyncio
     async def test_get_stats_consistency(self, kb):
         """get_stats 在CRUD操作后数据一致。"""
-<<<<<<< Updated upstream
-        stats0 = await kb.get_stats()
-        assert stats0["total_documents"] == 0
-
-=======
         # 初始状态
         stats0 = await kb.get_stats()
         assert stats0["total_documents"] == 0
 
         # 添加3篇
->>>>>>> Stashed changes
         docs = make_test_docs(3)
         await kb.add_documents_batch(docs)
         stats1 = await kb.get_stats()
         assert stats1["total_documents"] == 3
         chunks1 = stats1["total_chunks"]
 
-<<<<<<< Updated upstream
-=======
-        # 删除1篇
->>>>>>> Stashed changes
-        await kb.delete_document("test_fanuc_prog")
-        stats2 = await kb.get_stats()
-        assert stats2["total_documents"] == 2
-        assert stats2["total_chunks"] <= chunks1
-
-    # ── 双分支逻辑验证 ──
-
-    @pytest.mark.asyncio
-    async def test_dual_branch_collection_available(self, kb):
-        """有ChromaDB集合时走向量检索分支。"""
-<<<<<<< Updated upstream
-        docs = make_test_docs(1)
-        await kb.add_documents_batch(docs)
-        assert kb._collection is None
-
-=======
         # 文件模式（无集合）→ 关键词检索
         docs = make_test_docs(1)
         await kb.add_documents_batch(docs)
         assert kb._collection is None, "应为文件模式"
 
         # 有集合 → 向量检索
->>>>>>> Stashed changes
         mock_coll = MagicMock()
         mock_coll.count.return_value = 5
         mock_coll.query.return_value = {
             "ids": [["c0"]], "documents": [["test"]],
-<<<<<<< Updated upstream
-            "metadatas": [[{
-                "doc_id": "d", "doc_title": "t", "chunk_index": 0,
-            }]],
-=======
             "metadatas": [[{"doc_id": "d", "doc_title": "t", "chunk_index": 0}]],
->>>>>>> Stashed changes
             "distances": [[0.5]],
         }
         kb._collection = mock_coll
         _results = await kb.search("test", top_k=3)
-<<<<<<< Updated upstream
-        mock_coll.query.assert_called_once()
-=======
         mock_coll.query.assert_called_once()  # 验证走向量检索
->>>>>>> Stashed changes
 
     @pytest.mark.asyncio
     async def test_dual_branch_no_collection(self, kb):
         """无ChromaDB集合时走关键词检索分支。"""
         docs = make_test_docs(1)
         await kb.add_documents_batch(docs)
-<<<<<<< Updated upstream
-        kb._collection = None
-        results = await kb.search("FANUC 机器人", top_k=3)
-        assert isinstance(results, list)
-
-    # ── 关键词检索边界 ──
-
-    @pytest.mark.asyncio
-    async def test_keyword_search_only_whitespace_query(self, kb):
-        """纯空格查询search返回空列表，且keyword_search不异常。"""
-        docs = make_test_docs(1)
-        await kb.add_documents_batch(docs)
-        # 纯空格query — search中strip后为空，直接返回[]
-        results = await kb.search("   ", top_k=5)
-        assert results == []
-
-    @pytest.mark.asyncio
-    async def test_keyword_search_no_hits(self, kb):
-        """_keyword_search无命中时正确返回空。"""
-        kb._docs = [{"doc_id": "x", "doc_title": "x", "chunk_index": 0,
-                      "content": "完全不匹配的内容。"}]
-        results = kb._keyword_search("zzzzzqqqqq", top_k=5)
-        assert results == []
-
-    # ── 持久化快照与校验细节 ──
-
-    @pytest.mark.asyncio
-    async def test_record_persistence_snapshot_overwrites(self, kb):
-        """重复记录快照应覆盖旧快照。"""
-        docs = make_test_docs(1)
-        await kb.add_documents_batch(docs)
-        snap1 = await kb._record_persistence_snapshot()
-        await kb.add_document("extra_doc", "额外", "额外内容。")
-        snap2 = await kb._record_persistence_snapshot()
-        assert snap1["total_documents"] != snap2["total_documents"]
-        assert snap2["total_documents"] == snap1["total_documents"] + 1
-
-    # ── 删除后空知识库的完整校验 ──
-
-    @pytest.mark.asyncio
-    async def test_delete_all_then_verify(self, kb):
-        """全部删除后校验persistence。"""
-        docs = make_test_docs(3)
-        await kb.add_documents_batch(docs)
-        await kb._record_persistence_snapshot()
-        for doc_id in ["test_fanuc_prog", "test_kuka_safety", "test_abb_simulation"]:
-            await kb.delete_document(doc_id)
-        result = await kb.verify_persistence()
-        assert result["verified"] is False
-        assert result["total_documents_match"] is False
-
-=======
         kb._collection = None  # 确保文件模式
         results = await kb.search("FANUC 机器人", top_k=3)
         # 关键词检索不调用collection.query
         assert isinstance(results, list)
 
->>>>>>> Stashed changes
 
 # ═══════════════════════════════════════════════════════════════
 # 直接运行入口
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
-<<<<<<< Updated upstream
-    print("=" * 60)
-    print("  KB引擎单元测试 — Opt-2 Day5+Day6")
-    print("=" * 60)
-=======
     print("=" * 70)
     print("  KB引擎单元测试 — Opt-2 Day5+Day6")
     print("=" * 70)
@@ -1967,5 +1522,4 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # 执行自测
->>>>>>> Stashed changes
     sys.exit(pytest.main([__file__, "-v", "--tb=short"]))

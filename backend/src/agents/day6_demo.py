@@ -38,9 +38,9 @@ if str(_PKG_PARENT) not in sys.path:
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from agents.correction import CorrectionAgent
-from agents.diagnosis import DiagnosisAgent
-from agents.generation import GenerationAgent
+from agents.correction import CorrectionAgent  # noqa: E402
+from agents.diagnosis import DiagnosisAgent  # noqa: E402
+from agents.generation import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 演示输入数据（与 test_all_agents.py 对齐，保证各 Agent 的必需字段齐全）
@@ -181,7 +181,7 @@ def _show(agent, failure: str, result: dict) -> None:
     # 只打印 error 相关字段：统一 error 格式
     print(f"  │   → error 格式: {fmt}")
     _show_output(agent, result)
-    print(f"  │   → 未崩溃，正常返回 dict ✓")
+    print("  │   → 未崩溃，正常返回 dict ✓")
 
 
 def _show_output(agent, result: dict) -> None:
@@ -198,7 +198,7 @@ def _show_output(agent, result: dict) -> None:
     elif name == "CorrectionAgent":
         stats = result.get("correction_stats", {})
         logs = result.get("correction_log", [])
-        failed = [l for l in logs if l["action"] == "failed"]
+        failed = [entry for entry in logs if entry["action"] == "failed"]
         print(f"  │      修正统计={stats}")
         print(f"  │      corrected_resources 数量={len(result.get('corrected_resources', []))}, "
               f"failed 日志条数={len(failed)}")

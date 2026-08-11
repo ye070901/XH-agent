@@ -44,9 +44,9 @@ _PKG_PARENT = Path(__file__).resolve().parent.parent
 if str(_PKG_PARENT) not in sys.path:
     sys.path.insert(0, str(_PKG_PARENT))
 
-from agents.correction import CorrectionAgent
-from agents.diagnosis import DiagnosisAgent
-from agents.generation import GenerationAgent
+from agents.correction import CorrectionAgent  # noqa: E402
+from agents.diagnosis import DiagnosisAgent  # noqa: E402
+from agents.generation import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 测试数据（全部 mock，不调用真实大模型）
@@ -502,7 +502,7 @@ class TestCorrectionAgent:
         # 修正日志覆盖 replaced / adjusted / accepted / skipped 四种 action
         actions = {log["action"] for log in result["correction_log"]}
         assert {"replaced", "adjusted", "accepted", "skipped"} <= actions
-        error_logs = [l for l in result["correction_log"] if l["severity"] == "error"]
+        error_logs = [entry for entry in result["correction_log"] if entry["severity"] == "error"]
         assert error_logs[0]["correction_basis"] == "knowledge_base"  # kb_evidence 存在
 
     def test_llm_calls_prompt_contains_context(self):
@@ -586,7 +586,7 @@ class TestCorrectionAgent:
         ]
         result, m = self._run(state, {"return_value": dict(CORRECTED_OK)})
         assert result["correction_stats"]["errors_fixed"] == 1
-        error_logs = [l for l in result["correction_log"] if l["severity"] == "error"]
+        error_logs = [entry for entry in result["correction_log"] if entry["severity"] == "error"]
         assert error_logs and error_logs[0]["correction_basis"] == "knowledge_base"
         # 提升后的 error 出现在修正 prompt 中
         prompt = m.await_args.args[0]
@@ -707,8 +707,8 @@ class TestCorrectionAgent:
         assert cr[0]["content"] == "# LangGraph 入门讲义\n\nLangGraph 是 Google 开发的框架。"
         logs = result["correction_log"]
         assert any(
-            l["error_detail"] == "json_parse_failed" and l["correction_basis"] == "failed"
-            for l in logs
+            entry["error_detail"] == "json_parse_failed" and entry["correction_basis"] == "failed"
+            for entry in logs
         )
 
     def test_llm_empty_content_fallback(self):
@@ -718,7 +718,7 @@ class TestCorrectionAgent:
         cr = result["corrected_resources"]
         assert cr[0]["content"] == "# LangGraph 入门讲义\n\nLangGraph 是 Google 开发的框架。"
         assert any(
-            l["error_detail"] == "json_parse_failed" for l in result["correction_log"]
+            entry["error_detail"] == "json_parse_failed" for entry in result["correction_log"]
         )
 
     def test_partial_corrected_result_falls_back(self):

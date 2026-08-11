@@ -11,10 +11,11 @@
 from __future__ import annotations
 
 import asyncio
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from loguru import logger
 
-from backend.src.event_broadcast import event_bus, EventType
+from backend.src.event_broadcast import event_bus
 
 router = APIRouter()
 

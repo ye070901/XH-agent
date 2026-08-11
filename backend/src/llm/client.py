@@ -543,7 +543,7 @@ class LLMClient:
 
         try:
             result = json.loads(fixed)
-            logger.info(f"[LLM] 补全截断 JSON 成功")
+            logger.info("[LLM] 补全截断 JSON 成功")
             return result
         except json.JSONDecodeError:
             return None

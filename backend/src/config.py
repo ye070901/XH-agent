@@ -187,6 +187,10 @@ class Settings:
     RECALL_QUERY_REWRITE_MODEL: str = os.getenv("RECALL_QUERY_REWRITE_MODEL", "")
     """RecallGate v0.1：Query 改写用的轻量 LLM 模型，为空回退到 GATE_LLM_MODEL → LLM_MODEL"""
 
+    # -- KB 引擎 --
+    HF_ENDPOINT: str = os.getenv("HF_ENDPOINT", "https://hf-mirror.com")
+    """HuggingFace 镜像地址，用于下载 ChromaDB ONNX 模型（国内网络加速）"""
+
     # ============================================================
     # EventBus
     # ============================================================

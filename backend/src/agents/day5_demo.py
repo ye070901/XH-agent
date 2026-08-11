@@ -25,9 +25,9 @@ if str(_PKG_PARENT) not in sys.path:
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from agents.diagnosis import DiagnosisAgent
-from agents.event_bus import event_bus
-from agents.generation import GenerationAgent
+from agents.diagnosis import DiagnosisAgent  # noqa: E402
+from agents.event_bus import event_bus  # noqa: E402
+from agents.generation import GenerationAgent  # noqa: E402
 
 
 def _on_event(event_type: str, *args, **kwargs) -> None:

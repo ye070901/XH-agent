@@ -16,10 +16,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
+from backend.src.api.ws import router as ws_router
 from backend.src.config import settings
 from backend.src.knowledge.store import knowledge_base
 from backend.src.scheduler.pipeline import scheduler
-from backend.src.api.ws import router as ws_router
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
 """FastAPI 应用入口 — 知识库 + RAG 版本。v0.3.0"""
@@ -74,7 +74,7 @@ async def root():
     stats = await _get_kb_stats()
     return {
         "name": "领域知识个性化生成系统",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "status": "running",
         "kb_mode": stats["mode"],
         "kb_docs": stats["total_documents"],

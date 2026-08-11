@@ -150,7 +150,8 @@ class DiagnosisGate(BaseGate):
         # ── 全过 → PASS ──
         if not violations:
             conf_val = confidence if isinstance(confidence, (int, float)) else 0.0
-            sparse = "（稀疏模式）" if effective_threshold != settings.DIAGNOSIS_CONFIDENCE_THRESHOLD else ""
+            default_threshold = settings.DIAGNOSIS_CONFIDENCE_THRESHOLD
+            sparse = "（稀疏模式）" if effective_threshold != default_threshold else ""
             logger.info(
                 f"[DiagnosisGate] overall_confidence={conf_val}, "
                 f"threshold={effective_threshold}{sparse}, "

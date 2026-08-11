@@ -363,9 +363,20 @@ class PipelineSchedulerV0:
             name, handler, retry_target = steps[idx]
             step_num = idx + 1
 
-            # 执行 step
+            # 执行 step（异常隔离：单步崩溃不终止流水线，转 FALLBACK）
             logger.info(f"[{step_num}/{len(steps)}] {name} ...")
-            step_result = await handler(state)
+            try:
+                step_result = await handler(state)
+            except Exception as exc:
+                logger.error(
+                    f"[{step_num}/{len(steps)}] {name} 抛出异常: "
+                    f"{type(exc).__name__}: {exc}，转 FALLBACK"
+                )
+                step_result = {
+                    "verdict": GateVerdict.FALLBACK.value,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                }
 
             verdict = step_result.get("verdict", GateVerdict.PASS.value)
             logger.info(f"  [{step_num}/{len(steps)}] {name} -> {verdict}")

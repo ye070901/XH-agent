@@ -31,7 +31,8 @@ class TestAgentGeneration:
     """角色5 的测试"""
 
     async def test_process_returns_resources(self):
-        from src.agents.generation import GenerationAgent
+        """GenerationAgent（融合版 v2）接受 state dict → 返回含 generated_resources 的 state。"""
+        from src.agents.generation_v2 import GenerationAgent
 
         agent = GenerationAgent()
         state = {
@@ -57,8 +58,9 @@ class TestAgentGeneration:
                 }
             ],
             "resource_types": ["lecture"],
+            "agent_log": [],
         }
-        result = await agent.process(state)
+        result = await agent.run(state)
         assert "generated_resources" in result
         assert len(result["generated_resources"]) > 0
 

@@ -24,7 +24,7 @@ _PKG_PARENT = Path(__file__).resolve().parent.parent
 if str(_PKG_PARENT) not in sys.path:
     sys.path.insert(0, str(_PKG_PARENT))
 
-from agents.generation import GenerationAgent
+from agents.generation import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 测试数据（mock，不经真实 LLM）
