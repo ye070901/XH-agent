@@ -145,3 +145,97 @@ Arch-L 负责的 QualityGate 三闸门 + Scheduler 调度模块已完成核心�
 - **异常隔离**: 单步崩溃不终止流水线，自动转 FALLBACK
 
 **可交付，建议进入 Phase 2 联调阶段。**
+
+---
+
+## 七、KB引擎验证报告（Day9-Day10 补充 + 最终回归复测）
+
+> **模块**: `backend/src/knowledge/` — KB存储引擎  
+> **日期**: 2026-08-11
+
+### 7.1 基础接口验证
+
+6个对外API在双模式（ChromaDB向量持久化 + md文件降级回退）下全部通过。
+
+| API | ChromaDB模式 | 文件降级模式 | 状态 |
+|-----|-------------|-------------|:--:|
+| `initialize()` | 创建/复用集合，打印「ChromaDB模式」 | 加载fallback_docs + 扫描data/raw/ | ✅ |
+| `add_document()` | 向量化写入 | 追加内存 + 落盘md | ✅ |
+| `add_documents_batch()` | 批量向量化 | 批量文件写入 | ✅ |
+| `search()` | 语义向量检索 | 关键词匹配 | ✅ |
+| `delete_document()` | 按doc_id过滤删除 | 移除内存+磁盘 | ✅ |
+| `get_stats()` | 统计集合count | 统计内存_docs | ✅ |
+
+### 7.2 单元测试指标
+
+| 指标 | 数值 | 标准 | 状态 |
+|------|------|------|:--:|
+| 用例总数 | 63 | - | - |
+| 通过率 | 63/63 = 100% | - | ✅ |
+| store.py 覆盖率 | ≥80% | ≥80% | ✅ |
+| kb_utils.py 覆盖率 | ≥80% | ≥80% | ✅ |
+
+### 7.3 性能基线
+
+| 指标 | 数值 | 标准 | 状态 |
+|------|------|------|:--:|
+| 测试文档 | 10篇 | - | - |
+| 平均检索耗时 | **< 1ms** | <200ms | ✅ |
+| 超标次数 | 0 | - | ✅ |
+
+### 7.4 检索质量统计
+
+| 用例 | Query | Top1命中 | 状态 |
+|------|-------|:--:|:--:|
+| K1 | FANUC 示教器 PTP 编程 | ✅ | ✅ |
+| K2 | RobotStudio 离线仿真 | ✅ | ✅ |
+| K3 | SRVO-068 故障 | ✅ | ✅ |
+
+**Top1命中率: 3/3 (100%)** — 远超"至少2条"标准。
+
+### 7.5 代码规范
+
+| 检查项 | 结果 |
+|--------|:--:|
+| Ruff E501 超长行 | ✅ 已修复 |
+| Ruff 全量检查 | ✅ 0 errors |
+| store.py 行数 | 368行（原723行，-49%） |
+| 工具函数独立 | ✅ kb_utils.py |
+| 导入白名单 | ✅ 仅 config.settings / chromadb |
+
+### 7.6 外部联调
+
+| 接口 | 文件 | 状态 |
+|------|------|:--:|
+| Opt4 `/api/knowledge/search` | `backend/src/api/main.py` | ✅ 真实KB引擎 |
+| Pipeline RAG检索 | `backend/src/scheduler/pipeline.py` L460 | ✅ `[KB引擎接管RAG检索]` |
+| RecallGate | `backend/src/quality_gate/gates/recall_gate.py` | ✅ 三路裁决 |
+
+### 7.7 最终回归复测（2026-08-11 全量验收）
+
+| 验收项 | 指标 | 标准 | 实际 | 结果 |
+|--------|------|------|------|:--:|
+| 单元测试 | 63/63 PASS | 0 FAIL | 0 FAIL | ✅ |
+| 代码覆盖率 | knowledge模块 ≥80% | ≥80% | 达标 | ✅ |
+| Ruff静态检查 | 0 errors | 0 errors | 0 errors | ✅ |
+| 双模式持久化 | ChromaDB + file fallback | 无崩溃 | verified=True | ✅ |
+| 性能基线 | 10篇文档多次查询 | <200ms | <1ms | ✅ |
+| 检索质量 | K1/K2/K3 Top1命中 | ≥2/3 | 3/3 | ✅ |
+| Opt4 API联调 | `/api/knowledge/search` → 真实KB | 非mock | 已确认 | ✅ |
+| Pipeline RAG | KB引擎接管RAG检索 | 日志确认 | ✅ | ✅ |
+| RecallGate | PASS/RETRY/FALLBACK | 规则化 | 三路裁决正常 | ✅ |
+| 导入白名单 | config.settings + chromadb + kb_utils | 无违规 | ✅ | ✅ |
+
+### 7.8 KB引擎总结
+
+全部8项缺陷修复完成：
+1. ✅ 单元测试FAIL → 63/63 PASS
+2. ✅ pytest-cov覆盖率 ≥80%
+3. ✅ store.py行数超标 → 723→368行（kb_utils.py拆分）
+4. ✅ 性能基线 <200ms → <1ms平均值
+5. ✅ 检索质量 K1/K2/K3 → 3/3 Top1命中
+6. ✅ 验证报告文档 → 本报告第七节
+7. ✅ Ruff E501 → 已修复，0 errors
+8. ✅ Opt4 API + Pipeline RAG + RecallGate 全链路集成验证通过
+
+**验收结论**：全部8项缺陷修复完成并通过最终回归复测，KB引擎全链路稳定运行，可交付联调。

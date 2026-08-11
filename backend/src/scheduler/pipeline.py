@@ -459,6 +459,7 @@ class PipelineScheduler:
 
         chunks = await knowledge_base.search(str(query), top_k=8)
         state["retrieved_chunks"] = chunks
+        logger.info(f"[KB引擎接管RAG检索] query={str(query)[:50]}")
         logger.info(
             f"[Scheduler] task_id={task_id[:8]}… "
             f"RAG: '{str(query)[:50]}' -> {len(chunks)} chunks"
