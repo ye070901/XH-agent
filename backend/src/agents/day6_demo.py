@@ -8,13 +8,13 @@
   3. 返回空内容    —— call_llm_json 返回 {}
 
 观察点（异常时代理不崩溃，统一返回 {"error": "错误描述", "status": "error"}）:
-  - DiagnosisAgent / CorrectionAgent 的 run() 包装了 BaseAgent.run()，
+  - 三个 Agent 的 run() 均包装了 BaseAgent.run()，
     内置 try/except：LLM 抛出的异常被捕获，以 state 中的
     error / error_type / status="error" 返回（下称"error 格式"）。
   - CorrectionAgent 还额外对"单资源修正"做 try/except：
     LLM 异常会降级为"保留原内容 + 记录 failed 日志"，process 整体正常返回。
-  - GenerationAgent.run() 自行覆写、直接调用 process()，没有 BaseAgent.run()
-    的异常隔离：调用超时会向上抛出（下文中如实打印，属既有行为，演示不做修改）。
+  - GenerationAgent 使用 generation_v2 版本，同样走 BaseAgent.run() 的
+    异常隔离：超时 / 非法JSON / 空内容均被降级处理，不会向上抛出。
 
 运行方式（在项目根目录）::
 
@@ -40,7 +40,7 @@ if sys.platform == "win32":
 
 from agents.correction import CorrectionAgent  # noqa: E402
 from agents.diagnosis import DiagnosisAgent  # noqa: E402
-from agents.generation import GenerationAgent  # noqa: E402
+from agents.generation_v2 import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 演示输入数据（与 test_all_agents.py 对齐，保证各 Agent 的必需字段齐全）
@@ -194,7 +194,8 @@ def _show_output(agent, result: dict) -> None:
               f"skill_gaps 数量={gaps}, diagnosis_result={dx}")
     elif name == "GenerationAgent":
         res = result.get("generated_resources", [])
-        print(f"  │      generated_resources 数量={len(res)}, 类型={[r['resource_type'] for r in res]}")
+        types = [r["resource_type"] for r in res]
+        print(f"  │      generated_resources 数量={len(res)}, 类型={types}")
     elif name == "CorrectionAgent":
         stats = result.get("correction_stats", {})
         logs = result.get("correction_log", [])
@@ -231,11 +232,10 @@ async def main() -> None:
 
     print("\n" + "=" * 72)
     print("结论:")
-    print("  1. Diagnosis/Correction 的 run() 走 BaseAgent.run() try/except:")
-    print("     LLM 超时 → 不崩溃，state 返回 {\"error\": \"LLM 调用超时（模拟）\", \"status\": \"error\"}")
+    print("  1. 三个 Agent 的 run() 统一走 BaseAgent.run() 的 try/except:")
+    print("     LLM 超时 → 不崩溃，state 返回 error 标记")
     print("  2. Correction 对单资源修正额外兜底: 超时/解析失败 → 保留原内容 + failed 日志")
-    print("  3. GenerationAgent.run() 无异常隔离（既有行为）: 超时会向上抛出，非法JSON/空内容则跳过该资源")
-    print("  4. 非法 JSON / 空内容在三个 Agent 中均被降级处理，不会导致崩溃")
+    print("  3. 非法 JSON / 空内容在三个 Agent 中均被降级处理，不会导致崩溃")
     print("=" * 72)
 
 

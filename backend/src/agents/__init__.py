@@ -4,7 +4,7 @@ from .audit import AuditAgent
 from .base import BaseAgent
 from .correction import CorrectionAgent
 from .diagnosis import DiagnosisAgent
-from .generation import GenerationAgent
+from .generation_v2 import GenerationAgent
 from .generation_v2 import GenerationAgent as GenerationAgentV2
 
 __all__ = [

@@ -27,7 +27,7 @@ if sys.platform == "win32":
 
 from agents.diagnosis import DiagnosisAgent  # noqa: E402
 from agents.event_bus import event_bus  # noqa: E402
-from agents.generation import GenerationAgent  # noqa: E402
+from agents.generation_v2 import GenerationAgent  # noqa: E402
 
 
 def _on_event(event_type: str, *args, **kwargs) -> None:
@@ -69,7 +69,10 @@ async def main() -> None:
 
     print("\n=== 生成结果 ===")
     for i, res in enumerate(state.get("generated_resources", []), 1):
-        print(f"{i}. [{res['resource_type']}] {res['title']} (difficulty={res['difficulty_level']})")
+        print(
+            f"{i}. [{res['resource_type']}] {res['title']} "
+            f"(difficulty={res['difficulty_level']})"
+        )
         print(f"   key_takeaways: {res.get('key_takeaways', [])}")
 
     print("\n=== 链路完成 ===")

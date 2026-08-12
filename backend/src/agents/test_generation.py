@@ -24,17 +24,23 @@ _PKG_PARENT = Path(__file__).resolve().parent.parent
 if str(_PKG_PARENT) not in sys.path:
     sys.path.insert(0, str(_PKG_PARENT))
 
-from agents.generation import GenerationAgent  # noqa: E402
+from agents.generation_v2 import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 测试数据（mock，不经真实 LLM）
 # ═══════════════════════════════════════════════════════════
 
 #: 单份资源的 mock 返回（call_llm_json 的返回值）
+#: 字段与 schemas.GeneratedResource 对齐；generation_v2 只补 resource_type / resource_id，
+#: 其余字段按 LLM 原样透传，因此 mock 需要给全字段才能断言结构完整。
 MOCK_RESOURCE = {
     "title": "LangGraph 入门讲义（mock）",
     "content": "# LangGraph 入门讲义\n\n这是 mock 返回的 Markdown 内容。",
+    "citations": [],
     "difficulty_level": "beginner",
+    "estimated_duration_minutes": 30,
+    "prerequisites": [],
+    "target_skill_gaps": ["LangGraph状态图"],
     "key_takeaways": ["理解 StateGraph", "掌握节点与边"],
 }
 
@@ -77,12 +83,16 @@ class GenerationAgentTest(unittest.TestCase):
     """生成 Agent 单元测试：只跑 run(state)，LLM 全部 mock。"""
 
     def _mock_agent(self) -> GenerationAgent:
-        """创建 GenerationAgent 并 mock 掉 call_llm_json（不调用真实大模型）。"""
+        """创建 GenerationAgent 并 mock 掉 call_llm_json（不调用真实大模型）。
+
+        generation_v2 会改写 call_llm_json 返回的 dict（补 resource_type / resource_id），
+        因此每次调用必须返回全新副本，避免多份资源共享同一 dict 对象。
+        """
         agent = GenerationAgent()
         patcher = patch.object(
             agent,
             "call_llm_json",
-            new=AsyncMock(return_value=dict(MOCK_RESOURCE)),
+            new=AsyncMock(side_effect=lambda *a, **k: dict(MOCK_RESOURCE)),
         )
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -148,6 +158,46 @@ class GenerationAgentTest(unittest.TestCase):
         """输出必须写入 state["generated_resources"]。"""
         state = self._run({"diagnosis_result": MOCK_DIAGNOSIS})
         self.assertIn("generated_resources", state)
+
+    def test_llm_timeout_recorded_as_error(self) -> None:
+        """LLM 超时：process 单资源 try/except 兜底 → 不崩溃，记录到 generation_errors。"""
+        agent = GenerationAgent()
+        patcher = patch.object(
+            agent,
+            "call_llm_json",
+            new=AsyncMock(side_effect=asyncio.TimeoutError("LLM 调用超时")),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        state = asyncio.run(
+            agent.run({"diagnosis_result": MOCK_DIAGNOSIS, "resource_types": ["lecture"]})
+        )
+
+        self.assertEqual(state["generated_resources"], [])
+        self.assertEqual(len(state["generation_errors"]), 1)
+        self.assertIn("超时", state["generation_errors"][0]["error"])
+        self.assertNotEqual(state.get("status"), "error")  # 单资源失败不置 error
+
+    def test_llm_invalid_json_recorded_as_error(self) -> None:
+        """非法 JSON：_parse_error 结果被当作失败跳过并记录，不当作资源。"""
+        agent = GenerationAgent()
+        patcher = patch.object(
+            agent,
+            "call_llm_json",
+            new=AsyncMock(
+                side_effect=lambda *a, **k: {"_parse_error": True, "raw": "not json"}
+            ),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        state = asyncio.run(
+            agent.run({"diagnosis_result": MOCK_DIAGNOSIS, "resource_types": ["lecture"]})
+        )
+
+        self.assertEqual(state["generated_resources"], [])
+        self.assertEqual(
+            state["generation_errors"][0]["error"], "json_parse_failed"
+        )
 
 
 if __name__ == "__main__":

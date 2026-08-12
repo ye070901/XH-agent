@@ -82,13 +82,28 @@ class GenerationAgent(BaseAgent):
 
         resources = []
         errors = []
+        learner_id = state.get("learner_id", "")
+        # 本次生成覆盖的盲区知识点（与 schemas.GeneratedResource.target_skill_gaps 对齐）
+        target_skill_gaps = [
+            g.get("topic", "")
+            for g in diagnosis.get("skill_gaps", [])
+            if g.get("topic")
+        ]
         for rtype in resource_types:
             try:
                 result = await self._generate_one(diagnosis, rtype, retrieved_chunks)
-                if result:
-                    result["resource_type"] = rtype
-                    result["resource_id"] = str(uuid.uuid4())
-                    resources.append(result)
+                # 解析失败（_parse_error）或空内容同样按失败处理，不当作资源
+                if not result or result.get("_parse_error"):
+                    self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
+                    errors.append({"resource_type": rtype, "error": "json_parse_failed"})
+                    continue
+                # 与 schemas.GeneratedResource 对齐：resource_id / learner_id /
+                # resource_type 由本层补全，target_skill_gaps 从诊断结果推导
+                result["resource_type"] = rtype
+                result["resource_id"] = str(uuid.uuid4())
+                result["learner_id"] = learner_id
+                result.setdefault("target_skill_gaps", target_skill_gaps)
+                resources.append(result)
             except Exception as e:
                 # 单个资源生成失败不阻断其他资源
                 self.log(f"⚠️ {rtype} 类型资源生成失败: {e}")
@@ -103,7 +118,9 @@ class GenerationAgent(BaseAgent):
             **({"generation_errors": errors} if errors else {}),
         }
 
-    async def _generate_one(self, diagnosis: dict, rtype: str, retrieved_chunks: list | None = None) -> dict:
+    async def _generate_one(
+        self, diagnosis: dict, rtype: str, retrieved_chunks: list | None = None
+    ) -> dict:
         """为单一资源类型生成内容。
 
         Args:
@@ -226,39 +243,3 @@ class GenerationAgent(BaseAgent):
             parts.append(f"\n### 资料 {i}：{title}\n{excerpt}")
 
         return "\n".join(parts)
-
-
-# ═══════════════════════════════════════════════════════════
-# 使用示例（开发调试用）
-# ═══════════════════════════════════════════════════════════
-"""
-import asyncio
-from backend.src.agents.generation_v2 import GenerationAgent
-
-async def demo():
-    agent = GenerationAgent()
-    state = {
-        "diagnosis_result": {
-            "summary": "学习 LangGraph 开发 AI Agent",
-            "recommended_difficulty": "beginner",
-            "learning_style": "theory_first",
-            "skill_gaps": [
-                {
-                    "priority": "critical",
-                    "topic": "LangGraph 状态管理",
-                    "current_level": 0.1,
-                    "target_level": 0.9,
-                    "reason": "不清楚图状态流转机制",
-                },
-            ],
-        },
-        "resource_types": ["lecture", "guide"],
-    }
-    result = await agent.run(state)
-    print(f"生成 {len(result.get('generated_resources', []))} 个资源")
-    if result.get("generation_errors"):
-        print(f"失败: {result['generation_errors']}")
-
-if __name__ == "__main__":
-    asyncio.run(demo())
-"""

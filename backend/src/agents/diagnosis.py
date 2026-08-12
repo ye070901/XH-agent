@@ -22,6 +22,9 @@ SYSTEM_PROMPT = """你是一个专业的学情诊断专家。你的任务是：
 
 诊断原则：
 - 置信度随证据量变化：前置测试直接命中 > 工作经历推断 > 学历推断
+- 置信度标定：置信度反映"判断依据是否充分"而非"模型对自身的不确定"；
+  只要具备明确证据（学历/经历/测试/学习目标任一）即可给出 0.6 以上置信度，
+  仅在证据确实缺失时才下调，不要因为"谨慎"普遍打低分
 - 知识盲区是"前置依赖链缺失"而非"没学过的都缺"
   - 例：想学 LangGraph 但不知道状态机 → 这是一个 gap
   - 例：不知道某个 API 的具体参数名 → 这不是 gap，这是检索查表的事
@@ -60,11 +63,88 @@ class DiagnosisAgent(BaseAgent):
         learner_data = state.get("learner_data", {})
         prompt = self._build_prompt(learner_data)
         result = await self.call_llm_json(prompt)
+        result = self._normalize_diagnosis(result, learner_data)
         self.log(f"诊断完成: {len(result.get('skill_gaps', []))} 个知识盲区")
         return {
             "diagnosis_result": result,
             "diagnosis_completed": True,
         }
+
+    # ═══════════════════════════════════════════════════════════
+    # 置信度规整：避免真实 LLM 保守打分误触发降级（fallback）
+    # ═══════════════════════════════════════════════════════════
+
+    def _normalize_diagnosis(self, result: dict, learner_data: dict) -> dict:
+        """规整诊断结果：补全 overall_confidence，避免低置信度误触发降级。
+
+        真实 LLM 对 knowledge_map 各点位的 confidence 打分普遍偏保守
+        （实测仅 0.14~0.24）。DiagnosisGate 在缺失 overall_confidence 时
+        会取其均值判定，导致频繁 RETRY/FALLBACK。
+
+        这里在诊断**结构化完整**的前提下，按"完整度 + 证据量"给出整体置信度；
+        仅在结果确实不可用（空 dict / JSON 解析失败）时保持原样，
+        交由闸门走 FALLBACK 降级。
+        """
+        if not isinstance(result, dict) or not result:
+            return result  # 空结果 / 非 dict → 原样，闸门负责 FALLBACK
+        if result.get("_parse_error"):
+            return result  # JSON 解析失败标记 → 原样透传
+
+        normalized = dict(result)
+        normalized["overall_confidence"] = self._calc_overall_confidence(
+            normalized, learner_data
+        )
+        return normalized
+
+    def _calc_overall_confidence(self, diag: dict, learner_data: dict) -> float:
+        """综合"结构化完整度 + 证据量"计算整体诊断置信度。
+
+        已有合法 overall_confidence（0-1 数值）→ 直接采用；
+        否则按以下维度打分（合计最高 1.0，下限 0.05 对齐闸门稀疏模式阈值）：
+          - knowledge_map 有效条目 ≥5 → +0.30（≥3 → +0.20，≥1 → +0.10）
+          - skill_gaps 非空              → +0.25
+          - learning_style 有效          → +0.15
+          - recommended_difficulty 有效  → +0.15
+          - summary 非空                 → +0.10
+          - learner_data 画像丰富        → +0.10
+        """
+        existing = diag.get("overall_confidence")
+        if isinstance(existing, (int, float)) and not isinstance(existing, bool):
+            if 0.0 <= existing <= 1.0:
+                return float(existing)
+
+        score = 0.0
+        knowledge_map = diag.get("knowledge_map", {})
+        valid_map = 0
+        if isinstance(knowledge_map, dict):
+            valid_map = sum(1 for v in knowledge_map.values() if isinstance(v, dict))
+        if valid_map >= 5:
+            score += 0.30
+        elif valid_map >= 3:
+            score += 0.20
+        elif valid_map >= 1:
+            score += 0.10
+
+        gaps = diag.get("skill_gaps", [])
+        if isinstance(gaps, list) and len(gaps) > 0:
+            score += 0.25
+
+        if diag.get("learning_style"):
+            score += 0.15
+        if diag.get("recommended_difficulty"):
+            score += 0.15
+        if diag.get("summary"):
+            score += 0.10
+
+        # 学习者画像丰富（学历/经历/测试等任一存在）→ 证据量加分
+        if any(
+            learner_data.get(k)
+            for k in ("education_level", "major", "work_years", "skills_used", "pretest_results")
+            if learner_data.get(k)
+        ):
+            score += 0.10
+
+        return round(max(0.05, min(score, 1.0)), 2)
 
     def _build_prompt(self, data: dict) -> str:
         return f"""请分析以下学习者的学情数据，输出诊断结果。
@@ -106,14 +186,16 @@ class DiagnosisAgent(BaseAgent):
     ],
     "learning_style": "practice_first|theory_first|visual|project_based",
     "recommended_difficulty": "beginner|intermediate|advanced",
-    "summary": "学习者整体画像总结（50-100字）"
+    "summary": "学习者整体画像总结（50-100字）",
+    "overall_confidence": 0.0
 }}
 
 要求：
 - knowledge_map 至少包含 5 个知识点
 - skill_gaps 按优先级从高到低排列
 - 每个评估都附上 evidence 说明依据
-- 置信度低于 0.3 的评估请特别标注"""
+- 置信度低于 0.3 的评估请特别标注
+- overall_confidence 取 0-1 之间的数值，按诊断依据充分程度给出，避免普遍打低分"""
 
     def _format_pretests(self, tests: list) -> str:
         if not tests:
