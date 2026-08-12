@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -630,6 +631,145 @@ def show_audit(audit_list: list) -> None:
                 st.success("无问题，审核通过")
 
 
+# ═══════════════════════════════════════════════════════════
+# 知识库管理 UI 组件
+# ═══════════════════════════════════════════════════════════
+
+
+def show_kb_management() -> None:
+    """知识库管理：手动上传、批量导入、状态查看、检索测试。"""
+    kb_col1, kb_col2 = st.columns([2, 1])
+
+    with kb_col1:
+        st.subheader("📝 文档导入")
+
+        import_mode = st.radio(
+            "导入方式", ["手动粘贴", "批量导入 data/raw/"], horizontal=True
+        )
+
+        if import_mode == "手动粘贴":
+            with st.form("kb_upload_form"):
+                doc_title = st.text_input(
+                    "文档标题（技术关键词 + 核心要点）",
+                    placeholder="FANUC 示教器点位编程步骤",
+                )
+                doc_content = st.text_area(
+                    "Markdown 正文（≥500 字）",
+                    placeholder="# 标题\n\n- **来源**：https://...\n- **权威等级**：A\n\n## 正文\n\n...",
+                    height=280,
+                )
+                submitted_kb = st.form_submit_button(
+                    "📤 上传到知识库", type="primary", use_container_width=True
+                )
+
+                if submitted_kb:
+                    if not doc_title.strip() or not doc_content.strip():
+                        st.error("标题和正文均不能为空")
+                    elif len(doc_content) < 500:
+                        st.warning(f"⚠️ 正文仅 {len(doc_content)} 字，建议 ≥500 字")
+                    else:
+                        doc_id = hashlib.md5(doc_title.encode()).hexdigest()[:12]
+                        try:
+                            resp = requests.post(
+                                f"{API_BASE}/api/knowledge/upload",
+                                json={
+                                    "doc_id": doc_id,
+                                    "title": doc_title.strip(),
+                                    "content": doc_content.strip(),
+                                },
+                                timeout=30,
+                            )
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                st.success(
+                                    f"✅ 上传成功！'{doc_title.strip()}' → {data['chunks_count']} chunks"
+                                )
+                                st.rerun()
+                            else:
+                                st.error(f"上传失败: {resp.status_code} — {resp.text}")
+                        except requests.exceptions.ConnectionError:
+                            st.error("❌ 无法连接后端，请先启动服务")
+
+        else:
+            st.caption("一键导入 data/raw/ 目录下全部 .md 文件")
+            if st.button(
+                "🔄 批量导入", type="primary", use_container_width=True
+            ):
+                try:
+                    with st.spinner("正在导入..."):
+                        resp = requests.post(
+                            f"{API_BASE}/api/knowledge/import", timeout=60
+                        )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        st.success(
+                            f"✅ 导入完成: {data['imported']}/{data['total']} 篇"
+                        )
+                        st.rerun()
+                    else:
+                        st.error(f"导入失败: {resp.status_code}")
+                except requests.exceptions.ConnectionError:
+                    st.error("❌ 无法连接后端")
+
+    with kb_col2:
+        st.subheader("📊 知识库状态")
+        try:
+            resp = requests.get(f"{API_BASE}/api/knowledge/stats", timeout=5)
+            if resp.status_code == 200:
+                stats = resp.json()
+                st.metric("模式", stats.get("mode", "?"))
+                st.metric("文档数", stats.get("total_documents", 0))
+                st.metric("Chunk 数", stats.get("total_chunks", 0))
+            else:
+                st.warning("状态获取失败")
+        except Exception:
+            st.warning("后端未连接")
+
+    st.divider()
+    st.subheader("🔍 知识库检索测试")
+
+    search_col1, search_col2 = st.columns([4, 1])
+    with search_col1:
+        search_input = st.text_input(
+            "输入检索关键词",
+            placeholder="例如：FANUC SRVO-068 故障处理、工具坐标系、RobotStudio 仿真",
+            key="kb_search_input_v2",
+        )
+    with search_col2:
+        search_btn = st.button(
+            "🔍 检索", use_container_width=True, key="kb_search_btn_v2"
+        )
+
+    if search_btn and search_input.strip():
+        try:
+            resp = requests.get(
+                f"{API_BASE}/api/knowledge/search",
+                params={"q": search_input.strip(), "top_k": 5},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get("results", [])
+                if results:
+                    st.success(f"找到 {len(results)} 条相关结果")
+                    for i, r_item in enumerate(results):
+                        with st.expander(
+                            f"📄 [{r_item['relevance_score']:.2f}] {r_item['doc_title']} — {r_item['doc_id']}"
+                        ):
+                            st.text_area(
+                                f"Chunk {r_item['chunk_index']}",
+                                value=r_item["content"],
+                                height=180,
+                                key=f"kb_result_v2_{i}",
+                            )
+                else:
+                    st.info("未找到相关文档")
+            else:
+                st.error(f"检索失败: {resp.status_code}")
+        except requests.exceptions.ConnectionError:
+            st.error("❌ 无法连接后端")
+
+
 # ═══ 页面 ═══
 
 st.markdown(
@@ -739,17 +879,23 @@ if "result" in st.session_state and st.session_state.result:
                     st.info(f"{name} 等待中")
     st.caption(f"工作流状态：{_STAT.get(status, status)}")
 
-    t1, t2, t3 = st.tabs(["学情诊断", "学习资源", "审核意见"])
+    t1, t2, t3, t4 = st.tabs(["学情诊断", "学习资源", "审核意见", "📚 知识库管理"])
     with t1:
         show_diagnosis(r.get("diagnosis", {}))
     with t2:
         show_resources(r.get("resources", []), r.get("audit", []))
     with t3:
         show_audit(r.get("audit", []))
+    with t4:
+        show_kb_management()
     with st.expander("调试信息", expanded=False):
         st.json(r)
 else:
-    st.info("在左侧填写学习者信息，点击「生成个性化学习资源」开始")
+    t_info, t_kb = st.tabs(["📋 开始使用", "📚 知识库管理"])
+    with t_info:
+        st.info("在左侧填写学习者信息，点击「生成个性化学习资源」开始")
+    with t_kb:
+        show_kb_management()
 
 st.divider()
 try:
