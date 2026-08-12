@@ -9,17 +9,17 @@ if str(root_path) not in sys.path:
 
 # 1. 项目内部模块导入
 # 2. Python 标准库
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager  # noqa: E402
 
 # 3. 第三方依赖库
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from loguru import logger
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from loguru import logger  # noqa: E402
 
-from backend.src.api.ws import router as ws_router
-from backend.src.config import settings
-from backend.src.knowledge.store import knowledge_base
-from backend.src.scheduler.pipeline import scheduler
+from backend.src.api.ws import router as ws_router  # noqa: E402
+from backend.src.config import settings  # noqa: E402
+from backend.src.knowledge.store import knowledge_base  # noqa: E402
+from backend.src.scheduler.pipeline import scheduler  # noqa: E402
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
 """FastAPI 应用入口 — 知识库 + RAG 版本。v0.3.0"""
@@ -125,7 +125,10 @@ async def generate(request: dict):
     learning_goal = request.get("learning_goal", "").strip()
 
     if not user_input and not learning_goal:
-        raise HTTPException(status_code=422, detail="user_input 或 learning_goal 为必填字段，不能为空")
+        raise HTTPException(
+            status_code=422,
+            detail="user_input 或 learning_goal 为必填字段，不能为空",
+        )
 
     # 构建 learner_data：优先用前端完整 payload
     if learning_goal and not user_input:
@@ -146,10 +149,14 @@ async def generate(request: dict):
         )
 
         # 提取 metrics（从 gate_results 和 elapsed_ms）
+        gate_results = result.get("gate_results", {})
+        input_gate = gate_results.get("input_gate", {})
+        diag_gate = gate_results.get("diagnosis_gate", {})
+        recall_gate = gate_results.get("recall_gate", {})
         metrics = {
-            "inputgate_ms": result.get("gate_results", {}).get("input_gate", {}).get("duration_ms", 0),
-            "diagnosisgate_ms": result.get("gate_results", {}).get("diagnosis_gate", {}).get("duration_ms", 0),
-            "recallgate_ms": result.get("gate_results", {}).get("recall_gate", {}).get("duration_ms", 0),
+            "inputgate_ms": input_gate.get("duration_ms", 0),
+            "diagnosisgate_ms": diag_gate.get("duration_ms", 0),
+            "recallgate_ms": recall_gate.get("duration_ms", 0),
             "rag_recall_count": len(result.get("retrieved_chunks", [])),
             "rag_top_k": 5,
             "total_latency_ms": result.get("elapsed_ms", 0),

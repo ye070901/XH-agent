@@ -39,7 +39,8 @@ class ConnectionManager:
         self._connections.get(task_id, set()).discard(websocket)
         if self._connections.get(task_id) and not self._connections[task_id]:
             del self._connections[task_id]
-        logger.info(f"[WS] Disconnected: task_id={task_id}, remaining={self.connection_count(task_id)}")
+        remaining = self.connection_count(task_id)
+        logger.info(f"[WS] Disconnected: task_id={task_id}, remaining={remaining}")
 
     def connection_count(self, task_id: str) -> int:
         return len(self._connections.get(task_id, set()))
