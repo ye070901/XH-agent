@@ -183,7 +183,11 @@ class KnowledgeBase:
         return chunks or [text[:chunk_size]]
 
     async def add_document(self, doc_id: str, title: str, content: str) -> list[dict]:
-        """添加单篇文档 → 切分 → 向量化写入 / 文件追加 → 返回 chunk 列表。"""
+        """添加单篇文档 → 切分 → 向量化写入 / 文件追加 → 返回 chunk 列表。
+
+        幂等写入：ChromaDB 模式下先删除同名 doc_id 的旧 chunks 再写入，
+        重复导入不会产生重复向量。
+        """
         chunks = self._chunk_text(content)
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
         result = [{"doc_id": doc_id, "doc_title": title, "chunk_index": i, "content": c}
@@ -191,6 +195,12 @@ class KnowledgeBase:
 
         if self._collection is not None:
             try:
+                # 幂等写入：先清理旧 chunks，避免重复导入导致重复向量
+                existing = self._collection.get(where={"doc_id": doc_id})
+                if existing and existing.get("ids"):
+                    self._collection.delete(ids=existing["ids"])
+                    logger.debug(f"[知识库] 清理旧 chunks: doc_id={doc_id}, count={len(existing['ids'])}")
+
                 metadatas = [{"doc_id": doc_id, "doc_title": title, "chunk_index": i}
                              for i in range(len(chunks))]
                 self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
