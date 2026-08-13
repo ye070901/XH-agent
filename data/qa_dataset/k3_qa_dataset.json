@@ -1,0 +1,280 @@
+{
+  "meta": {
+    "name": "K3 RAG 召回评测 QA 数据集",
+    "owner": "K3",
+    "version": "v1.0",
+    "date": "2026-08-13",
+    "description": "覆盖机器人操作 / 故障诊断 / 编程仿真三类，用于评测 ChromaDB 向量库检索质量（Top-5 命中率、MRR、领域覆盖）。",
+    "total": 31,
+    "fields": {
+      "id": "问题编号",
+      "category": "操作 / 故障 / 编程",
+      "query": "自然语言检索问句",
+      "expected_domain": "K1 / K2 / K3",
+      "expected_keywords": "用于宽松命中判断的关键词（Top-1 内容或标题含半数以上即判定命中）",
+      "expected_doc_ids": "用于精确 MRR 计算的标准答案文档 ID（可为多篇）"
+    }
+  },
+  "cases": [
+    {
+      "id": "Q01",
+      "category": "操作",
+      "query": "FANUC 示教器怎么进行点位示教编程",
+      "expected_domain": "K1",
+      "expected_keywords": ["示教器", "点位", "编程", "PTP"],
+      "expected_doc_ids": ["K1_20260803_001_fanuc_teachpendant_programming"]
+    },
+    {
+      "id": "Q02",
+      "category": "操作",
+      "query": "PTP 运动指令和 LIN 运动指令有什么区别",
+      "expected_domain": "K1",
+      "expected_keywords": ["PTP", "LIN", "运动", "指令"],
+      "expected_doc_ids": ["K1_20260803_001_fanuc_teachpendant_programming"]
+    },
+    {
+      "id": "Q03",
+      "category": "操作",
+      "query": "示教器 CIRC 圆弧运动指令怎么用",
+      "expected_domain": "K1",
+      "expected_keywords": ["CIRC", "圆弧", "运动", "示教"],
+      "expected_doc_ids": ["K1_20260803_001_fanuc_teachpendant_programming"]
+    },
+    {
+      "id": "Q04",
+      "category": "操作",
+      "query": "FANUC 机器人搬运上下料程序怎么编写",
+      "expected_domain": "K1",
+      "expected_keywords": ["搬运", "上下料", "程序", "夹具"],
+      "expected_doc_ids": ["K1_20260803_001_fanuc_teachpendant_programming"]
+    },
+    {
+      "id": "Q05",
+      "category": "编程",
+      "query": "ABB FlexPendant 示教器 MoveJ 指令怎么使用",
+      "expected_domain": "K1",
+      "expected_keywords": ["MoveJ", "FlexPendant", "示教器", "RAPID"],
+      "expected_doc_ids": ["K1_20260811_001"]
+    },
+    {
+      "id": "Q06",
+      "category": "编程",
+      "query": "RAPID 程序里 MoveL 和 MoveC 有什么区别",
+      "expected_domain": "K1",
+      "expected_keywords": ["MoveL", "MoveC", "RAPID", "运动"],
+      "expected_doc_ids": ["K1_20260811_001"]
+    },
+    {
+      "id": "Q07",
+      "category": "编程",
+      "query": "ABB IRC5 控制器点位示教编程完整流程",
+      "expected_domain": "K1",
+      "expected_keywords": ["IRC5", "点位", "示教", "编程"],
+      "expected_doc_ids": ["K1_20260811_001"]
+    },
+    {
+      "id": "Q08",
+      "category": "操作",
+      "query": "机器人急停按钮按下后如何恢复运行",
+      "expected_domain": "K1",
+      "expected_keywords": ["急停", "恢复", "安全", "停机"],
+      "expected_doc_ids": ["K1_20260811_002"]
+    },
+    {
+      "id": "Q09",
+      "category": "操作",
+      "query": "机器人抱闸怎么手动释放",
+      "expected_domain": "K1",
+      "expected_keywords": ["抱闸", "释放", "手动", "制动"],
+      "expected_doc_ids": ["K1_20260811_002"]
+    },
+    {
+      "id": "Q10",
+      "category": "操作",
+      "query": "人员被机器人卡住时怎么应急处置",
+      "expected_domain": "K1",
+      "expected_keywords": ["人员", "卡困", "应急", "安全"],
+      "expected_doc_ids": ["K1_20260811_002"]
+    },
+    {
+      "id": "Q11",
+      "category": "操作",
+      "query": "IRB14000 YuMi 双臂协作机器人怎么手动点动",
+      "expected_domain": "K1",
+      "expected_keywords": ["IRB14000", "YuMi", "点动", "协作"],
+      "expected_doc_ids": ["K1_20260811_003"]
+    },
+    {
+      "id": "Q12",
+      "category": "编程",
+      "query": "MoveAbsJ 绝对关节运动指令是干什么的",
+      "expected_domain": "K1",
+      "expected_keywords": ["MoveAbsJ", "关节", "运动", "绝对"],
+      "expected_doc_ids": ["K1_20260811_003"]
+    },
+    {
+      "id": "Q13",
+      "category": "编程",
+      "query": "双臂机器人协调搬运 RAPID 程序怎么写",
+      "expected_domain": "K1",
+      "expected_keywords": ["双臂", "协调", "搬运", "RAPID"],
+      "expected_doc_ids": ["K1_20260811_003"]
+    },
+    {
+      "id": "Q14",
+      "category": "编程",
+      "query": "ABB RobotStudio 怎么搭建离线仿真工作站",
+      "expected_domain": "K2",
+      "expected_keywords": ["RobotStudio", "仿真", "工作站", "离线"],
+      "expected_doc_ids": ["K2_20260803_001_robotstudio_workstation_setup"]
+    },
+    {
+      "id": "Q15",
+      "category": "编程",
+      "query": "RobotStudio 怎么做机器人碰撞检测",
+      "expected_domain": "K2",
+      "expected_keywords": ["RobotStudio", "碰撞", "检测", "仿真"],
+      "expected_doc_ids": ["K2_20260803_001_robotstudio_workstation_setup"]
+    },
+    {
+      "id": "Q16",
+      "category": "编程",
+      "query": "RobotStudio 仿真程序怎么导出到真机",
+      "expected_domain": "K2",
+      "expected_keywords": ["RobotStudio", "导出", "真机", "程序"],
+      "expected_doc_ids": ["K2_20260803_001_robotstudio_workstation_setup"]
+    },
+    {
+      "id": "Q17",
+      "category": "故障",
+      "query": "FANUC 机器人报 SRVO-068 怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-068", "脉冲编码器", "数据传输", "DTERR"],
+      "expected_doc_ids": [
+        "K3_20260805_001_fanuc_srvo068_error_fix",
+        "K3_20260803_001_fanuc_srvo068_error_fix"
+      ]
+    },
+    {
+      "id": "Q18",
+      "category": "故障",
+      "query": "DTERR 脉冲编码器数据传输异常怎么排查",
+      "expected_domain": "K3",
+      "expected_keywords": ["DTERR", "脉冲编码器", "数据传输", "SRVO-068"],
+      "expected_doc_ids": [
+        "K3_20260805_001_fanuc_srvo068_error_fix",
+        "K3_20260803_001_fanuc_srvo068_error_fix"
+      ]
+    },
+    {
+      "id": "Q19",
+      "category": "故障",
+      "query": "FANUC SRVO-062 BZAL 电池报警怎么复位",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-062", "BZAL", "电池", "备份"],
+      "expected_doc_ids": ["K3_20260805_002_fanuc_srvo062_bzal_error_fix"]
+    },
+    {
+      "id": "Q20",
+      "category": "故障",
+      "query": "机器人绝对位置数据丢失后怎么重新标定",
+      "expected_domain": "K3",
+      "expected_keywords": ["绝对位置", "标定", "MASTERING", "丢失"],
+      "expected_doc_ids": [
+        "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+        "K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix"
+      ]
+    },
+    {
+      "id": "Q21",
+      "category": "故障",
+      "query": "FANUC SRVO-038 脉冲不匹配怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-038", "脉冲", "不匹配", "标定"],
+      "expected_doc_ids": ["K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix"]
+    },
+    {
+      "id": "Q22",
+      "category": "故障",
+      "query": "更换脉冲编码器或电池后怎么重新标定",
+      "expected_domain": "K3",
+      "expected_keywords": ["脉冲编码器", "电池", "标定", "MASTERING"],
+      "expected_doc_ids": [
+        "K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix",
+        "K3_20260805_002_fanuc_srvo062_bzal_error_fix"
+      ]
+    },
+    {
+      "id": "Q23",
+      "category": "故障",
+      "query": "FANUC SRVO-105 门开或急停报警怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-105", "门", "急停", "安全"],
+      "expected_doc_ids": ["K3_20260807_004_fanuc_srvo105_door_estop_error_fix"]
+    },
+    {
+      "id": "Q24",
+      "category": "故障",
+      "query": "控制柜门打开报警怎么排查",
+      "expected_domain": "K3",
+      "expected_keywords": ["控制柜", "门", "报警", "开关"],
+      "expected_doc_ids": ["K3_20260807_004_fanuc_srvo105_door_estop_error_fix"]
+    },
+    {
+      "id": "Q25",
+      "category": "故障",
+      "query": "FANUC SRVO-004 安全围栏报警怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-004", "围栏", "安全门", "Fence"],
+      "expected_doc_ids": ["K3_20260812_005_fanuc_srvo004_fence_open_error_fix"]
+    },
+    {
+      "id": "Q26",
+      "category": "故障",
+      "query": "安全门双通道回路怎么检查",
+      "expected_domain": "K3",
+      "expected_keywords": ["安全门", "双通道", "回路", "围栏"],
+      "expected_doc_ids": ["K3_20260812_005_fanuc_srvo004_fence_open_error_fix"]
+    },
+    {
+      "id": "Q27",
+      "category": "故障",
+      "query": "FANUC SRVO-075 脉冲未建立怎么恢复",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-075", "脉冲", "未建立", "点动"],
+      "expected_doc_ids": ["K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix"]
+    },
+    {
+      "id": "Q28",
+      "category": "故障",
+      "query": "报警轴脉冲编码器绝对位置无法建立怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["脉冲编码器", "绝对位置", "建立", "点动"],
+      "expected_doc_ids": ["K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix"]
+    },
+    {
+      "id": "Q29",
+      "category": "故障",
+      "query": "FANUC SRVO-230 安全链失配怎么处理",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-230", "安全链", "失配", "安全"],
+      "expected_doc_ids": ["K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix"]
+    },
+    {
+      "id": "Q30",
+      "category": "故障",
+      "query": "SRVO-231 安全链路报警怎么排查",
+      "expected_domain": "K3",
+      "expected_keywords": ["SRVO-231", "安全链", "报警", "失配"],
+      "expected_doc_ids": ["K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix"]
+    },
+    {
+      "id": "Q31",
+      "category": "操作",
+      "query": "机器人工具坐标系怎么切换和标定",
+      "expected_domain": "K1",
+      "expected_keywords": ["坐标系", "工具", "标定", "切换"],
+      "expected_doc_ids": ["K1_20260811_003", "K2_20260803_001_robotstudio_workstation_setup"]
+    }
+  ]
+}
