@@ -54,7 +54,7 @@
       "query": "ABB FlexPendant 示教器 MoveJ 指令怎么使用",
       "expected_domain": "K1",
       "expected_keywords": ["MoveJ", "FlexPendant", "示教器", "RAPID"],
-      "expected_doc_ids": ["K1_20260811_001"]
+      "expected_doc_ids": ["K1_20260811_IRC5_010"]
     },
     {
       "id": "Q06",
@@ -62,7 +62,7 @@
       "query": "RAPID 程序里 MoveL 和 MoveC 有什么区别",
       "expected_domain": "K1",
       "expected_keywords": ["MoveL", "MoveC", "RAPID", "运动"],
-      "expected_doc_ids": ["K1_20260811_001"]
+      "expected_doc_ids": ["K1_20260811_IRC5_010"]
     },
     {
       "id": "Q07",
@@ -70,7 +70,7 @@
       "query": "ABB IRC5 控制器点位示教编程完整流程",
       "expected_domain": "K1",
       "expected_keywords": ["IRC5", "点位", "示教", "编程"],
-      "expected_doc_ids": ["K1_20260811_001"]
+      "expected_doc_ids": ["K1_20260811_IRC5_010"]
     },
     {
       "id": "Q08",
@@ -102,7 +102,7 @@
       "query": "IRB14000 YuMi 双臂协作机器人怎么手动点动",
       "expected_domain": "K1",
       "expected_keywords": ["IRB14000", "YuMi", "点动", "协作"],
-      "expected_doc_ids": ["K1_20260811_003"]
+      "expected_doc_ids": ["K1_20260811_IRB14000_012"]
     },
     {
       "id": "Q12",
@@ -110,7 +110,7 @@
       "query": "MoveAbsJ 绝对关节运动指令是干什么的",
       "expected_domain": "K1",
       "expected_keywords": ["MoveAbsJ", "关节", "运动", "绝对"],
-      "expected_doc_ids": ["K1_20260811_003"]
+      "expected_doc_ids": ["K1_20260811_IRB14000_012"]
     },
     {
       "id": "Q13",
@@ -118,7 +118,7 @@
       "query": "双臂机器人协调搬运 RAPID 程序怎么写",
       "expected_domain": "K1",
       "expected_keywords": ["双臂", "协调", "搬运", "RAPID"],
-      "expected_doc_ids": ["K1_20260811_003"]
+      "expected_doc_ids": ["K1_20260811_IRB14000_012"]
     },
     {
       "id": "Q14",
@@ -274,7 +274,7 @@
       "query": "机器人工具坐标系怎么切换和标定",
       "expected_domain": "K1",
       "expected_keywords": ["坐标系", "工具", "标定", "切换"],
-      "expected_doc_ids": ["K1_20260811_003", "K2_20260803_001_robotstudio_workstation_setup"]
+      "expected_doc_ids": ["K1_20260811_IRB14000_012", "K2_20260803_001_robotstudio_workstation_setup"]
     }
   ]
 }
