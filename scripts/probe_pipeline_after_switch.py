@@ -8,9 +8,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.src.scheduler.pipeline import PipelineScheduler
-from backend.src.schemas import GateVerdict
 from backend.src.knowledge.store import knowledge_base
+from backend.src.scheduler.pipeline import PipelineScheduler
 
 
 async def probe_pass():
@@ -39,8 +38,11 @@ async def probe_pass():
     print(f"  is_fallback  = {result.get('_is_fallback', False)}")
     print(f"  gate_results keys = {list(result.get('gate_results', {}).keys())}")
     for k, v in result.get("gate_results", {}).items():
-        print(f"    [{k}] verdict={v.get('verdict','?')}, score={v.get('score','?')}")
-    print(f"  diagnosis difficulty = {result.get('diagnosis_result', {}).get('recommended_difficulty', '?')}")
+        print(f"    [{k}] verdict={v.get('verdict', '?')}, score={v.get('score', '?')}")
+    print(
+        f"  diagnosis difficulty = "
+        f"{result.get('diagnosis_result', {}).get('recommended_difficulty', '?')}"
+    )
     print(f"  elapsed_ms   = {result.get('elapsed_ms', '?')}")
 
     anomalies = []
@@ -54,7 +56,7 @@ async def probe_pass():
     if anomalies:
         print(f"\n  !! ANOMALIES: {anomalies}")
     else:
-        print(f"\n  [PASS] 正常路径 OK")
+        print("\n  [PASS] 正常路径 OK")
     return anomalies
 
 
@@ -74,7 +76,7 @@ async def probe_fallback():
         print(f"  gate_name    = {result.get('gate_name')}")
         print(f"  violations   = {result.get('violations')}")
         if result.get("status") == "gate_blocked":
-            print(f"  [OK] InputGate correctly blocked")
+            print("  [OK] InputGate correctly blocked")
         else:
             print(f"  [ANOMALY] expected gate_blocked, got {result.get('status')}")
     except Exception as e:
@@ -93,8 +95,9 @@ async def probe_retry():
 
     async def _patched_execute(user_input, task_id):
         """注入低置信度诊断然后走正常流程。"""
-        from backend.src.scheduler.pipeline import PipelineScheduler as PS
-        state = PS._init_state(PS(), user_input, task_id)
+        from backend.src.scheduler.pipeline import PipelineScheduler
+
+        state = PipelineScheduler._init_state(PipelineScheduler(), user_input, task_id)
         state.setdefault("_retry_counts", {})
         state.setdefault("recall_retry_count", 0)
         return state  # 太 hacky，换方案
@@ -115,7 +118,7 @@ async def probe_retry():
     print(f"  DiagnosisGate verdict = {diag_result.get('verdict', '?')}")
     if diag_result.get("verdict") == "RETRY":
         print(f"  retry_hint  = {diag_result.get('retry_hint', '')[:100]}")
-        print(f"  [OK] DiagnosisGate RETRY detected")
+        print("  [OK] DiagnosisGate RETRY detected")
     else:
         print(f"  (verdict was {diag_result.get('verdict')} — depends on LLM output)")
     return []

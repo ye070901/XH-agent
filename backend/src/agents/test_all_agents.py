@@ -190,6 +190,7 @@ GENERATION_FIELDS = (
 # 通用运行辅助
 # ═══════════════════════════════════════════════════════════
 
+
 def _patch_call_llm_json(agent, behavior: dict):
     """把 agent.call_llm_json 替换为 AsyncMock（LLM 全部 mock，不发真实请求）。
 
@@ -213,6 +214,7 @@ def _no_crash(result: dict) -> None:
 # ═══════════════════════════════════════════════════════════
 # DiagnosisAgent — 学情诊断 Agent
 # ═══════════════════════════════════════════════════════════
+
 
 class TestDiagnosisAgent:
     """学情诊断 Agent：正常 / 边界 / 异常（3 种 LLM 异常 + 校验错误分支）。"""
@@ -407,6 +409,7 @@ class TestDiagnosisAgent:
 # GenerationAgent — 领域知识生成 Agent
 # ═══════════════════════════════════════════════════════════
 
+
 class TestGenerationAgent:
     """知识生成 Agent：正常 / 边界 / 异常（3 种 LLM 异常）。"""
 
@@ -563,9 +566,7 @@ class TestGenerationAgent:
         assert "无可用知识库资料" in agent._fmt_knowledge_base([])
 
         # 同 doc_title 去重（保留第一个）+ 上限 6 条
-        chunks = [
-            {"doc_title": f"doc-{i % 3}", "content": "c" * 50} for i in range(10)
-        ]
+        chunks = [{"doc_title": f"doc-{i % 3}", "content": "c" * 50} for i in range(10)]
         text = agent._fmt_knowledge_base(chunks)
         # doc-0 / doc-1 / doc-2 各去重后只出现一次
         assert text.count("### 资料") == 3
@@ -587,6 +588,7 @@ class TestGenerationAgent:
 # ═══════════════════════════════════════════════════════════
 # CorrectionAgent — 保真修正 Agent
 # ═══════════════════════════════════════════════════════════
+
 
 class TestCorrectionAgent:
     """保真修正 Agent：正常 / 边界 / 异常（3 种 LLM 异常）。"""
@@ -877,11 +879,7 @@ class TestCorrectionAgent:
                 {"detail": "无 severity"},
             ]
         )
-        assert text == (
-            "1. [error] d1\n   KB 原文: kb1\n"
-            "2. [warning] d2\n"
-            "3. [unknown] 无 severity"
-        )
+        assert text == ("1. [error] d1\n   KB 原文: kb1\n2. [warning] d2\n3. [unknown] 无 severity")
         # detail 缺省回退为 str(iss)
         assert "[error] {'severity': 'error'}" in agent._fmt_issues([{"severity": "error"}])
         # KB 空 / 结构模板缺省
@@ -1016,6 +1014,7 @@ class TestAuditAgent:
 # ═══════════════════════════════════════════════════════════
 # BaseAgent / EventBus — 基础设施（run() 兜底 + 事件总线）
 # ═══════════════════════════════════════════════════════════
+
 
 class _DummyProcessAgent(BaseAgent):
     """process() 返回非 dict 的最小测试子类。"""

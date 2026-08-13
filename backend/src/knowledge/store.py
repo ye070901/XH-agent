@@ -43,7 +43,8 @@ class KnowledgeBase:
             base_url = settings.LLM_BASE_URL or "https://api.openai.com/v1"
             logger.info(f"[知识库] OpenAI Embedding: {settings.EMBEDDING_MODEL} @ {base_url}")
             return ef.OpenAIEmbeddingFunction(
-                api_key=api_key, model_name=settings.EMBEDDING_MODEL, api_base=base_url)
+                api_key=api_key, model_name=settings.EMBEDDING_MODEL, api_base=base_url
+            )
 
         logger.info(f"[知识库] DefaultEmbeddingFunction (provider={provider})")
         return None
@@ -54,8 +55,8 @@ class KnowledgeBase:
             return
 
         import os
-        onnx_path = os.path.expanduser(
-            "~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz")
+
+        onnx_path = os.path.expanduser("~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz")
         if os.path.exists(onnx_path):
             size = os.path.getsize(onnx_path)
             if size < 70_000_000:
@@ -75,18 +76,21 @@ class KnowledgeBase:
 
             embedding_fn = self._build_embedding_function()
             self._client = chromadb.PersistentClient(
-                path=str(persist_dir),
-                settings=ChromaSettings(anonymized_telemetry=False))
+                path=str(persist_dir), settings=ChromaSettings(anonymized_telemetry=False)
+            )
             coll_name = settings.CHROMA_COLLECTION_NAME
             existing = [c.name for c in self._client.list_collections()]
             if coll_name in existing:
                 self._collection = self._client.get_collection(
-                    name=coll_name, embedding_function=embedding_fn)
+                    name=coll_name, embedding_function=embedding_fn
+                )
                 logger.info(f"[知识库] 复用已有集合 '{coll_name}'")
             else:
                 self._collection = self._client.create_collection(
-                    name=coll_name, embedding_function=embedding_fn,
-                    metadata={"hnsw:space": "cosine"})
+                    name=coll_name,
+                    embedding_function=embedding_fn,
+                    metadata={"hnsw:space": "cosine"},
+                )
                 logger.info(f"[知识库] 创建新集合 '{coll_name}'")
 
             self._initialized = True
@@ -107,9 +111,14 @@ class KnowledgeBase:
         for md_file in fb_dir.glob("*.md"):
             try:
                 text = md_file.read_text(encoding="utf-8")
-                self._docs.append({
-                    "doc_id": md_file.stem, "doc_title": md_file.stem,
-                    "chunk_index": 0, "content": text})
+                self._docs.append(
+                    {
+                        "doc_id": md_file.stem,
+                        "doc_title": md_file.stem,
+                        "chunk_index": 0,
+                        "content": text,
+                    }
+                )
             except Exception:
                 pass
 
@@ -124,9 +133,14 @@ class KnowledgeBase:
                     text = md_file.read_text(encoding="utf-8")
                     chunks = self._chunk_text(text)
                     for i, chunk in enumerate(chunks):
-                        self._docs.append({
-                            "doc_id": md_file.stem, "doc_title": md_file.stem,
-                            "chunk_index": i, "content": chunk})
+                        self._docs.append(
+                            {
+                                "doc_id": md_file.stem,
+                                "doc_title": md_file.stem,
+                                "chunk_index": i,
+                                "content": chunk,
+                            }
+                        )
                     total_loaded += 1
                     logger.debug(f"[知识库] 降级加载: {md_file.stem} → {len(chunks)} chunks")
                 except Exception as e:
@@ -152,7 +166,7 @@ class KnowledgeBase:
             result: list[str] = []
             start = 0
             while start < len(text_stripped):
-                result.append(text_stripped[start:start + chunk_size])
+                result.append(text_stripped[start : start + chunk_size])
                 start += chunk_size - overlap
             return result
 
@@ -164,7 +178,7 @@ class KnowledgeBase:
             else:
                 start = 0
                 while start < len(p):
-                    expanded.append(p[start:start + chunk_size])
+                    expanded.append(p[start : start + chunk_size])
                     start += chunk_size - overlap
         paragraphs = expanded
 
@@ -190,8 +204,10 @@ class KnowledgeBase:
         """
         chunks = self._chunk_text(content)
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
-        result = [{"doc_id": doc_id, "doc_title": title, "chunk_index": i, "content": c}
-                  for i, c in enumerate(chunks)]
+        result = [
+            {"doc_id": doc_id, "doc_title": title, "chunk_index": i, "content": c}
+            for i, c in enumerate(chunks)
+        ]
 
         if self._collection is not None:
             try:
@@ -199,10 +215,14 @@ class KnowledgeBase:
                 existing = self._collection.get(where={"doc_id": doc_id})
                 if existing and existing.get("ids"):
                     self._collection.delete(ids=existing["ids"])
-                    logger.debug(f"[知识库] 清理旧 chunks: doc_id={doc_id}, count={len(existing['ids'])}")
+                    logger.debug(
+                        f"[知识库] 清理旧 chunks: doc_id={doc_id}, count={len(existing['ids'])}"
+                    )
 
-                metadatas = [{"doc_id": doc_id, "doc_title": title, "chunk_index": i}
-                             for i in range(len(chunks))]
+                metadatas = [
+                    {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
+                    for i in range(len(chunks))
+                ]
                 self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
                 logger.info(f"[知识库] ChromaDB写入: '{title}' → {len(chunks)} chunks")
                 return result
@@ -224,8 +244,10 @@ class KnowledgeBase:
         for doc in docs:
             try:
                 await self.add_document(
-                    doc_id=doc.get("doc_id", ""), title=doc.get("title", ""),
-                    content=doc.get("content", ""))
+                    doc_id=doc.get("doc_id", ""),
+                    title=doc.get("title", ""),
+                    content=doc.get("content", ""),
+                )
                 success += 1
             except Exception as e:
                 logger.warning(f"[知识库] 批量导入单篇失败: {doc.get('title', '?')} — {e}")
@@ -256,8 +278,10 @@ class KnowledgeBase:
             result = self._keyword_search(query, top_k)
 
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
-        logger.info(f"[知识库] 检索耗时 | query='{query[:50]}' top_k={top_k} "
-                     f"results={len(result)} elapsed={elapsed_ms}ms")
+        logger.info(
+            f"[知识库] 检索耗时 | query='{query[:50]}' top_k={top_k} "
+            f"results={len(result)} elapsed={elapsed_ms}ms"
+        )
         if elapsed_ms >= 200:
             logger.warning(f"[知识库] ⚠️ 检索耗时超标: {elapsed_ms}ms ≥ 200ms基线")
         return result
@@ -273,12 +297,15 @@ class KnowledgeBase:
             meta = metas_list[i] if i < len(metas_list) else {}
             dist = distances[i] if i < len(distances) else 0.0
             score = round(max(0.0, min(1.0, 1.0 - dist / 2.0)), 4)
-            formatted.append({
-                "doc_id": meta.get("doc_id", ""),
-                "doc_title": meta.get("doc_title", ""),
-                "chunk_index": meta.get("chunk_index", 0),
-                "content": docs_list[i] if i < len(docs_list) else "",
-                "relevance_score": score})
+            formatted.append(
+                {
+                    "doc_id": meta.get("doc_id", ""),
+                    "doc_title": meta.get("doc_title", ""),
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "content": docs_list[i] if i < len(docs_list) else "",
+                    "relevance_score": score,
+                }
+            )
         return formatted
 
     def _keyword_search(self, query: str, top_k: int) -> list[dict]:
@@ -333,12 +360,19 @@ class KnowledgeBase:
                 total_documents = len(doc_ids)
             except Exception:
                 total_chunks, total_documents = 0, 0
-            return {"mode": "chroma", "total_chunks": total_chunks,
-                    "total_documents": total_documents,
-                    "collection_name": settings.CHROMA_COLLECTION_NAME}
+            return {
+                "mode": "chroma",
+                "total_chunks": total_chunks,
+                "total_documents": total_documents,
+                "collection_name": settings.CHROMA_COLLECTION_NAME,
+            }
         doc_ids = {d.get("doc_id", "") for d in self._docs}
-        return {"mode": "file", "total_chunks": len(self._docs),
-                "total_documents": len(doc_ids), "collection_name": "file_fallback"}
+        return {
+            "mode": "file",
+            "total_chunks": len(self._docs),
+            "total_documents": len(doc_ids),
+            "collection_name": "file_fallback",
+        }
 
     async def _record_persistence_snapshot(self) -> dict:
         """记录当前数据状态快照，initialize() 完成后自动调用。"""

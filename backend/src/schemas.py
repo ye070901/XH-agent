@@ -78,6 +78,7 @@ class PipelineState(str, Enum):
     FALLBACK       → 闸门返回 FALLBACK，执行降级兜底路径
     DONE           → 流水线执行完成（含正常、降级、失败三种终态）
     """
+
     IDLE = "idle"
     RUNNING = "running"
     WAITING_RETRY = "waiting_retry"
@@ -87,6 +88,7 @@ class PipelineState(str, Enum):
 
 class GateVerdict(str, Enum):
     """闸门三路裁决 — v0.1 PASS/RETRY/FALLBACK 模型。"""
+
     PASS = "PASS"
     RETRY = "RETRY"
     FALLBACK = "FALLBACK"

@@ -157,6 +157,7 @@ async def _run_with_failure(agent, state: dict, failure: str) -> dict:
 # 输出辅助
 # ═══════════════════════════════════════════════════════════
 
+
 def _error_format(result: dict) -> dict:
     """抽取统一错误格式 {"error", "status", "error_type"}。"""
     err: dict = {
@@ -190,8 +191,10 @@ def _show_output(agent, result: dict) -> None:
     if name == "DiagnosisAgent":
         dx = result.get("diagnosis_result", {})
         gaps = len(dx.get("skill_gaps", [])) if isinstance(dx, dict) else 0
-        print(f"  │      diagnosis_completed={result.get('diagnosis_completed')}, "
-              f"skill_gaps 数量={gaps}, diagnosis_result={dx}")
+        print(
+            f"  │      diagnosis_completed={result.get('diagnosis_completed')}, "
+            f"skill_gaps 数量={gaps}, diagnosis_result={dx}"
+        )
     elif name == "GenerationAgent":
         res = result.get("generated_resources", [])
         types = [r["resource_type"] for r in res]
@@ -201,21 +204,26 @@ def _show_output(agent, result: dict) -> None:
         logs = result.get("correction_log", [])
         failed = [entry for entry in logs if entry["action"] == "failed"]
         print(f"  │      修正统计={stats}")
-        print(f"  │      corrected_resources 数量={len(result.get('corrected_resources', []))}, "
-              f"failed 日志条数={len(failed)}")
+        print(
+            f"  │      corrected_resources 数量={len(result.get('corrected_resources', []))}, "
+            f"failed 日志条数={len(failed)}"
+        )
         if failed:
-            print(f"  │      failed 日志示例: {{'action': 'failed', "
-                  f"'error_detail': {failed[0].get('error_detail')!r}}}")
+            print(
+                f"  │      failed 日志示例: {{'action': 'failed', "
+                f"'error_detail': {failed[0].get('error_detail')!r}}}"
+            )
 
 
 # ═══════════════════════════════════════════════════════════
 # 主流程
 # ═══════════════════════════════════════════════════════════
 
+
 async def main() -> None:
     print("=" * 72)
     print("day6_demo: 3 种 LLM 异常（调用超时 / 非法JSON / 空内容）× 3 大 Agent")
-    print("目标: 观察异常时代理不崩溃，统一返回 {\"error\": ..., \"status\": \"error\"}")
+    print('目标: 观察异常时代理不崩溃，统一返回 {"error": ..., "status": "error"}')
     print("=" * 72)
 
     scenarios = [

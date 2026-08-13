@@ -259,9 +259,7 @@ class TestPipelineAgentException:
             f"Expected DONE after agent crash, got {result['pipeline_state']}"
         )
         # 应走 FALLBACK 路径（Agent 异常触发降级）
-        assert result.get("_is_fallback") is True, (
-            "Agent exception should trigger FALLBACK"
-        )
+        assert result.get("_is_fallback") is True, "Agent exception should trigger FALLBACK"
         fo = result.get("final_output", {})
         assert fo.get("status") == "fallback", (
             f"Expected fallback status after agent crash, got {fo}"
@@ -286,17 +284,13 @@ class TestPipelineEmptyInput:
         assert result["pipeline_state"] == PipelineState.DONE.value, (
             f"Expected DONE, got {result['pipeline_state']}"
         )
-        assert result.get("_is_fallback") is True, (
-            "Empty input should trigger FALLBACK"
-        )
+        assert result.get("_is_fallback") is True, "Empty input should trigger FALLBACK"
         # 空输入不应执行 Agent1（无 diagnosis_result）
         assert "diagnosis_result" not in result or not result.get("diagnosis_result"), (
             "Empty input should not produce diagnosis"
         )
         fo = result.get("final_output", {})
-        assert fo.get("status") == "fallback", (
-            f"Expected fallback status, got {fo}"
-        )
+        assert fo.get("status") == "fallback", f"Expected fallback status, got {fo}"
         print(f"\n  [OK] Empty input → InputGate FALLBACK: {fo}")
 
 
@@ -330,9 +324,7 @@ class TestPipelineIntentUnknown:
         )
         # intent = "未识别" 时不应崩溃，pipeline 应正常完成
         fo = result.get("final_output", {})
-        assert fo.get("status") == "ok", (
-            f"Unknown intent should still produce ok output, got {fo}"
-        )
+        assert fo.get("status") == "ok", f"Unknown intent should still produce ok output, got {fo}"
         print(f"\n  [OK] Unknown intent → graceful degradation: {fo}")
 
 
@@ -358,10 +350,11 @@ async def _run_standalone():
         ("1. Normal Completion", test_normal.test_normal_completion()),
         ("2. RecallGate FALLBACK", test_fallback.test_recall_fallback_path()),
         ("3. Agent Exception → FALLBACK", test_exception.test_agent_exception_isolated_fallback()),
-        ("4. Empty Input → InputGate FALLBACK",
-         test_empty.test_empty_input_triggers_input_gate_fallback()),
-        ("5. Unknown Intent → Graceful",
-         test_intent.test_intent_unknown_graceful_degradation()),
+        (
+            "4. Empty Input → InputGate FALLBACK",
+            test_empty.test_empty_input_triggers_input_gate_fallback(),
+        ),
+        ("5. Unknown Intent → Graceful", test_intent.test_intent_unknown_graceful_degradation()),
     ]:
         try:
             print(f"\n--- Test {label} ---")

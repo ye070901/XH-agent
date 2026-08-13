@@ -1,4 +1,5 @@
 """性能基线验证脚本 — 10篇文档单次检索耗时 < 200ms 基线检查。"""
+
 import asyncio
 import sys
 import time

@@ -18,7 +18,6 @@ from backend.src.quality_gate.gates.diagnosis_gate import DiagnosisGate
 from backend.src.quality_gate.gates.input_gate import InputGate
 from backend.src.schemas import GateVerdict
 
-
 # ============================================================
 # Agent1 mock
 # ============================================================
@@ -88,9 +87,11 @@ async def main():
     print("\n[2/3] Agent1 (mock) diagnosis...")
     state = mock_agent1_diagnosis(state)
     diag = state.get("diagnosis_result", {})
-    print(f"  [OK] Diagnosis done | confidence={diag.get('overall_confidence')} "
-          f"| difficulty={diag.get('recommended_difficulty')} "
-          f"| gaps={len(diag.get('skill_gaps', []))}")
+    print(
+        f"  [OK] Diagnosis done | confidence={diag.get('overall_confidence')} "
+        f"| difficulty={diag.get('recommended_difficulty')} "
+        f"| gaps={len(diag.get('skill_gaps', []))}"
+    )
 
     # ---- [3/3] DiagnosisGate ----
     print("\n[3/3] DiagnosisGate check...")

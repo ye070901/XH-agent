@@ -70,8 +70,7 @@ async def main() -> None:
     print("\n=== 生成结果 ===")
     for i, res in enumerate(state.get("generated_resources", []), 1):
         print(
-            f"{i}. [{res['resource_type']}] {res['title']} "
-            f"(difficulty={res['difficulty_level']})"
+            f"{i}. [{res['resource_type']}] {res['title']} (difficulty={res['difficulty_level']})"
         )
         print(f"   key_takeaways: {res.get('key_takeaways', [])}")
 

@@ -85,9 +85,7 @@ class GenerationAgent(BaseAgent):
         learner_id = state.get("learner_id", "")
         # 本次生成覆盖的盲区知识点（与 schemas.GeneratedResource.target_skill_gaps 对齐）
         target_skill_gaps = [
-            g.get("topic", "")
-            for g in diagnosis.get("skill_gaps", [])
-            if g.get("topic")
+            g.get("topic", "") for g in diagnosis.get("skill_gaps", []) if g.get("topic")
         ]
         for rtype in resource_types:
             try:
@@ -146,7 +144,7 @@ class GenerationAgent(BaseAgent):
 - 推荐难度：{difficulty}
 - 学习风格：{learning_style}
 
-{ kb_context }
+{kb_context}
 
 ## 生成任务
 请**严格基于上述知识库参考资料**，生成一份 {rtype} 类型的个性化学习资源。

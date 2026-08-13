@@ -38,6 +38,7 @@ async def broadcast_agent_event(
     if broadcast_func is None:
         try:
             from ..api.ws import broadcast_agent_event as _func
+
             broadcast_func = _func
         except ImportError:
             logger.warning("[Broadcast] Cannot import broadcast_func, skipping")
@@ -70,6 +71,7 @@ def create_broadcast_wrapper(broadcast_func):
         # 在 Agent 流程中调用
         await broadcast(task_id, "学情诊断", "thinking", "正在分析学习者画像...")
     """
+
     async def wrapper(
         task_id: str,
         agent_name: str,

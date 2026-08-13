@@ -264,9 +264,7 @@ async def kb_upload(request: dict):
         raise HTTPException(status_code=422, detail="content 为必填字段")
 
     try:
-        chunks = await knowledge_base.add_document(
-            doc_id=doc_id, title=title, content=content
-        )
+        chunks = await knowledge_base.add_document(doc_id=doc_id, title=title, content=content)
         return {
             "status": "ok",
             "doc_id": doc_id,

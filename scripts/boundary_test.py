@@ -19,8 +19,11 @@ def _state_diag(diagnosis_result: dict) -> dict:
 
 
 def _state_recall(chunks: list, retry_count: int = 0) -> dict:
-    return {"retrieved_chunks": chunks, "recall_retry_count": retry_count,
-            "learner_data": {"learning_goal": "FANUC SRVO-068 故障处理"}}
+    return {
+        "retrieved_chunks": chunks,
+        "recall_retry_count": retry_count,
+        "learner_data": {"learning_goal": "FANUC SRVO-068 故障处理"},
+    }
 
 
 async def probe_diagnosis_gate():
@@ -33,21 +36,69 @@ async def probe_diagnosis_gate():
     cases = [
         ("None 输入", None),
         ("空 dict", {}),
-        ("空字符串 confidence", {"recommended_difficulty": "beginner", "skill_gaps": [{"topic": "x"}], "overall_confidence": ""}),
-        ("负数 confidence", {"recommended_difficulty": "beginner", "skill_gaps": [{"topic": "x"}], "overall_confidence": -0.5}),
-        (">1 confidence", {"recommended_difficulty": "beginner", "skill_gaps": [{"topic": "x"}], "overall_confidence": 1.5}),
-        ("字符串 difficulty", {"recommended_difficulty": 123, "skill_gaps": [{"topic": "x"}], "overall_confidence": 0.8}),
-        ("skill_gaps 是字符串而非列表", {"recommended_difficulty": "beginner", "skill_gaps": "not_a_list", "overall_confidence": 0.8}),
-        ("skill_gaps 含非 dict 元素", {"recommended_difficulty": "beginner", "skill_gaps": ["string_item"], "overall_confidence": 0.8}),
-        ("全空字符串", {"recommended_difficulty": "", "skill_gaps": [], "overall_confidence": "  "}),
-        ("knowledge_map 是 list（旧 Agent1 格式）", {
-            "knowledge_map": [
-                {"name": "x", "confidence": 0.5},
-                {"name": "y", "confidence": 0.3},
-            ],
-            "recommended_difficulty": "beginner",
-            "skill_gaps": [{"topic": "test"}],
-        }),
+        (
+            "空字符串 confidence",
+            {
+                "recommended_difficulty": "beginner",
+                "skill_gaps": [{"topic": "x"}],
+                "overall_confidence": "",
+            },
+        ),
+        (
+            "负数 confidence",
+            {
+                "recommended_difficulty": "beginner",
+                "skill_gaps": [{"topic": "x"}],
+                "overall_confidence": -0.5,
+            },
+        ),
+        (
+            ">1 confidence",
+            {
+                "recommended_difficulty": "beginner",
+                "skill_gaps": [{"topic": "x"}],
+                "overall_confidence": 1.5,
+            },
+        ),
+        (
+            "字符串 difficulty",
+            {
+                "recommended_difficulty": 123,
+                "skill_gaps": [{"topic": "x"}],
+                "overall_confidence": 0.8,
+            },
+        ),
+        (
+            "skill_gaps 是字符串而非列表",
+            {
+                "recommended_difficulty": "beginner",
+                "skill_gaps": "not_a_list",
+                "overall_confidence": 0.8,
+            },
+        ),
+        (
+            "skill_gaps 含非 dict 元素",
+            {
+                "recommended_difficulty": "beginner",
+                "skill_gaps": ["string_item"],
+                "overall_confidence": 0.8,
+            },
+        ),
+        (
+            "全空字符串",
+            {"recommended_difficulty": "", "skill_gaps": [], "overall_confidence": "  "},
+        ),
+        (
+            "knowledge_map 是 list（旧 Agent1 格式）",
+            {
+                "knowledge_map": [
+                    {"name": "x", "confidence": 0.5},
+                    {"name": "y", "confidence": 0.3},
+                ],
+                "recommended_difficulty": "beginner",
+                "skill_gaps": [{"topic": "test"}],
+            },
+        ),
     ]
 
     anomalies = []
@@ -60,7 +111,9 @@ async def probe_diagnosis_gate():
         print(f"  [{verdict}] {label}")
         # 记录异常：预期 RETRY/FALLBACK 但拿到 PASS
         if label in ("None 输入", "空 dict", "全空字符串") and verdict == GateVerdict.PASS.value:
-            anomalies.append(f"DiagnosisGate 边界异常: {label} → 预期 FALLBACK/RETRY，实际 {verdict}")
+            anomalies.append(
+                f"DiagnosisGate 边界异常: {label} → 预期 FALLBACK/RETRY，实际 {verdict}"
+            )
 
     if anomalies:
         print("\n  *** 边界异常 ***")
@@ -96,12 +149,13 @@ async def probe_recall_gate():
             state["retrieved_chunks"] = None
         result = await gate.check(state)
         verdict = result.get("verdict", "?")
-        details = result.get("details", {})
         print(f"  [{verdict}] {label} | retry_count_in={rc}")
 
         # 记录异常
         if label == "None 输入" and verdict == GateVerdict.PASS.value:
-            anomalies.append(f"RecallGate 边界异常: {label} → None chunks 应触发 RETRY/FALLBACK，实际 {verdict}")
+            anomalies.append(
+                f"RecallGate 边界异常: {label} → None chunks 应触发 RETRY/FALLBACK，实际 {verdict}"
+            )
         if label == "空 list + retry_count=5（超上限）" and verdict != GateVerdict.FALLBACK.value:
             anomalies.append(f"RecallGate 边界异常: {label} → 超上限应 FALLBACK，实际 {verdict}")
 

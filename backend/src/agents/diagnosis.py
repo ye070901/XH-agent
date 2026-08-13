@@ -91,9 +91,7 @@ class DiagnosisAgent(BaseAgent):
             return result  # JSON 解析失败标记 → 原样透传
 
         normalized = dict(result)
-        normalized["overall_confidence"] = self._calc_overall_confidence(
-            normalized, learner_data
-        )
+        normalized["overall_confidence"] = self._calc_overall_confidence(normalized, learner_data)
         return normalized
 
     def _calc_overall_confidence(self, diag: dict, learner_data: dict) -> float:

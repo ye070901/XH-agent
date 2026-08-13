@@ -34,6 +34,7 @@ client = TestClient(app)
 # 辅助函数
 # ═══════════════════════════════════════════════════════════
 
+
 def make_doc_id(title: str) -> str:
     """生成与 app_v2.py 一致的 doc_id"""
     return hashlib.md5(title.encode()).hexdigest()[:12]
@@ -42,6 +43,7 @@ def make_doc_id(title: str) -> str:
 # ═══════════════════════════════════════════════════════════
 # 1. GET / — 根路径
 # ═══════════════════════════════════════════════════════════
+
 
 class TestRootEndpoint:
     def test_root_returns_name_and_status(self):
@@ -58,6 +60,7 @@ class TestRootEndpoint:
 # 2. GET /health — 健康检查
 # ═══════════════════════════════════════════════════════════
 
+
 class TestHealthEndpoint:
     def test_health_returns_status(self):
         response = client.get("/health")
@@ -72,6 +75,7 @@ class TestHealthEndpoint:
 # ═══════════════════════════════════════════════════════════
 # 3. POST /api/generate — 主接口（硬性约束验证）
 # ═══════════════════════════════════════════════════════════
+
 
 class TestGenerateEndpoint:
     """验证 2.9 API 接口硬性约束"""
@@ -96,18 +100,11 @@ class TestGenerateEndpoint:
                     "diagnosis_gate": {"duration_ms": 20},
                     "recall_gate": {"duration_ms": 30},
                 },
-                "retrieved_chunks": [
-                    {"doc_id": "test", "doc_title": "Test", "content": "content"}
-                ],
-                "generated_resources": [
-                    {"title": "Resource 1", "content": "Some content"}
-                ],
+                "retrieved_chunks": [{"doc_id": "test", "doc_title": "Test", "content": "content"}],
+                "generated_resources": [{"title": "Resource 1", "content": "Some content"}],
                 "elapsed_ms": 100,
             }
-            response = client.post(
-                "/api/generate",
-                json={"user_input": "FANUC SRVO-068 怎么处理"}
-            )
+            response = client.post("/api/generate", json={"user_input": "FANUC SRVO-068 怎么处理"})
             assert response.status_code == 200
             data = response.json()
 
@@ -143,10 +140,7 @@ class TestGenerateEndpoint:
                 "generated_resources": [],
                 "elapsed_ms": 50,
             }
-            response = client.post(
-                "/api/generate",
-                json={"learning_goal": "学习 FANUC 机器人编程"}
-            )
+            response = client.post("/api/generate", json={"learning_goal": "学习 FANUC 机器人编程"})
             assert response.status_code == 200
 
     def test_generate_exception_returns_500(self):
@@ -154,12 +148,9 @@ class TestGenerateEndpoint:
         with patch(
             "backend.src.api.main.scheduler.run_pipeline",
             new_callable=AsyncMock,
-            side_effect=Exception("Test error")
+            side_effect=Exception("Test error"),
         ):
-            response = client.post(
-                "/api/generate",
-                json={"user_input": "test"}
-            )
+            response = client.post("/api/generate", json={"user_input": "test"})
             assert response.status_code == 500
 
 
@@ -167,30 +158,26 @@ class TestGenerateEndpoint:
 # 4. POST /api/knowledge/upload — 单篇上传
 # ═══════════════════════════════════════════════════════════
 
+
 class TestKnowledgeUpload:
     """KB 页面 → KB 引擎单篇入库"""
 
     def test_upload_missing_doc_id_returns_422(self):
         response = client.post(
-            "/api/knowledge/upload",
-            json={"title": "Test", "content": "Test content"}
+            "/api/knowledge/upload", json={"title": "Test", "content": "Test content"}
         )
         assert response.status_code == 422
         assert "doc_id" in response.json()["detail"]
 
     def test_upload_missing_title_returns_422(self):
         response = client.post(
-            "/api/knowledge/upload",
-            json={"doc_id": "test123", "content": "Test content"}
+            "/api/knowledge/upload", json={"doc_id": "test123", "content": "Test content"}
         )
         assert response.status_code == 422
         assert "title" in response.json()["detail"]
 
     def test_upload_missing_content_returns_422(self):
-        response = client.post(
-            "/api/knowledge/upload",
-            json={"doc_id": "test123", "title": "Test"}
-        )
+        response = client.post("/api/knowledge/upload", json={"doc_id": "test123", "title": "Test"})
         assert response.status_code == 422
         assert "content" in response.json()["detail"]
 
@@ -199,7 +186,7 @@ class TestKnowledgeUpload:
         with patch(
             "backend.src.api.main.knowledge_base.add_document",
             new_callable=AsyncMock,
-            return_value=[{"chunk_index": 0, "content": "test"}]
+            return_value=[{"chunk_index": 0, "content": "test"}],
         ):
             response = client.post(
                 "/api/knowledge/upload",
@@ -207,11 +194,9 @@ class TestKnowledgeUpload:
                     "doc_id": "test_upload_001",
                     "title": "Test Upload",
                     "content": (
-                        "# Test\n\n"
-                        "This is test content with enough characters "
-                        "to create chunks."
+                        "# Test\n\nThis is test content with enough characters to create chunks."
                     ),
-                }
+                },
             )
             assert response.status_code == 200
             data = response.json()
@@ -224,6 +209,7 @@ class TestKnowledgeUpload:
 # 5. POST /api/knowledge/import — 批量导入
 # ═══════════════════════════════════════════════════════════
 
+
 class TestKnowledgeImport:
     """KB 页面 → KB 引擎批量入库"""
 
@@ -232,7 +218,7 @@ class TestKnowledgeImport:
         with patch(
             "backend.src.api.main.knowledge_base.add_documents_batch",
             new_callable=AsyncMock,
-            return_value=5
+            return_value=5,
         ):
             response = client.post("/api/knowledge/import")
             assert response.status_code == 200
@@ -245,6 +231,7 @@ class TestKnowledgeImport:
 # ═══════════════════════════════════════════════════════════
 # 6. GET /api/knowledge/search — 语义检索
 # ═══════════════════════════════════════════════════════════
+
 
 class TestKnowledgeSearch:
     """KB 页面/外部 → KB 引擎检索"""
@@ -270,12 +257,9 @@ class TestKnowledgeSearch:
                     "content": "PTP 运动指令使用方法",
                     "relevance_score": 0.85,
                 }
-            ]
+            ],
         ):
-            response = client.get(
-                "/api/knowledge/search",
-                params={"q": "FANUC PTP", "top_k": 5}
-            )
+            response = client.get("/api/knowledge/search", params={"q": "FANUC PTP", "top_k": 5})
             assert response.status_code == 200
             data = response.json()
             assert data["query"] == "FANUC PTP"
@@ -287,9 +271,7 @@ class TestKnowledgeSearch:
     def test_search_default_top_k(self):
         """默认 top_k=5"""
         with patch(
-            "backend.src.api.main.knowledge_base.search",
-            new_callable=AsyncMock,
-            return_value=[]
+            "backend.src.api.main.knowledge_base.search", new_callable=AsyncMock, return_value=[]
         ) as mock:
             client.get("/api/knowledge/search", params={"q": "test"})
             mock.assert_called_once()
@@ -300,6 +282,7 @@ class TestKnowledgeSearch:
 # ═══════════════════════════════════════════════════════════
 # 7. GET /api/knowledge/stats — 统计信息
 # ═══════════════════════════════════════════════════════════
+
 
 class TestKnowledgeStats:
     """KB 页面 → KB 引擎统计"""
@@ -314,7 +297,7 @@ class TestKnowledgeStats:
                 "total_documents": 10,
                 "total_chunks": 50,
                 "collection_name": "xinhua_kb",
-            }
+            },
         ):
             response = client.get("/api/knowledge/stats")
             assert response.status_code == 200
@@ -328,6 +311,7 @@ class TestKnowledgeStats:
 # 8. DELETE /api/knowledge/{doc_id} — 删除文档
 # ═══════════════════════════════════════════════════════════
 
+
 class TestKnowledgeDelete:
     """管理操作 → KB 引擎删除"""
 
@@ -336,7 +320,7 @@ class TestKnowledgeDelete:
         with patch(
             "backend.src.api.main.knowledge_base.delete_document",
             new_callable=AsyncMock,
-            return_value=True
+            return_value=True,
         ):
             response = client.delete("/api/knowledge/test_doc_001")
             assert response.status_code == 200
@@ -349,7 +333,7 @@ class TestKnowledgeDelete:
         with patch(
             "backend.src.api.main.knowledge_base.delete_document",
             new_callable=AsyncMock,
-            return_value=False
+            return_value=False,
         ):
             response = client.delete("/api/knowledge/nonexistent_doc")
             assert response.status_code == 404
@@ -359,6 +343,7 @@ class TestKnowledgeDelete:
 # 9. 异常处理覆盖
 # ═══════════════════════════════════════════════════════════
 
+
 class TestExceptionHandling:
     """Day 7 API 异常处理加固验证"""
 
@@ -367,7 +352,7 @@ class TestExceptionHandling:
         with patch(
             "backend.src.api.main.knowledge_base.search",
             new_callable=AsyncMock,
-            side_effect=ConnectionError("ChromaDB unavailable")
+            side_effect=ConnectionError("ChromaDB unavailable"),
         ):
             response = client.get("/api/knowledge/search", params={"q": "test"})
             assert response.status_code == 503
@@ -377,7 +362,7 @@ class TestExceptionHandling:
         with patch(
             "backend.src.api.main.knowledge_base.search",
             new_callable=AsyncMock,
-            side_effect=RuntimeError("Unexpected error")
+            side_effect=RuntimeError("Unexpected error"),
         ):
             response = client.get("/api/knowledge/search", params={"q": "test"})
             assert response.status_code == 500
@@ -386,6 +371,7 @@ class TestExceptionHandling:
 # ═══════════════════════════════════════════════════════════
 # 10. CORS 配置验证
 # ═══════════════════════════════════════════════════════════
+
 
 class TestCORS:
     """跨域请求支持"""
@@ -397,11 +383,9 @@ class TestCORS:
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "POST",
-            }
+            },
         )
-        assert "access-control-allow-origin" in {
-            h.lower() for h in response.headers.keys()
-        }
+        assert "access-control-allow-origin" in {h.lower() for h in response.headers.keys()}
 
 
 # ═══════════════════════════════════════════════════════════

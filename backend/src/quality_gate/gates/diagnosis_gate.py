@@ -94,17 +94,13 @@ class DiagnosisGate(BaseGate):
             violations.append("overall_confidence 类型异常（bool），期望 0-1 之间的数值")
             retry_reasons.append("overall_confidence 数据类型错误，请输出数值类型（如 0.85）")
         elif not (0.0 <= confidence <= 1.0):
-            violations.append(
-                f"overall_confidence={confidence} 超出合法范围 [0, 1]"
-            )
+            violations.append(f"overall_confidence={confidence} 超出合法范围 [0, 1]")
             retry_reasons.append(
                 f"overall_confidence 值域异常（{confidence}），"
                 "置信度必须在 0-1 之间，请检查诊断逻辑后重新输出"
             )
         elif confidence < effective_threshold:
-            violations.append(
-                f"overall_confidence={confidence:.2f} < {effective_threshold}"
-            )
+            violations.append(f"overall_confidence={confidence:.2f} < {effective_threshold}")
             retry_reasons.append(
                 f"诊断置信度过低（{confidence:.2f}），"
                 "请补充更多学习者背景信息（学历、工作经历、前置测试结果）后重新诊断"
@@ -129,18 +125,12 @@ class DiagnosisGate(BaseGate):
         gaps = diag.get("skill_gaps", [])
         if not isinstance(gaps, list) or len(gaps) == 0:
             violations.append("skill_gaps 为空（薄弱环节）")
-            retry_reasons.append(
-                "请至少识别 1 个薄弱环节，"
-                "标注学习者缺少哪些前置知识/技能"
-            )
+            retry_reasons.append("请至少识别 1 个薄弱环节，标注学习者缺少哪些前置知识/技能")
         else:
-            non_dict_items = [
-                i for i, g in enumerate(gaps) if not isinstance(g, dict)
-            ]
+            non_dict_items = [i for i, g in enumerate(gaps) if not isinstance(g, dict)]
             if non_dict_items:
                 violations.append(
-                    f"skill_gaps[{non_dict_items}] 包含非 dict 类型元素，"
-                    f"期望每个薄弱项为对象格式"
+                    f"skill_gaps[{non_dict_items}] 包含非 dict 类型元素，期望每个薄弱项为对象格式"
                 )
                 retry_reasons.append(
                     f"skill_gaps 第 {non_dict_items} 项类型错误，"

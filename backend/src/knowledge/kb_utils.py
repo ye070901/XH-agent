@@ -45,8 +45,8 @@ async def verify_persistence(kb) -> dict:
     coll_match = current["collection_name"] == snapshot["collection_name"]
     verified = chunks_match and docs_match and coll_match
 
-    chunk_flag = 'OK' if chunks_match else 'MISMATCH'
-    doc_flag = 'OK' if docs_match else 'MISMATCH'
+    chunk_flag = "OK" if chunks_match else "MISMATCH"
+    doc_flag = "OK" if docs_match else "MISMATCH"
     logger.info(
         f"[知识库] 持久化校验结果 | verified={verified} "
         f"chunks: {snapshot['total_chunks']}→{current['total_chunks']}({chunk_flag}) "
@@ -101,11 +101,13 @@ async def import_seed_documents(kb, raw_dir: Optional[str] = None) -> dict:
                 if stripped.startswith("# ") and not stripped.startswith("## "):
                     title = stripped[2:].strip()
                     break
-            docs_to_import.append({
-                "doc_id": md_file.stem,
-                "title": title,
-                "content": text,
-            })
+            docs_to_import.append(
+                {
+                    "doc_id": md_file.stem,
+                    "title": title,
+                    "content": text,
+                }
+            )
         except Exception as e:
             err_msg = f"{md_file.name}: {e}"
             errors.append(err_msg)
@@ -114,8 +116,11 @@ async def import_seed_documents(kb, raw_dir: Optional[str] = None) -> dict:
     if not docs_to_import:
         logger.warning("[知识库] 种子文档批量导入：无可导入文档")
         return {
-            "imported": 0, "total": len(md_files), "failed": len(errors),
-            "files": [], "errors": errors,
+            "imported": 0,
+            "total": len(md_files),
+            "failed": len(errors),
+            "files": [],
+            "errors": errors,
         }
 
     imported = await kb.add_documents_batch(docs_to_import)
@@ -123,8 +128,7 @@ async def import_seed_documents(kb, raw_dir: Optional[str] = None) -> dict:
     files = [d["doc_id"] for d in docs_to_import[:imported]]
 
     logger.info(
-        f"[知识库] 种子文档批量导入完成 | "
-        f"imported={imported} total={len(md_files)} failed={failed}"
+        f"[知识库] 种子文档批量导入完成 | imported={imported} total={len(md_files)} failed={failed}"
     )
     return {
         "imported": imported,
@@ -176,10 +180,11 @@ async def evaluate_search_quality(kb, test_cases: Optional[list[dict]] = None) -
         top1_content = (top1.get("content", "") if top1 else "").lower()
         top1_title = (top1.get("doc_title", "") if top1 else "").lower()
 
-        matched_keywords = [
-            kw for kw in expected_keywords
-            if kw in top1_content or kw in top1_title
-        ] if top1 else []
+        matched_keywords = (
+            [kw for kw in expected_keywords if kw in top1_content or kw in top1_title]
+            if top1
+            else []
+        )
 
         threshold = max(1, len(expected_keywords) // 2)
         passed = len(matched_keywords) >= threshold
@@ -187,18 +192,20 @@ async def evaluate_search_quality(kb, test_cases: Optional[list[dict]] = None) -
         if passed:
             passed_count += 1
 
-        results.append({
-            "query": query,
-            "expected_domain": case.get("expected_domain", ""),
-            "top1_doc_id": top1.get("doc_id", "") if top1 else "",
-            "top1_title": top1.get("doc_title", "") if top1 else "",
-            "top1_score": top1.get("relevance_score", 0) if top1 else 0,
-            "passed": passed,
-            "matched_keywords": matched_keywords,
-            "total_expected_keywords": len(expected_keywords),
-            "elapsed_ms": elapsed_ms,
-            "total_results": len(search_results),
-        })
+        results.append(
+            {
+                "query": query,
+                "expected_domain": case.get("expected_domain", ""),
+                "top1_doc_id": top1.get("doc_id", "") if top1 else "",
+                "top1_title": top1.get("doc_title", "") if top1 else "",
+                "top1_score": top1.get("relevance_score", 0) if top1 else 0,
+                "passed": passed,
+                "matched_keywords": matched_keywords,
+                "total_expected_keywords": len(expected_keywords),
+                "elapsed_ms": elapsed_ms,
+                "total_results": len(search_results),
+            }
+        )
 
         logger.info(
             f"[知识库] 检索质量评测 | query='{query[:40]}' "

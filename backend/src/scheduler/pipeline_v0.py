@@ -66,7 +66,8 @@ async def _run_agent_step(state: dict, agent, label: str) -> dict:
     task_id = state.get("task_id", "")
     logger.info(f"[{label}] {agent.name} 开始执行 (task_id={task_id[:8]}...)")
     await event_bus.broadcast(
-        task_id, EventType.AGENT_START,
+        task_id,
+        EventType.AGENT_START,
         {"agent": agent.name, "label": label},
     )
 
@@ -75,15 +76,21 @@ async def _run_agent_step(state: dict, agent, label: str) -> dict:
     if state.get("status") == "error":
         logger.error(f"[{label}] {agent.name} 执行失败")
         await event_bus.broadcast(
-            task_id, EventType.AGENT_ERROR,
-            {"agent": agent.name, "label": label,
-             "error": state.get("error", ""), "error_type": state.get("error_type", "")},
+            task_id,
+            EventType.AGENT_ERROR,
+            {
+                "agent": agent.name,
+                "label": label,
+                "error": state.get("error", ""),
+                "error_type": state.get("error_type", ""),
+            },
         )
         return _step_result(GateVerdict.FALLBACK.value)
 
     logger.info(f"[{label}] {agent.name} 执行完成")
     await event_bus.broadcast(
-        task_id, EventType.AGENT_DONE,
+        task_id,
+        EventType.AGENT_DONE,
         {"agent": agent.name, "label": label},
     )
     return _step_result(GateVerdict.PASS.value)
@@ -121,9 +128,7 @@ async def _build_rag_query(state: dict) -> dict:
     # 优先用 recall 改写后的 query，其次 learner 实际学习目标（域相关），
     # 最后诊断 summary（demo 诊断 summary 为通用画像，不适合做检索词）
     query = (
-        state.get("_pending_query")
-        or learner.get("learning_goal", "")
-        or diag.get("summary", "")
+        state.get("_pending_query") or learner.get("learning_goal", "") or diag.get("summary", "")
     )
     state["rag_query"] = str(query) if query else "工业机器人 调试"
     state.pop("_pending_query", None)
@@ -217,21 +222,22 @@ async def _run_output(state: dict) -> dict:
 def _build_default_steps() -> list[tuple[str, Callable, int]]:
     """构建默认 step 列表（Day8：注册 diagnosis / generation / correction 真实 Agent）。"""
     return [
-        ("InputGate",         _run_input_gate,           -1),  # 0
-        ("Agent1",            _run_agent1_diagnosis,     -1),  # 1
-        ("DiagnosisGate",     _run_diagnosis_gate,        1),  # 2 → RETRY 回跳 Agent1
-        ("Agent2_query",      _build_rag_query,          -1),  # 3
-        ("RAG_search",        _run_rag_search,           -1),  # 4
-        ("RecallGate",        _run_recall_gate,            4),  # 5 → RETRY 回跳 RAG_search
-        ("Agent2_generate",   _run_agent2_generate,      -1),  # 6
-        ("Agent3_correction", _run_agent3_correction,    -1),  # 7
-        ("Output",            _run_output,               -1),  # 8
+        ("InputGate", _run_input_gate, -1),  # 0
+        ("Agent1", _run_agent1_diagnosis, -1),  # 1
+        ("DiagnosisGate", _run_diagnosis_gate, 1),  # 2 → RETRY 回跳 Agent1
+        ("Agent2_query", _build_rag_query, -1),  # 3
+        ("RAG_search", _run_rag_search, -1),  # 4
+        ("RecallGate", _run_recall_gate, 4),  # 5 → RETRY 回跳 RAG_search
+        ("Agent2_generate", _run_agent2_generate, -1),  # 6
+        ("Agent3_correction", _run_agent3_correction, -1),  # 7
+        ("Output", _run_output, -1),  # 8
     ]
 
 
 # ═══════════════════════════════════════════════════════════
 # Gate 调用包装
 # ═══════════════════════════════════════════════════════════
+
 
 async def _run_input_gate(state: dict) -> dict:
     gate = InputGate()
@@ -240,12 +246,14 @@ async def _run_input_gate(state: dict) -> dict:
     task_id = state.get("task_id", "")
     if not result.get("passed"):
         await event_bus.broadcast(
-            task_id, EventType.GATE_FAIL,
+            task_id,
+            EventType.GATE_FAIL,
             {"gate": InputGate.GATE_NAME, "verdict": GateVerdict.FALLBACK.value},
         )
         return _step_result(GateVerdict.FALLBACK.value)
     await event_bus.broadcast(
-        task_id, EventType.GATE_PASS,
+        task_id,
+        EventType.GATE_PASS,
         {"gate": InputGate.GATE_NAME, "verdict": GateVerdict.PASS.value},
     )
     return _step_result(GateVerdict.PASS.value)
@@ -266,14 +274,19 @@ async def _run_diagnosis_gate(state: dict) -> dict:
 
     if verdict == GateVerdict.PASS.value:
         await event_bus.broadcast(
-            task_id, EventType.GATE_PASS,
+            task_id,
+            EventType.GATE_PASS,
             {"gate": DiagnosisGate.GATE_NAME, "verdict": verdict},
         )
     else:
         await event_bus.broadcast(
-            task_id, EventType.GATE_FAIL,
-            {"gate": DiagnosisGate.GATE_NAME, "verdict": verdict,
-             "retry_hint": result.get("retry_hint", "")},
+            task_id,
+            EventType.GATE_FAIL,
+            {
+                "gate": DiagnosisGate.GATE_NAME,
+                "verdict": verdict,
+                "retry_hint": result.get("retry_hint", ""),
+            },
         )
 
     return _step_result(verdict)
@@ -288,14 +301,19 @@ async def _run_recall_gate(state: dict) -> dict:
 
     if verdict == GateVerdict.PASS.value:
         await event_bus.broadcast(
-            task_id, EventType.GATE_PASS,
+            task_id,
+            EventType.GATE_PASS,
             {"gate": RecallGate.GATE_NAME, "verdict": verdict},
         )
     else:
         await event_bus.broadcast(
-            task_id, EventType.GATE_FAIL,
-            {"gate": RecallGate.GATE_NAME, "verdict": verdict,
-             "retry_hint": result.get("retry_hint", "")},
+            task_id,
+            EventType.GATE_FAIL,
+            {
+                "gate": RecallGate.GATE_NAME,
+                "verdict": verdict,
+                "retry_hint": result.get("retry_hint", ""),
+            },
         )
 
     return _step_result(verdict)
@@ -408,9 +426,7 @@ class PipelineSchedulerV0:
                     continue
                 else:
                     # retry 超限 → 转 FALLBACK
-                    logger.warning(
-                        f"  [RETRY] {name} 已达最大重试次数，转 FALLBACK"
-                    )
+                    logger.warning(f"  [RETRY] {name} 已达最大重试次数，转 FALLBACK")
                     verdict = GateVerdict.FALLBACK.value
 
             # ── FALLBACK → 走降级输出 ──
@@ -434,7 +450,8 @@ class PipelineSchedulerV0:
 
         # ── 广播工作流完成事件（含降级标记）──
         await event_bus.broadcast(
-            state["task_id"], EventType.WORKFLOW_COMPLETE,
+            state["task_id"],
+            EventType.WORKFLOW_COMPLETE,
             {
                 "pipeline_state": state["pipeline_state"],
                 "elapsed_ms": elapsed_ms,

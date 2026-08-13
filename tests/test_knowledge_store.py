@@ -62,12 +62,9 @@ def make_test_docs(count: int = 3) -> list[dict]:
             "title": "FANUC 示教器编程入门",
             "content": (
                 "# FANUC 示教器编程入门\n\n"
-
                 "FANUC 机器人使用 TP 示教器进行编程。"
                 "PTP 关节运动速度快，LIN 直线运动适合焊接。\n\n"
-
                 "FANUC 机器人使用 TP 示教器进行编程。PTP 关节运动速度快，LIN 直线运动适合焊接。\n\n"
-
                 "常见故障代码 SRVO-068 表示脉冲编码器数据传输异常，需要检查电缆连接。\n\n"
                 "安全操作：进入工作区域前必须按下急停按钮，首次运行速度倍率不超过 10%。"
             ),
@@ -77,12 +74,9 @@ def make_test_docs(count: int = 3) -> list[dict]:
             "title": "KUKA 机器人安全规范",
             "content": (
                 "# KUKA 机器人安全规范\n\n"
-
                 "KUKA KSS 系统提供完善的安全保护机制。"
                 "操作前需确认安全围栏和光栅配置正确。\n\n"
-
                 "KUKA KSS 系统提供完善的安全保护机制。操作前需确认安全围栏和光栅配置正确。\n\n"
-
                 "ISO 10218 标准规定了工业机器人的安全要求，包括急停回路、安全联锁等。\n\n"
                 "协作机器人需满足 ISO/TS 15066 安全距离要求。"
             ),
@@ -122,7 +116,6 @@ def make_temp_md_files(directory: Path, docs: list[dict]) -> list[Path]:
     return paths
 
 
-
 def _make_mock_chromadb_modules(monkeypatch):
     """辅助：往 sys.modules 注入 mock chromadb 以支持测试中的 chromadb import。
 
@@ -155,6 +148,7 @@ def _make_mock_chromadb_modules(monkeypatch):
 # ═══════════════════════════════════════════════════════════════
 # 套件0-A: _build_embedding_function 三个分支全覆盖（Day1核心方法）
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestBuildEmbeddingFunction:
     """_build_embedding_function 三个provider分支全覆盖。
@@ -207,6 +201,7 @@ class TestBuildEmbeddingFunction:
 # 套件0-B: initialize() + _init_fallback_mode() 全覆盖（Day2核心方法）
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestInitialize:
     """initialize() 三条路径全覆盖：已初始化 → 提前返回 / ChromaDB成功 / 异常降级。
 
@@ -242,6 +237,7 @@ class TestInitialize:
         monkeypatch.setattr(settings, "LLM_API_KEY", "")
         # 绕过ONNX模型检查，确保走ChromaDB路径
         import os
+
         monkeypatch.setattr(os.path, "exists", lambda _p: False)
 
         kb = KnowledgeBase()
@@ -272,6 +268,7 @@ class TestInitialize:
         monkeypatch.setattr(settings, "CHROMA_PERSIST_DIR", str(tmp_path))
         monkeypatch.setattr(settings, "LLM_API_KEY", "")
         import os as _os
+
         monkeypatch.setattr(_os.path, "exists", lambda _p: False)
 
         kb = KnowledgeBase()
@@ -299,6 +296,7 @@ class TestInitialize:
         monkeypatch.setattr(settings, "CHROMA_PERSIST_DIR", str(tmp_path))
         monkeypatch.setattr(settings, "LLM_API_KEY", "")
         import os as _os
+
         monkeypatch.setattr(_os.path, "exists", lambda _p: False)
 
         kb = KnowledgeBase()
@@ -359,6 +357,7 @@ class TestInitialize:
 
         # 用monkeypatch拦截Path.read_text
         import builtins
+
         _orig_open = builtins.open
 
         # 直接在docs处理前把bad文件设为不可读更简单 — 先初始化kb再干扰
@@ -389,10 +388,10 @@ class TestInitialize:
         assert len(matching) == 1, f"应只有1条，实际{len(matching)}条"
 
 
-
 # ═══════════════════════════════════════════════════════════════
 # 套件1: 文件降级模式测试（无需ChromaDB安装）
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestKnowledgeBaseFileMode:
     """文件降级模式测试套件。
@@ -431,8 +430,9 @@ class TestKnowledgeBaseFileMode:
         # 验证相邻chunk有overlap
         if len(chunks) >= 2:
             last_50_of_first = chunks[0][-50:]
-            assert any(last_50_of_first[:20] in chunks[1] for _ in [1]), \
+            assert any(last_50_of_first[:20] in chunks[1] for _ in [1]), (
                 "相邻chunk应有overlap内容重复"
+            )
 
     def test_chunk_text_empty(self, kb_file):
         """空文本返回空列表。"""
@@ -449,7 +449,6 @@ class TestKnowledgeBaseFileMode:
         text = "A" * 512
         chunks = kb_file._chunk_text(text, chunk_size=512, overlap=64)
         assert len(chunks) >= 1
-
 
     def test_chunk_text_overlap_tail_empty(self, kb_file):
         """current长度≤overlap时tail为空字符串，覆盖overlap边界分支。"""
@@ -468,7 +467,6 @@ class TestKnowledgeBaseFileMode:
         # 无 \n\n 分隔符 → paragraphs为空
         chunks = kb_file._chunk_text(long_text, chunk_size=512, overlap=64)
         assert len(chunks) >= 1
-
 
     # ── 测试2: add_document 单篇入库 ──
 
@@ -576,9 +574,9 @@ class TestKnowledgeBaseFileMode:
 
         # Top1结果应包含FANUC相关内容
         combined = (results[0]["content"] + results[0].get("doc_title", "")).lower()
-        assert "fanuc" in combined or "示教器" in combined, \
+        assert "fanuc" in combined or "示教器" in combined, (
             f"Top1结果应包含FANUC或示教器，实际: {results[0]['doc_title']}"
-
+        )
 
     @pytest.mark.asyncio
     async def test_search_empty_query(self, kb_file):
@@ -614,12 +612,9 @@ class TestKnowledgeBaseFileMode:
             score = r["relevance_score"]
             assert 0.0 <= score <= 1.0, f"score={score} 应在[0,1]"
 
-
             # 验证小数位数≤4位
             decimal_str = f"{score:.4f}"
-            assert round(score, 4) == float(decimal_str), \
-                f"score={score} 应保留4位小数"
-
+            assert round(score, 4) == float(decimal_str), f"score={score} 应保留4位小数"
 
     @pytest.mark.asyncio
     async def test_search_performance_timing(self, kb_file):
@@ -660,7 +655,6 @@ class TestKnowledgeBaseFileMode:
         deleted = await kb_file.delete_document("")
         assert deleted is False
 
-
     @pytest.mark.asyncio
     async def test_delete_document_with_fallback_dir_removes_file(self, kb_file, tmp_path):
         """fallback_dir非空时delete_document应同步删除磁盘文件。"""
@@ -677,7 +671,6 @@ class TestKnowledgeBaseFileMode:
         deleted = await kb_file.delete_document("to_delete")
         assert deleted is True
         assert not disk_file.exists(), "删除后磁盘文件应不存在"
-
 
     # ── 测试6: get_stats 统计 ──
 
@@ -703,7 +696,6 @@ class TestKnowledgeBaseFileMode:
     # ── Day5: 文件自动回退兼容测试 ──
 
     @pytest.mark.asyncio
-
     async def test_fallback_scans_raw_dir(self, kb_file, tmp_path):
         """Day5：文件降级模式自动扫描 data/raw/ 全部 .md 文档并切分加载。"""
         # 在临时目录创建种子文档
@@ -724,7 +716,6 @@ class TestKnowledgeBaseFileMode:
         assert len(md_files) == 3
 
     @pytest.mark.asyncio
-
     async def test_fallback_search_returns_results(self, kb_file):
         """Day5：降级后 search() 关键词检索可正常返回结果，不报错。"""
         docs = make_test_docs(3)
@@ -738,8 +729,7 @@ class TestKnowledgeBaseFileMode:
         assert isinstance(results, list), "应返回list类型"
         # 不要求必有结果，但至少不应崩溃
 
-        assert all("relevance_score" in r for r in results), \
-            "每条结果应含relevance_score字段"
+        assert all("relevance_score" in r for r in results), "每条结果应含relevance_score字段"
 
     # ── Day6: 持久化校验测试 ──
 
@@ -785,7 +775,6 @@ class TestKnowledgeBaseFileMode:
         result = await kb_file.verify_persistence()
         assert result["verified"] is False, "添加新文档后快照应不匹配"
 
-
     @pytest.mark.asyncio
     async def test_verify_persistence_mismatch_collection_name(self, kb_file):
         """Day6：collection_name不一致 → verified=False。"""
@@ -797,7 +786,6 @@ class TestKnowledgeBaseFileMode:
         result = await kb_file.verify_persistence()
         assert result["verified"] is False
         assert result["collection_name_match"] is False
-
 
     # ── Day6: 种子文档批量导入测试 ──
 
@@ -827,9 +815,7 @@ class TestKnowledgeBaseFileMode:
     async def test_import_seed_documents_nonexistent_dir(self, kb_file):
         """Day6：目录不存在时返回0且不崩溃。"""
 
-        result = await kb_file.import_seed_documents(
-            raw_dir="/nonexistent/path/12345"
-        )
+        result = await kb_file.import_seed_documents(raw_dir="/nonexistent/path/12345")
 
         result = await kb_file.import_seed_documents(raw_dir="/nonexistent/path/12345")
 
@@ -837,7 +823,6 @@ class TestKnowledgeBaseFileMode:
         assert result["imported"] == 0
 
     @pytest.mark.asyncio
-
     async def test_import_seed_documents_default_path(self, kb_file):
         """Day6：不传raw_dir时使用默认data/raw路径。"""
         result = await kb_file.import_seed_documents()
@@ -936,7 +921,6 @@ class TestKnowledgeBaseFileMode:
         assert result["failed"] >= 2
 
     @pytest.mark.asyncio
-
     async def test_import_and_search(self, kb_file, tmp_path):
         """Day6：导入种子文档后，search能精准检索到对应内容。"""
         docs = make_test_docs(3)
@@ -954,7 +938,6 @@ class TestKnowledgeBaseFileMode:
     # ── Day6: 检索质量评测测试 ──
 
     @pytest.mark.asyncio
-
     async def test_evaluate_search_quality_default(self, kb_file):
         """Day6：默认K1~K3测试用例检索质量评测。"""
         docs = make_test_docs(4)
@@ -980,7 +963,6 @@ class TestKnowledgeBaseFileMode:
             assert "matched_keywords" in r
 
     @pytest.mark.asyncio
-
     async def test_evaluate_search_quality_custom(self, kb_file):
         """Day6：自定义测试用例检索质量评测。"""
         docs = make_test_docs(3)
@@ -991,7 +973,6 @@ class TestKnowledgeBaseFileMode:
         """Day6：自定义测试用例检索质量评测。"""
         docs = make_test_docs(3)
         await kb_file.add_documents_batch(docs)
-
 
         custom_cases = [
             {
@@ -1014,7 +995,6 @@ class TestKnowledgeBaseFileMode:
         results = await kb_file.evaluate_search_quality()
         assert len(results) == 3
 
-
         # 空知识库所有测试应不通过
 
         for r in results:
@@ -1024,6 +1004,7 @@ class TestKnowledgeBaseFileMode:
 # ═══════════════════════════════════════════════════════════════
 # 套件2: ChromaDB 完整模式测试（Mock模拟）
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestKnowledgeBaseChromaDB:
     """ChromaDB完整模式测试套件。
@@ -1044,10 +1025,12 @@ class TestKnowledgeBaseChromaDB:
         mock_collection.query.return_value = {
             "ids": [["doc1_chunk_0", "doc2_chunk_0"]],
             "documents": [["FANUC SRVO-068 故障代码处理指南", "ABB RobotStudio 仿真操作"]],
-            "metadatas": [[
-                {"doc_id": "doc1", "doc_title": "FANUC SRVO-068 故障", "chunk_index": 0},
-                {"doc_id": "doc2", "doc_title": "ABB RobotStudio", "chunk_index": 0},
-            ]],
+            "metadatas": [
+                [
+                    {"doc_id": "doc1", "doc_title": "FANUC SRVO-068 故障", "chunk_index": 0},
+                    {"doc_id": "doc2", "doc_title": "ABB RobotStudio", "chunk_index": 0},
+                ]
+            ],
             "distances": [[0.2, 0.8]],
         }
         mock_collection.get.return_value = {
@@ -1244,6 +1227,7 @@ class TestKnowledgeBaseChromaDB:
 # 套件3: Day5+Day6 集成测试
 # ═══════════════════════════════════════════════════════════════
 
+
 class TestIntegrationDay5:
     """Day5 集成测试：文件回退 + 性能基线组合验证。"""
 
@@ -1371,8 +1355,7 @@ class TestIntegrationDay6:
 
         # Day6交付标准：3条测试至少2条相关内容排在返回Top1
         assert passed >= 2, (
-            f"检索质量评测未达标：期望≥2条通过，实际{passed}条通过。\n"
-            f"评测详情：{quality_results}"
+            f"检索质量评测未达标：期望≥2条通过，实际{passed}条通过。\n评测详情：{quality_results}"
         )
         print(f"\n[检索质量评测] 通过: {passed}/3")
 
@@ -1402,6 +1385,7 @@ class TestIntegrationDay6:
 # ═══════════════════════════════════════════════════════════════
 # 套件4: 边界异常测试
 # ═══════════════════════════════════════════════════════════════
+
 
 class TestEdgeCases:
     """边界异常测试：特殊字符、超长文本、并发等。"""
@@ -1433,7 +1417,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_very_long_text_chunking(self, kb):
         """超长文本切分不崩溃。"""
-        long_text = ("FANUC 机器人工业自动化内容。" * 200)  # 约2000字符× 200 = 40000字符
+        long_text = "FANUC 机器人工业自动化内容。" * 200  # 约2000字符× 200 = 40000字符
         chunks = kb._chunk_text(long_text)
         assert len(chunks) >= 5, f"超长文本应切分为多个chunk，实际{len(chunks)}"
 
@@ -1482,7 +1466,8 @@ class TestEdgeCases:
         mock_coll = MagicMock()
         mock_coll.count.return_value = 5
         mock_coll.query.return_value = {
-            "ids": [["c0"]], "documents": [["test"]],
+            "ids": [["c0"]],
+            "documents": [["test"]],
             "metadatas": [[{"doc_id": "d", "doc_title": "t", "chunk_index": 0}]],
             "distances": [[0.5]],
         }

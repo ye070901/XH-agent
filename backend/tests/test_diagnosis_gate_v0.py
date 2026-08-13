@@ -79,8 +79,7 @@ class TestDiagnosisGatePass:
         result = await gate.check(state)
 
         assert result["verdict"] == GateVerdict.PASS.value, (
-            f"Expected PASS, got verdict={result['verdict']}, "
-            f"violations={result['violations']}"
+            f"Expected PASS, got verdict={result['verdict']}, violations={result['violations']}"
         )
         assert result["passed"] is True
         assert result["score"] == 1.0

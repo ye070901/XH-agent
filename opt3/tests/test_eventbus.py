@@ -7,7 +7,7 @@
 
 import json
 
-from src.eventbus.bus import SimpleEventBus, WILDCARD
+from src.eventbus.bus import WILDCARD, SimpleEventBus
 from src.eventbus.events import (
     AGENT_DONE,
     AGENT_START,

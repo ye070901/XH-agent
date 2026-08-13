@@ -133,8 +133,7 @@ MOCK_DIAGNOSIS_2: dict = {
 MOCK_DIAGNOSIS_3: dict = {
     "diagnosis_result": {
         "summary": (
-            "学员有机械加工背景但刚转入工业机器人领域，"
-            "需从 FANUC 基础编程和工具坐标系起步。"
+            "学员有机械加工背景但刚转入工业机器人领域，需从 FANUC 基础编程和工具坐标系起步。"
         ),
         "skill_gaps": [
             {

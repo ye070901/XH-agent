@@ -178,7 +178,10 @@ async def lifespan(app: FastAPI):
     # 初始化知识库
     await knowledge_base.initialize()
     stats = await knowledge_base.get_stats()
-    logger.info(f"  知识库: {stats['mode']} 模式, {stats['total_documents']} 篇文档, {stats['total_chunks']} chunks")
+    logger.info(
+        f"  知识库: {stats['mode']} 模式, {stats['total_documents']} 篇文档, "
+        f"{stats['total_chunks']} chunks"
+    )
     logger.info("=" * 60)
 
     yield
@@ -360,9 +363,7 @@ async def kb_upload(request: dict):
         raise HTTPException(status_code=422, detail="doc_id, title, content 均为必填")
 
     try:
-        chunks = await knowledge_base.add_document(
-            doc_id=doc_id, title=title, content=content
-        )
+        chunks = await knowledge_base.add_document(doc_id=doc_id, title=title, content=content)
         return {
             "status": "ok",
             "doc_id": doc_id,

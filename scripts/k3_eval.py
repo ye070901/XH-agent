@@ -86,8 +86,7 @@ async def evaluate(knowledge_base, cases: list[dict], top_k: int) -> dict:
         # 辅助口径：Top-1 内容/标题含半数以上关键词也算命中（宽松）
         top1 = search_results[0] if search_results else None
         if top1:
-            top1_text = (f"{top1.get('doc_title', '')} "
-                         f"{top1.get('content', '')}").lower()
+            top1_text = (f"{top1.get('doc_title', '')} {top1.get('content', '')}").lower()
         else:
             top1_text = ""
         matched_kw = [kw for kw in keywords if kw in top1_text] if top1 else []
@@ -101,18 +100,20 @@ async def evaluate(knowledge_base, cases: list[dict], top_k: int) -> dict:
         if domain in domain_total:
             domain_total[domain] += 1
 
-        results.append({
-            "id": case.get("id", ""),
-            "query": query,
-            "domain": domain,
-            "expected": expected,
-            "top_ids": top_ids,
-            "rank": rank,
-            "exact_hit": hit,
-            "keyword_hit": kw_hit,
-            "rr": round(rr, 4),
-            "elapsed_ms": elapsed_ms,
-        })
+        results.append(
+            {
+                "id": case.get("id", ""),
+                "query": query,
+                "domain": domain,
+                "expected": expected,
+                "top_ids": top_ids,
+                "rank": rank,
+                "exact_hit": hit,
+                "keyword_hit": kw_hit,
+                "rr": round(rr, 4),
+                "elapsed_ms": elapsed_ms,
+            }
+        )
 
     total = len(results)
     top5_hit_rate = round(hit_count / total, 4) if total else 0.0
@@ -146,26 +147,34 @@ def _print_report(summary: dict) -> None:
     print("\n" + "=" * 62)
     print("  K3 RAG 召回评测报告")
     print("=" * 62)
-    print(f"  知识库     : {summary['kb_stats']['mode']} / "
-          f"{summary['kb_stats']['total_documents']} 篇 / "
-          f"{summary['kb_stats']['total_chunks']} chunks")
+    print(
+        f"  知识库     : {summary['kb_stats']['mode']} / "
+        f"{summary['kb_stats']['total_documents']} 篇 / "
+        f"{summary['kb_stats']['total_chunks']} chunks"
+    )
     print(f"  评测条数   : {summary['total']} (top_k={summary['top_k']})")
     print(f"  平均延迟   : {summary['avg_latency_ms']} ms")
     print("-" * 62)
-    print(f"  Top-5 命中率 : {summary['top5_hit_rate']:.2%}  "
-          f"(目标 ≥ {summary['hit_rate_target']:.0%})  "
-          f"{'✅' if summary['hit_rate_pass'] else '❌'}")
-    print(f"  MRR          : {summary['mrr']:.3f}  "
-          f"(目标 ≥ {summary['mrr_target']:.2f})  "
-          f"{'✅' if summary['mrr_pass'] else '❌'}")
+    print(
+        f"  Top-5 命中率 : {summary['top5_hit_rate']:.2%}  "
+        f"(目标 ≥ {summary['hit_rate_target']:.0%})  "
+        f"{'✅' if summary['hit_rate_pass'] else '❌'}"
+    )
+    print(
+        f"  MRR          : {summary['mrr']:.3f}  "
+        f"(目标 ≥ {summary['mrr_target']:.2f})  "
+        f"{'✅' if summary['mrr_pass'] else '❌'}"
+    )
     for d, rate in summary["domain_coverage"].items():
         print(f"  领域 {d} 命中率 : {rate:.2%}")
     print(f"  领域覆盖 3/3 : {'✅' if summary['domain_pass'] else '❌'}")
     print("-" * 62)
     for r in summary["results"]:
         flag = "✅" if r["exact_hit"] else ("△" if r["keyword_hit"] else "❌")
-        print(f"  {flag} [{r['id']}]({r['domain']}) rank={r['rank'] or '-'} "
-              f"{r['elapsed_ms']}ms  {r['query'][:32]}")
+        print(
+            f"  {flag} [{r['id']}]({r['domain']}) rank={r['rank'] or '-'} "
+            f"{r['elapsed_ms']}ms  {r['query'][:32]}"
+        )
     print("=" * 62)
 
 
@@ -174,10 +183,14 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8")
 
     parser = argparse.ArgumentParser(description="K3 RAG 召回评测")
-    parser.add_argument("--qa-dataset", default="data/qa_dataset/k3_qa_dataset.json",
-                        help="QA 数据集路径")
-    parser.add_argument("--persist-dir", default=_DEFAULT_PERSIST_DIR,
-                        help="ChromaDB 持久化目录（默认 backend/data/chroma）")
+    parser.add_argument(
+        "--qa-dataset", default="data/qa_dataset/k3_qa_dataset.json", help="QA 数据集路径"
+    )
+    parser.add_argument(
+        "--persist-dir",
+        default=_DEFAULT_PERSIST_DIR,
+        help="ChromaDB 持久化目录（默认 backend/data/chroma）",
+    )
     parser.add_argument("--top-k", type=int, default=5, help="Top-K（默认 5）")
     parser.add_argument("--domain", choices=["K1", "K2", "K3"], help="按领域过滤")
     parser.add_argument("--json", help="结果落盘 JSON 路径（可选）")
@@ -189,9 +202,11 @@ def main() -> int:
     from backend.src.knowledge.store import knowledge_base  # noqa: E402
 
     async def run() -> int:
-        dataset_path = (Path(args.qa_dataset)
-                        if Path(args.qa_dataset).is_absolute()
-                        else _REPO_ROOT / args.qa_dataset)
+        dataset_path = (
+            Path(args.qa_dataset)
+            if Path(args.qa_dataset).is_absolute()
+            else _REPO_ROOT / args.qa_dataset
+        )
         if not dataset_path.exists():
             logger.error(f"[K3评测] QA 数据集不存在: {dataset_path}")
             return 1
@@ -204,7 +219,7 @@ def main() -> int:
         summary = await evaluate(knowledge_base, cases, args.top_k)
 
         if args.json:
-            out = (Path(args.json) if Path(args.json).is_absolute() else _REPO_ROOT / args.json)
+            out = Path(args.json) if Path(args.json).is_absolute() else _REPO_ROOT / args.json
             out.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
             logger.info(f"[K3评测] 结果已落盘: {out}")
 

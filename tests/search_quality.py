@@ -1,4 +1,5 @@
 """K1/K2/K3 检索质量验证脚本。验收标准：3条query至少2条Top1命中相关文档。"""
+
 import asyncio
 import sys
 from pathlib import Path
@@ -21,7 +22,7 @@ async def main():
     print(f"Seed docs loaded: imported={result['imported']}, total={result['total']}")
 
     # Fall back to built-in test data if no seed docs
-    if result['imported'] == 0:
+    if result["imported"] == 0:
         print("No seed docs, loading built-in test data...")
         test_docs = [
             {
@@ -30,21 +31,24 @@ async def main():
                 "content": (
                     "FANUC industrial robot uses teach pendant for PTP joint motion "
                     "programming. Point teaching includes recording position points, "
-                    "setting motion type, and writing TP programs."),
+                    "setting motion type, and writing TP programs."
+                ),
             },
             {
                 "doc_id": "k2_abb",
                 "title": "ABB RobotStudio Offline Simulation Workstation Setup",
                 "content": (
                     "RobotStudio is ABB's offline programming and simulation software. "
-                    "Build virtual workstations, write RAPID programs, verify motion paths."),
+                    "Build virtual workstations, write RAPID programs, verify motion paths."
+                ),
             },
             {
                 "doc_id": "k3_fault",
                 "title": "FANUC SRVO-068 Fault Code Diagnosis and Handling Guide",
                 "content": (
                     "SRVO-068 indicates pulse coder data transmission error DTERR. "
-                    "Possible causes: encoder cable break, EMC noise, servo amplifier failure."),
+                    "Possible causes: encoder cable break, EMC noise, servo amplifier failure."
+                ),
             },
         ]
         await kb.add_documents_batch(test_docs)

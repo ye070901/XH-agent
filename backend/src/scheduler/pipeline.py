@@ -214,17 +214,17 @@ class PipelineScheduler:
         # step 定义: (name, retry_target_index)
         # retry_target=-1 表示该步骤不触发回跳（InputGate 失败直接终止）
         steps = [
-            ("InputGate",         -1),   # 0
-            ("Agent1",            -1),   # 1
-            ("DiagnosisGate",      1),   # 2 → RETRY 回跳 Agent1
-            ("Agent2_query",      -1),   # 3
-            ("RAG_search",        -1),   # 4
-            ("RecallGate",         4),   # 5 → RETRY 回跳 RAG_search
-            ("Agent2_generate",   -1),   # 6
-            ("Agent3_audit",      -1),   # 7
-            ("Agent4_correction", -1),   # 8
-            ("Agent3_recheck",    -1),   # 9
-            ("Output",            -1),   # 10
+            ("InputGate", -1),  # 0
+            ("Agent1", -1),  # 1
+            ("DiagnosisGate", 1),  # 2 → RETRY 回跳 Agent1
+            ("Agent2_query", -1),  # 3
+            ("RAG_search", -1),  # 4
+            ("RecallGate", 4),  # 5 → RETRY 回跳 RAG_search
+            ("Agent2_generate", -1),  # 6
+            ("Agent3_audit", -1),  # 7
+            ("Agent4_correction", -1),  # 8
+            ("Agent3_recheck", -1),  # 9
+            ("Output", -1),  # 10
         ]
 
         idx = 0
@@ -234,10 +234,7 @@ class PipelineScheduler:
             max_iterations -= 1
             name, retry_target = steps[idx]
 
-            logger.info(
-                f"[Scheduler] task_id={task_id[:8]}… "
-                f"[{idx + 1}/{len(steps)}] {name}"
-            )
+            logger.info(f"[Scheduler] task_id={task_id[:8]}… [{idx + 1}/{len(steps)}] {name}")
 
             # 执行当前 step
             verdict = await self._dispatch_step(idx, name, state, task_id)
@@ -257,15 +254,11 @@ class PipelineScheduler:
                         f"-> step[{retry_target}] '{steps[retry_target][0]}'"
                     )
                     if "RecallGate" in name:
-                        state["recall_retry_count"] = (
-                            state.get("recall_retry_count", 0) + 1
-                        )
+                        state["recall_retry_count"] = state.get("recall_retry_count", 0) + 1
                     idx = retry_target
                     continue
                 else:
-                    logger.warning(
-                        f"[Scheduler] {name} 重试已达上限 ({rc})，转 FALLBACK"
-                    )
+                    logger.warning(f"[Scheduler] {name} 重试已达上限 ({rc})，转 FALLBACK")
                     verdict = GateVerdict.FALLBACK.value
 
             # ── FALLBACK → 终止 ──
@@ -287,9 +280,7 @@ class PipelineScheduler:
                 EventType.WORKFLOW_COMPLETE,
                 {
                     "status": "completed",
-                    "resources_count": len(
-                        state.get("corrected_resources", [])
-                    ),
+                    "resources_count": len(state.get("corrected_resources", [])),
                     "audit_verdict": self._extract_verdict(state),
                 },
             )
@@ -335,25 +326,31 @@ class PipelineScheduler:
     # Step 0: InputGate — 输入安全过滤
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_input_gate(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_input_gate(self, state: dict[str, Any], task_id: str) -> str:
         """InputGate 只做二元判断：通过 → PASS，拦截 → FALLBACK（终止）。"""
         gate = InputGate()
         state = await gate.validate(state)
         result = state["gate_results"][InputGate.GATE_NAME]
 
         if result.get("passed"):
-            await self._broadcast(task_id, EventType.GATE_PASS, {
-                "gate": gate.GATE_NAME,
-                "score": result.get("score", 0.0),
-            })
+            await self._broadcast(
+                task_id,
+                EventType.GATE_PASS,
+                {
+                    "gate": gate.GATE_NAME,
+                    "score": result.get("score", 0.0),
+                },
+            )
             return GateVerdict.PASS.value
 
-        await self._broadcast(task_id, EventType.GATE_FAIL, {
-            "gate": gate.GATE_NAME,
-            "violations": result.get("violations", []),
-        })
+        await self._broadcast(
+            task_id,
+            EventType.GATE_FAIL,
+            {
+                "gate": gate.GATE_NAME,
+                "violations": result.get("violations", []),
+            },
+        )
         raise _GateAbortError(
             gate_name=gate.GATE_NAME,
             violations=result.get("violations", []),
@@ -365,9 +362,7 @@ class PipelineScheduler:
     # Step 1: Agent1 — 学情诊断
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent1(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_agent1(self, state: dict[str, Any], task_id: str) -> str:
         # 如果 DiagnosisGate 之前给了 RETRY hint，注入 learner_data
         hint = state.pop("_diagnosis_retry_hint", "")
         if hint:
@@ -376,39 +371,40 @@ class PipelineScheduler:
             state["learner_data"] = learner
             logger.info(f"[Scheduler] Agent1 收到 RETRY hint: {hint[:80]}")
 
-        return await self._run_agent(
-            self._get_diagnosis(), state, task_id, "diagnosis"
-        )
+        return await self._run_agent(self._get_diagnosis(), state, task_id, "diagnosis")
 
     # ═══════════════════════════════════════════════════════════
     # Step 2: DiagnosisGate — 三路裁决
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_diagnosis_gate(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_diagnosis_gate(self, state: dict[str, Any], task_id: str) -> str:
         gate = DiagnosisGate()
         state = await gate.validate(state)
         result = state["gate_results"][DiagnosisGate.GATE_NAME]
         verdict = result.get("verdict", GateVerdict.FALLBACK.value)
 
         if verdict == GateVerdict.PASS.value:
-            await self._broadcast(task_id, EventType.GATE_PASS, {
-                "gate": gate.GATE_NAME,
-                "score": result.get("score", 0.0),
-            })
+            await self._broadcast(
+                task_id,
+                EventType.GATE_PASS,
+                {
+                    "gate": gate.GATE_NAME,
+                    "score": result.get("score", 0.0),
+                },
+            )
         elif verdict == GateVerdict.RETRY.value:
             state["_diagnosis_retry_hint"] = result.get("retry_hint", "")
-            logger.info(
-                f"[Scheduler] DiagnosisGate RETRY: "
-                f"{result.get('retry_hint', '')[:100]}"
-            )
+            logger.info(f"[Scheduler] DiagnosisGate RETRY: {result.get('retry_hint', '')[:100]}")
         else:
             # FALLBACK：降级诊断已写入 gate_result.fallback_data
-            await self._broadcast(task_id, EventType.GATE_FAIL, {
-                "gate": gate.GATE_NAME,
-                "verdict": "FALLBACK",
-            })
+            await self._broadcast(
+                task_id,
+                EventType.GATE_FAIL,
+                {
+                    "gate": gate.GATE_NAME,
+                    "verdict": "FALLBACK",
+                },
+            )
 
         return verdict
 
@@ -416,9 +412,7 @@ class PipelineScheduler:
     # Step 3: Agent2_query — 构建 RAG 检索 Query
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent2_query(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_agent2_query(self, state: dict[str, Any], task_id: str) -> str:
         diag = state.get("diagnosis_result", {})
         learner = state.get("learner_data", {})
 
@@ -427,26 +421,17 @@ class PipelineScheduler:
         if pending:
             query = pending
         else:
-            query = (
-                diag.get("summary", "")
-                or learner.get("learning_goal", "")
-                or "工业机器人 调试"
-            )
+            query = diag.get("summary", "") or learner.get("learning_goal", "") or "工业机器人 调试"
 
         state["rag_query"] = str(query)
-        logger.info(
-            f"[Scheduler] task_id={task_id[:8]}… "
-            f"RAG Query: '{str(query)[:60]}'"
-        )
+        logger.info(f"[Scheduler] task_id={task_id[:8]}… RAG Query: '{str(query)[:60]}'")
         return GateVerdict.PASS.value
 
     # ═══════════════════════════════════════════════════════════
     # Step 4: RAG_search — 执行向量检索
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_rag_search(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_rag_search(self, state: dict[str, Any], task_id: str) -> str:
         query = state.pop("_pending_query", None) or state.get("rag_query", "")
 
         # 如果 RecallGate 返回了改写 query，优先用
@@ -461,8 +446,7 @@ class PipelineScheduler:
         state["retrieved_chunks"] = chunks
         logger.info(f"[KB引擎接管RAG检索] query={str(query)[:50]}")
         logger.info(
-            f"[Scheduler] task_id={task_id[:8]}… "
-            f"RAG: '{str(query)[:50]}' -> {len(chunks)} chunks"
+            f"[Scheduler] task_id={task_id[:8]}… RAG: '{str(query)[:50]}' -> {len(chunks)} chunks"
         )
         return GateVerdict.PASS.value
 
@@ -470,30 +454,33 @@ class PipelineScheduler:
     # Step 5: RecallGate — 三路裁决
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_recall_gate(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_recall_gate(self, state: dict[str, Any], task_id: str) -> str:
         gate = RecallGate()
         state = await gate.validate(state)
         result = state["gate_results"][RecallGate.GATE_NAME]
         verdict = result.get("verdict", GateVerdict.FALLBACK.value)
 
         if verdict == GateVerdict.PASS.value:
-            await self._broadcast(task_id, EventType.GATE_PASS, {
-                "gate": gate.GATE_NAME,
-                "score": result.get("score", 0.0),
-            })
+            await self._broadcast(
+                task_id,
+                EventType.GATE_PASS,
+                {
+                    "gate": gate.GATE_NAME,
+                    "score": result.get("score", 0.0),
+                },
+            )
         elif verdict == GateVerdict.RETRY.value:
             new_q = result.get("details", {}).get("new_query", "")
-            logger.info(
-                f"[Scheduler] RecallGate RETRY: "
-                f"new_query='{new_q[:60]}'"
-            )
+            logger.info(f"[Scheduler] RecallGate RETRY: new_query='{new_q[:60]}'")
         else:
-            await self._broadcast(task_id, EventType.GATE_FAIL, {
-                "gate": gate.GATE_NAME,
-                "verdict": "FALLBACK",
-            })
+            await self._broadcast(
+                task_id,
+                EventType.GATE_FAIL,
+                {
+                    "gate": gate.GATE_NAME,
+                    "verdict": "FALLBACK",
+                },
+            )
 
         return verdict
 
@@ -501,60 +488,40 @@ class PipelineScheduler:
     # Step 6: Agent2_generate — KB 约束生成
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent2_generate(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
-        return await self._run_agent(
-            self._get_generation(), state, task_id, "generation"
-        )
+    async def _step_agent2_generate(self, state: dict[str, Any], task_id: str) -> str:
+        return await self._run_agent(self._get_generation(), state, task_id, "generation")
 
     # ═══════════════════════════════════════════════════════════
     # Step 7: Agent3_audit — 初次内容审核
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent3(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
-        return await self._run_agent(
-            self._get_audit(), state, task_id, "audit"
-        )
+    async def _step_agent3(self, state: dict[str, Any], task_id: str) -> str:
+        return await self._run_agent(self._get_audit(), state, task_id, "audit")
 
     # ═══════════════════════════════════════════════════════════
     # Step 8: Agent4_correction — 保真修正 + 博弈引擎
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent4(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_agent4(self, state: dict[str, Any], task_id: str) -> str:
         # 博弈引擎（在修正之前执行）
         state = await self._run_debate(state, task_id)
-        return await self._run_agent(
-            self._get_correction(), state, task_id, "correction"
-        )
+        return await self._run_agent(self._get_correction(), state, task_id, "correction")
 
     # ═══════════════════════════════════════════════════════════
     # Step 9: Agent3_recheck — 二次审核（对修正后内容）
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_agent3_recheck(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_agent3_recheck(self, state: dict[str, Any], task_id: str) -> str:
         if state.get("corrected_resources"):
-            state["_original_generated_resources"] = state.get(
-                "generated_resources", []
-            )
+            state["_original_generated_resources"] = state.get("generated_resources", [])
             state["generated_resources"] = state["corrected_resources"]
-        return await self._run_agent(
-            self._get_audit(), state, task_id, "audit_recheck"
-        )
+        return await self._run_agent(self._get_audit(), state, task_id, "audit_recheck")
 
     # ═══════════════════════════════════════════════════════════
     # Step 10: Output — 最终汇总
     # ═══════════════════════════════════════════════════════════
 
-    async def _step_output(
-        self, state: dict[str, Any], task_id: str
-    ) -> str:
+    async def _step_output(self, state: dict[str, Any], task_id: str) -> str:
         if state.get("_is_fallback"):
             # 降级输出：从最后一次 gate 结果取 fallback_data
             for gate_name in (
@@ -562,16 +529,11 @@ class PipelineScheduler:
                 DiagnosisGate.GATE_NAME,
             ):
                 gr = state.get("gate_results", {}).get(gate_name, {})
-                fb = gr.get("fallback_data") or gr.get("details", {}).get(
-                    "fallback_data"
-                )
+                fb = gr.get("fallback_data") or gr.get("details", {}).get("fallback_data")
                 if fb and isinstance(fb, dict):
                     state["diagnosis_result"] = fb
                     break
-            logger.info(
-                f"[Scheduler] task_id={task_id[:8]}… "
-                "FALLBACK output: 已注入降级诊断数据"
-            )
+            logger.info(f"[Scheduler] task_id={task_id[:8]}… FALLBACK output: 已注入降级诊断数据")
         return GateVerdict.PASS.value
 
     # ═══════════════════════════════════════════════════════════
@@ -603,9 +565,7 @@ class PipelineScheduler:
                     EventType.AGENT_ERROR,
                     {
                         "agent": agent_name,
-                        "error_message": state.get(
-                            "error", "Agent 返回 error 状态"
-                        ),
+                        "error_message": state.get("error", "Agent 返回 error 状态"),
                     },
                 )
             else:
@@ -649,9 +609,7 @@ class PipelineScheduler:
     def _track_retry(state: dict[str, Any], step_idx: int) -> None:
         """记录某步骤的重试次数。"""
         key = f"step_{step_idx}"
-        state["_retry_counts"][key] = (
-            state["_retry_counts"].get(key, 0) + 1
-        )
+        state["_retry_counts"][key] = state["_retry_counts"].get(key, 0) + 1
 
     # ═══════════════════════════════════════════════════════════
     # 博弈引擎（占位 — 等待模板5完整实现）

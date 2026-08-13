@@ -184,9 +184,7 @@ class GenerationAgentTest(unittest.TestCase):
         patcher = patch.object(
             agent,
             "call_llm_json",
-            new=AsyncMock(
-                side_effect=lambda *a, **k: {"_parse_error": True, "raw": "not json"}
-            ),
+            new=AsyncMock(side_effect=lambda *a, **k: {"_parse_error": True, "raw": "not json"}),
         )
         patcher.start()
         self.addCleanup(patcher.stop)
@@ -195,9 +193,7 @@ class GenerationAgentTest(unittest.TestCase):
         )
 
         self.assertEqual(state["generated_resources"], [])
-        self.assertEqual(
-            state["generation_errors"][0]["error"], "json_parse_failed"
-        )
+        self.assertEqual(state["generation_errors"][0]["error"], "json_parse_failed")
 
 
 if __name__ == "__main__":

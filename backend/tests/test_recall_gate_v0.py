@@ -71,11 +71,13 @@ class TestRecallGatePass:
     async def test_three_docs_pass(self):
         """3 篇文档 → PASS。"""
         gate = RecallGate()
-        state = _make_state([
-            _make_chunk("d1", "FANUC 基础"),
-            _make_chunk("d2", "SRVO 错误码"),
-            _make_chunk("d3", "故障排查"),
-        ])
+        state = _make_state(
+            [
+                _make_chunk("d1", "FANUC 基础"),
+                _make_chunk("d2", "SRVO 错误码"),
+                _make_chunk("d3", "故障排查"),
+            ]
+        )
         result = await gate.check(state)
 
         assert result["verdict"] == GateVerdict.PASS.value
@@ -84,9 +86,7 @@ class TestRecallGatePass:
     async def test_ten_docs_pass(self):
         """10 篇文档 → PASS。"""
         gate = RecallGate()
-        state = _make_state([
-            _make_chunk(f"d{i}", f"文档{i}") for i in range(10)
-        ])
+        state = _make_state([_make_chunk(f"d{i}", f"文档{i}") for i in range(10)])
         result = await gate.check(state)
 
         assert result["verdict"] == GateVerdict.PASS.value

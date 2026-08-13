@@ -113,9 +113,7 @@ class RecallGate(BaseGate):
             passed=False,
             score=0.0,
             verdict=GateVerdict.FALLBACK.value,
-            violations=[
-                f"连续 {settings.RECALL_MAX_RETRIES} 次召回为 0，知识库暂无相关数据"
-            ],
+            violations=[f"连续 {settings.RECALL_MAX_RETRIES} 次召回为 0，知识库暂无相关数据"],
             gate_name=self.GATE_NAME,
             total_chunks=0,
             retry_count=retry_count,
@@ -137,9 +135,7 @@ class RecallGate(BaseGate):
             from backend.src.llm.client import llm
 
             model = (
-                settings.RECALL_QUERY_REWRITE_MODEL
-                or settings.GATE_LLM_MODEL
-                or settings.LLM_MODEL
+                settings.RECALL_QUERY_REWRITE_MODEL or settings.GATE_LLM_MODEL or settings.LLM_MODEL
             )
 
             rewritten = await llm.call(

@@ -94,8 +94,10 @@ def verify_event_log(events: list[dict], task_id: str) -> list[str]:
 
     if diffs:
         max_gap = max(diffs)
-        print(f"\n  时间戳: 首 {timestamps[0]:.3f} → 末 {timestamps[-1]:.3f}，"
-              f"共 {len(timestamps)} 个事件，最大间隔 {max_gap:.3f}s")
+        print(
+            f"\n  时间戳: 首 {timestamps[0]:.3f} → 末 {timestamps[-1]:.3f}，"
+            f"共 {len(timestamps)} 个事件，最大间隔 {max_gap:.3f}s"
+        )
         large_gaps = [(i, round(d, 3)) for i, d in enumerate(diffs) if d > _GAP_THRESHOLD_SECONDS]
         if large_gaps:
             anomalies.append(f"存在时间断层 (>{_GAP_THRESHOLD_SECONDS}s): {large_gaps}")
@@ -122,9 +124,7 @@ async def main() -> None:
 
     gate_trace = []
     for gate_name, gate_result in result.get("gate_results", {}).items():
-        gate_trace.append(
-            f"{gate_name}:{gate_result.get('verdict', '?')}"
-        )
+        gate_trace.append(f"{gate_name}:{gate_result.get('verdict', '?')}")
     print(f"  gate_trace       = {gate_trace}")
 
     # ── EventBus 日志校验 ──

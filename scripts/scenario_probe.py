@@ -8,9 +8,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from backend.src.quality_gate.gates.diagnosis_gate import DiagnosisGate
-from backend.src.quality_gate.gates.recall_gate import RecallGate
-from backend.src.quality_gate.gates.input_gate import InputGate
 from backend.src.scheduler.pipeline_v0 import (
     PipelineSchedulerV0,
     _build_default_steps,
@@ -18,15 +15,20 @@ from backend.src.scheduler.pipeline_v0 import (
 )
 from backend.src.schemas import GateVerdict
 
-
 # ============================================================
 # Mock helpers
 # ============================================================
 
+
 async def _mock_rag_pass(state: dict) -> dict:
     state["retrieved_chunks"] = [
-        {"doc_id": "d1", "doc_title": "FANUC 故障", "chunk_index": 0,
-         "content": "...", "relevance_score": 0.9},
+        {
+            "doc_id": "d1",
+            "doc_title": "FANUC 故障",
+            "chunk_index": 0,
+            "content": "...",
+            "relevance_score": 0.9,
+        },
     ]
     return {"verdict": "PASS"}
 
@@ -54,8 +56,11 @@ async def probe_pass_scenario():
 
     result = await scheduler.run(state, steps=steps)
     fo = result.get("final_output", {})
-    trace = [(name, result.get("gate_results", {}).get(name, {}).get("verdict", "?"))
-             for name, _, _ in steps if "Gate" in name]
+    trace = [
+        (name, result.get("gate_results", {}).get(name, {}).get("verdict", "?"))
+        for name, _, _ in steps
+        if "Gate" in name
+    ]
 
     print(f"  final_output.status = {fo.get('status')}")
     print(f"  pipeline_state      = {result.get('pipeline_state')}")
@@ -67,7 +72,9 @@ async def probe_pass_scenario():
     if fo.get("status") != "ok":
         anomalies.append(f"[diagnosis_gate] status 非预期: {fo.get('status')}")
     if result.get("pipeline_state") != "done":
-        anomalies.append(f"[scheduler/pipeline_v0] pipeline_state 非 done: {result.get('pipeline_state')}")
+        anomalies.append(
+            f"[scheduler/pipeline_v0] pipeline_state 非 done: {result.get('pipeline_state')}"
+        )
 
     return anomalies
 
@@ -85,7 +92,15 @@ async def probe_retry_scenario():
     async def mock_agent1_low_conf(state: dict) -> dict:
         state["diagnosis_result"] = {
             "knowledge_map": {"K": {"level": 0.1, "confidence": 0.2}},
-            "skill_gaps": [{"topic": "基础", "current_level": 0, "target_level": 0.5, "priority": "critical", "reason": "缺基础"}],
+            "skill_gaps": [
+                {
+                    "topic": "基础",
+                    "current_level": 0,
+                    "target_level": 0.5,
+                    "priority": "critical",
+                    "reason": "缺基础",
+                }
+            ],
             "learning_style": "practice_first",
             "recommended_difficulty": "beginner",
             "overall_confidence": 0.25,
@@ -152,9 +167,14 @@ async def probe_fallback_scenario():
     if result.get("_is_fallback") is not True:
         anomalies.append("[scheduler/pipeline_v0] _is_fallback 应为 True，实际 False")
     if fo.get("status") != "fallback":
-        anomalies.append(f"[scheduler/pipeline_v0] final_output.status 预期 'fallback'，实际 '{fo.get('status')}'")
+        anomalies.append(
+            f"[scheduler/pipeline_v0] final_output.status 预期 'fallback'，"
+            f"实际 '{fo.get('status')}'"
+        )
     if result.get("recall_retry_count", 0) > 3:
-        anomalies.append(f"[recall_gate] retry_count={result.get('recall_retry_count')} 超过上限3但未终止")
+        anomalies.append(
+            f"[recall_gate] retry_count={result.get('recall_retry_count')} 超过上限3但未终止"
+        )
 
     return anomalies
 
