@@ -78,9 +78,9 @@ class GenerateRequest(BaseModel):
 
     # ── 必填字段 ──
     name: str = Field(
-        ...,
-        description="学习者姓名",
-        min_length=1,
+        default="匿名学习者",
+        description="学习者姓名（前端表单未提供，用默认值）",
+        min_length=0,
         max_length=50,
         examples=["张三"],
     )
