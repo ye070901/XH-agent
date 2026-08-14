@@ -106,7 +106,7 @@ for /f "tokens=2" %%v in ('python --version 2^>^&1') do set "PY_VER=%%v"
 echo   [√] Python %PY_VER%
 
 :: 检查关键依赖
-python -c "import fastapi, uvicorn, loguru; print('[√] 核心依赖就绪')" 2>nul
+python -c "import fastapi, uvicorn, loguru, chromadb, openai; print('[√] 核心依赖就绪')" 2>nul
 if %errorlevel% neq 0 (
     echo   [!] 缺少依赖，正在安装 ...
     cd /d "%PROJECT_ROOT%backend"

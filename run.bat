@@ -84,14 +84,14 @@ if exist "%~dp0.env" (
 echo.
 echo [4/5] 检查依赖...
 
-"%PYTHON_CMD%" -c "import fastapi, uvicorn, loguru, dotenv" 2>nul
+"%PYTHON_CMD%" -c "import fastapi, uvicorn, loguru, dotenv, chromadb, openai" 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo    缺少依赖，正在安装...
     echo.
-    "%PYTHON_CMD%" -m pip install fastapi "uvicorn[standard]" loguru python-dotenv pydantic httpx -q
+    "%PYTHON_CMD%" -m pip install -r requirements.txt -q
     if %ERRORLEVEL% NEQ 0 (
         echo    [ERROR] 依赖安装失败，请手动执行:
-        echo            pip install -r backend\requirements.txt
+        echo            pip install -r requirements.txt
         pause
         exit /b 1
     )

@@ -4,11 +4,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app/backend
       - ./data:/app/data
     env_file:
       - .env
-    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build: ./frontend
