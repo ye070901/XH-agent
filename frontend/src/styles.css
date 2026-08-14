@@ -1,0 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-heading: 'Helvetica Now Display Bold', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --color-text: #192837;
+  --color-accent: #7342E2;
+  --color-login-bg: #F2F2EE;
+}
+
+html { background: var(--color-login-bg); }
+body { margin: 0; min-width: 320px; }
+button, a { font: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
