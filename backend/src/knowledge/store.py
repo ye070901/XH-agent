@@ -91,6 +91,9 @@ class KnowledgeBase:
 
             self._initialized = True
             logger.info(f"【知识库】ChromaDB模式, chunks={self._collection.count()}")
+            # 兜底：无论 ChromaDB 是否有数据，都加载 data/raw 到内存，
+            # 供 ChromaDB 空结果时回退关键词检索（embedding 不可用时的可靠路径）
+            self._load_raw_docs()
             await self._record_persistence_snapshot()
             return
         except Exception as e:
@@ -113,30 +116,43 @@ class KnowledgeBase:
             except Exception:
                 pass
 
-        raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
-        if raw_dir.exists():
-            seen = {d["doc_id"] for d in self._docs}
-            total_loaded = 0
-            for md_file in raw_dir.glob("**/*.md"):
-                if md_file.stem in seen:
-                    continue
-                try:
-                    text = md_file.read_text(encoding="utf-8")
-                    chunks = self._chunk_text(text)
-                    for i, chunk in enumerate(chunks):
-                        self._docs.append({
-                            "doc_id": md_file.stem, "doc_title": md_file.stem,
-                            "chunk_index": i, "content": chunk})
-                    total_loaded += 1
-                    logger.debug(f"[知识库] 降级加载: {md_file.stem} → {len(chunks)} chunks")
-                except Exception as e:
-                    logger.warning(f"[知识库] 降级加载失败: {md_file.name} — {e}")
-            if total_loaded > 0:
-                logger.info(f"[知识库] 降级扫描完成: 新加载 {total_loaded} 篇")
+        self._load_raw_docs()
 
         self._initialized = True
         logger.info(f"[知识库] 文件降级模式就绪, total_chunks={len(self._docs)}")
         await self._record_persistence_snapshot()
+
+    def _load_raw_docs(self) -> int:
+        """扫描 data/raw 全部 .md 加载到内存 _docs，作为关键词检索兜底语料。
+
+        幂等（按 doc_id 去重）。不依赖 embedding 服务与网络，纯本地文件读取，
+        是 ChromaDB embedding 不可用（如 DeepSeek 不提供 embedding 端点）时的
+        可靠检索路径。重启后 data/raw 本地文件恒在，自动重新加载，等价于持久化。
+        """
+        raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
+        if not raw_dir.exists():
+            return 0
+
+        seen = {d["doc_id"] for d in self._docs}
+        total_loaded = 0
+        for md_file in raw_dir.glob("**/*.md"):
+            if md_file.stem in seen:
+                continue
+            try:
+                text = md_file.read_text(encoding="utf-8")
+                chunks = self._chunk_text(text)
+                for i, chunk in enumerate(chunks):
+                    self._docs.append({
+                        "doc_id": md_file.stem, "doc_title": md_file.stem,
+                        "chunk_index": i, "content": chunk})
+                total_loaded += 1
+                logger.debug(f"[知识库] 加载语料: {md_file.stem} → {len(chunks)} chunks")
+            except Exception as e:
+                logger.warning(f"[知识库] 语料加载失败: {md_file.name} — {e}")
+
+        if total_loaded > 0:
+            logger.info(f"[知识库] data/raw 加载完成: 新加载 {total_loaded} 篇，累计 {len(self._docs)} chunks")
+        return total_loaded
 
     # ════ 文本切分 + 入库 ════
 
@@ -255,6 +271,10 @@ class KnowledgeBase:
         else:
             result = self._keyword_search(query, top_k)
 
+        # ChromaDB 空结果（collection 为空或 embedding 不可用）时，回退关键词检索兜底
+        if not result and self._docs:
+            result = self._keyword_search(query, top_k)
+
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
         logger.info(f"[知识库] 检索耗时 | query='{query[:50]}' top_k={top_k} "
                      f"results={len(result)} elapsed={elapsed_ms}ms")
@@ -333,6 +353,11 @@ class KnowledgeBase:
                 total_documents = len(doc_ids)
             except Exception:
                 total_chunks, total_documents = 0, 0
+            # ChromaDB 空但内存兜底语料可用时，如实反映实际可检索的数据量
+            if total_chunks == 0 and self._docs:
+                fb_ids = {d.get("doc_id", "") for d in self._docs}
+                return {"mode": "file_fallback", "total_chunks": len(self._docs),
+                        "total_documents": len(fb_ids), "collection_name": "file_fallback"}
             return {"mode": "chroma", "total_chunks": total_chunks,
                     "total_documents": total_documents,
                     "collection_name": settings.CHROMA_COLLECTION_NAME}
