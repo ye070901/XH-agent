@@ -82,7 +82,16 @@ class KnowledgeBase:
             if coll_name in existing:
                 self._collection = self._client.get_collection(
                     name=coll_name, embedding_function=embedding_fn)
-                logger.info(f"[知识库] 复用已有集合 '{coll_name}'")
+                # 空 collection（旧版本遗留，可能无 embedding function）→ 删除重建，
+                # 否则 add() 会因缺 embedding function 报错
+                if self._collection.count() == 0:
+                    self._client.delete_collection(coll_name)
+                    self._collection = self._client.create_collection(
+                        name=coll_name, embedding_function=embedding_fn,
+                        metadata={"hnsw:space": "cosine"})
+                    logger.info(f"[知识库] 重建空集合 '{coll_name}'")
+                else:
+                    logger.info(f"[知识库] 复用已有集合 '{coll_name}'")
             else:
                 self._collection = self._client.create_collection(
                     name=coll_name, embedding_function=embedding_fn,
@@ -90,7 +99,11 @@ class KnowledgeBase:
                 logger.info(f"[知识库] 创建新集合 '{coll_name}'")
 
             self._initialized = True
-            logger.info(f"【知识库】ChromaDB模式, chunks={self._collection.count()}")
+            chroma_count = self._collection.count()
+            logger.info(f"【知识库】ChromaDB模式, chunks={chroma_count}")
+            # collection 为空时自动向量化导入 data/raw（首次启动 / 数据未入库）
+            if chroma_count == 0:
+                await self._auto_import_raw_to_chroma()
             # 兜底：无论 ChromaDB 是否有数据，都加载 data/raw 到内存，
             # 供 ChromaDB 空结果时回退关键词检索（embedding 不可用时的可靠路径）
             self._load_raw_docs()
@@ -153,6 +166,42 @@ class KnowledgeBase:
         if total_loaded > 0:
             logger.info(f"[知识库] data/raw 加载完成: 新加载 {total_loaded} 篇，累计 {len(self._docs)} chunks")
         return total_loaded
+
+    async def _auto_import_raw_to_chroma(self) -> int:
+        """ChromaDB collection 为空时，自动将 data/raw 全部 .md 向量化入库。
+
+        使用当前 collection 的 embedding function（chroma 模式为本地 ONNX
+        all-MiniLM-L6-v2，384 维）。逐篇调用 add_document 做切分 + 向量化，
+        单篇失败不阻断整体；若 embedding 连续失败触发降级（collection 置 None）
+        则提前停止，剩余文档由 _load_raw_docs 兜底为关键词检索。
+        """
+        raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
+        if not raw_dir.exists():
+            return 0
+        md_files = sorted(raw_dir.glob("**/*.md"))
+        if not md_files:
+            return 0
+
+        imported = 0
+        for md_file in md_files:
+            if self._collection is None:
+                break
+            try:
+                text = md_file.read_text(encoding="utf-8")
+                title = md_file.stem
+                for line in text.split("\n"):
+                    s = line.strip()
+                    if s.startswith("# ") and not s.startswith("## "):
+                        title = s[2:].strip()
+                        break
+                await self.add_document(doc_id=md_file.stem, title=title, content=text)
+                imported += 1
+            except Exception as e:
+                logger.warning(f"[知识库] 自动向量化失败: {md_file.name} — {e}")
+
+        if imported:
+            logger.info(f"[知识库] 自动向量化导入: {imported}/{len(md_files)} 篇写入 ChromaDB")
+        return imported
 
     # ════ 文本切分 + 入库 ════
 
