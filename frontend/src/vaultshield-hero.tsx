@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { ArrowRightCircle, ArrowUp, BrainCircuit, Maximize2, Menu, Minimize2, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowRightCircle, ArrowUp, BrainCircuit, Database, Maximize2, Menu, Minimize2, RefreshCw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 
 type Variant = "a" | "b";
@@ -154,6 +154,115 @@ function auditVerdictLabel(verdict?: string) {
   return verdict || "未返回";
 }
 
+function KnowledgeManager({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const reducedMotion = useReducedMotion();
+  const [stats, setStats] = useState<{ mode?: string; total_documents?: number; total_chunks?: number } | null>(null);
+  const [docId, setDocId] = useState("");
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadStats = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/knowledge/stats");
+      if (!response.ok) throw new Error(`API ${response.status}`);
+      setStats(await response.json());
+    } catch {
+      setStats(null);
+    }
+  };
+
+  useEffect(() => {
+    if (open) loadStats();
+  }, [open]);
+
+  const runImport = async () => {
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const response = await fetch("http://localhost:8000/api/knowledge/import", { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `API ${response.status}`);
+      setMessage(`批量导入完成：${data.imported ?? 0}/${data.total ?? 0} 篇`);
+      loadStats();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    const id = docId.trim() || `doc_${Date.now()}`;
+    try {
+      const response = await fetch("http://localhost:8000/api/knowledge/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doc_id: id, title: title.trim(), content }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || `API ${response.status}`);
+      setMessage(`已上传「${data.title}」，切分为 ${data.chunks_count} 个片段`);
+      setDocId("");
+      setTitle("");
+      setContent("");
+      loadStats();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {open ? (
+        <>
+          <motion.button aria-label="关闭知识库管理" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} type="button" />
+          <motion.section aria-label="知识库管理" className="fixed inset-x-3 bottom-3 top-3 z-40 mx-auto max-w-[760px] overflow-y-auto rounded-[2rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_22px_72px_rgba(25,40,55,0.28)] sm:inset-x-auto sm:bottom-auto sm:right-8 sm:top-1/2 sm:max-h-[calc(100dvh-48px)] sm:w-[min(720px,calc(100vw-64px))] sm:-translate-y-1/2 sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 28 }} transition={{ duration: 0.35, ease }} role="dialog" aria-modal="true">
+            <div className="flex items-start justify-between gap-5">
+              <div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">知识库管理</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">导入知识文档</h2></div>
+              <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={onClose} type="button"><X size={20} strokeWidth={1.8} /></button>
+            </div>
+
+            <div className="mt-6 flex items-center gap-4 rounded-2xl bg-[#192837] p-5 text-white">
+              <Database className="shrink-0" color="#B99DFF" size={28} strokeWidth={1.8} />
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-white/55">当前知识库</p>
+                <p className="mt-1 text-lg font-semibold">{stats ? `${stats.total_documents ?? 0} 篇文档 · ${stats.total_chunks ?? 0} 个片段` : "无法连接后端"}</p>
+              </div>
+              <button className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold hover:bg-white/20" onClick={loadStats} type="button"><RefreshCw size={14} strokeWidth={1.8} className="mr-1 inline -translate-y-px" />刷新</button>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-white/60 p-5">
+              <p className="font-semibold">批量导入 data/raw</p>
+              <p className="mt-1 text-sm text-[#192837]/70">把 data/raw/ 目录下所有 .md 文件向量化导入知识库（重复导入安全）。</p>
+              <button className="mt-4 flex items-center gap-2 rounded-full bg-[#7342E2] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)] disabled:cursor-wait disabled:opacity-60" disabled={busy} onClick={runImport} type="button"><Upload size={16} strokeWidth={1.8} />{busy ? "导入中..." : "执行批量导入"}</button>
+            </div>
+
+            <form className="mt-5 grid gap-4 rounded-2xl bg-white/60 p-5" onSubmit={submitUpload}>
+              <p className="font-semibold">上传单篇文档</p>
+              <label className="grid gap-2 text-sm font-medium">标题<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setTitle(event.target.value)} placeholder="例如：FANUC 坐标系偏移设置" required value={title} /></label>
+              <label className="grid gap-2 text-sm font-medium">文档标识（选填，留空自动生成）<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setDocId(event.target.value)} placeholder="例如：k1_coord_offset_001" value={docId} /></label>
+              <label className="grid gap-2 text-sm font-medium">正文（Markdown）<textarea className="min-h-40 resize-y rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setContent(event.target.value)} placeholder="# 标题&#10;&#10;正文内容..." required value={content} /></label>
+              {message ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p> : null}
+              {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
+              <button className="flex items-center justify-center gap-2 rounded-full bg-[#192837] px-5 py-3 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60" disabled={busy} type="submit">{busy ? "上传中..." : "上传到知识库"}</button>
+            </form>
+          </motion.section>
+        </>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 function BrandMark() {
   return (
     <svg aria-label="XH Agent" className="h-8 w-8 shrink-0" fill="none" overflow="visible" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
@@ -177,7 +286,7 @@ function ActionButton({ children, kind, onClick }: { children: ReactNode; kind: 
   );
 }
 
-function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspace }: { open: boolean; onClose: () => void; onNavigate: (index: number) => void; onOpenGenerator: () => void; onOpenWorkspace: () => void }) {
+function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspace, onOpenKb }: { open: boolean; onClose: () => void; onNavigate: (index: number) => void; onOpenGenerator: () => void; onOpenWorkspace: () => void; onOpenKb: () => void }) {
   const reducedMotion = useReducedMotion();
   return (
     <AnimatePresence>
@@ -190,7 +299,7 @@ function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspac
             <nav className="mt-9 grid gap-5" aria-label="移动端导航链接">
               {navigation.map((item, index) => <motion.button key={item} className="text-left text-2xl font-medium" type="button" initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 + index * 0.07, duration: 0.35, ease }} onClick={() => { onNavigate(index); onClose(); }}>{item}</motion.button>)}
             </nav>
-            <div className="mt-auto grid gap-3"><ActionButton kind="accent" onClick={onOpenGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={onOpenWorkspace}>进入工作台</ActionButton></div>
+            <div className="mt-auto grid gap-3"><ActionButton kind="accent" onClick={onOpenGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={onOpenWorkspace}>进入工作台</ActionButton><ActionButton kind="quiet" onClick={onOpenKb}>知识库管理</ActionButton></div>
           </motion.aside>
         </>
       ) : null}
@@ -204,6 +313,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [activePanel, setActivePanel] = useState<Panel>("overview");
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [kbOpen, setKbOpen] = useState(false);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
   const [selectedQualityGate, setSelectedQualityGate] = useState<QualityGate>("evidence");
   const [topic, setTopic] = useState("");
@@ -317,7 +427,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         <nav className={`hidden items-center gap-7 md:flex ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
           {navigation.map((item, index) => <button className={`text-sm font-medium transition-opacity hover:opacity-50 ${activePanel === panelIds[index] ? "opacity-100" : "opacity-65"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
         </nav>
-        <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton></div>
+        <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton><ActionButton kind="quiet" onClick={() => setKbOpen(true)}>知识库</ActionButton></div>
         <button aria-expanded={menuOpen} aria-label="打开菜单" className="grid h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={21} strokeWidth={1.8} /></button>
       </header>
 
@@ -359,7 +469,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
           </div>
         </div>
       </motion.section>
-      <MobileMenu onNavigate={selectPanel} onOpenGenerator={openGenerator} onOpenWorkspace={() => { setMenuOpen(false); setWorkspaceOpen(true); }} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <MobileMenu onNavigate={selectPanel} onOpenGenerator={openGenerator} onOpenWorkspace={() => { setMenuOpen(false); setWorkspaceOpen(true); }} onOpenKb={() => { setMenuOpen(false); setKbOpen(true); }} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <KnowledgeManager open={kbOpen} onClose={() => setKbOpen(false)} />
       <AnimatePresence>
         {generatorOpen ? (
           <>
