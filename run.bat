@@ -1,124 +1,88 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 
-:: ═══════════════════════════════════════════════════════════════
-::  XH-Agent Windows 一键启动脚本
-::  用法: 双击 run.bat 或在终端执行 .\run.bat
-:: ═══════════════════════════════════════════════════════════════
+:: XH-Agent Windows one-click launcher (uses project-local .venv)
+:: Usage: double-click run.bat, or run .\run.bat
 
 title XH-Agent Server
 
+set "PROJECT_ROOT=%~dp0"
+cd /d "%PROJECT_ROOT%"
+
+set "VENV_PY=%PROJECT_ROOT%.venv\Scripts\python.exe"
+
 echo.
-echo ╔══════════════════════════════════════════════════════════╗
-echo ║     XH-Agent 领域知识个性化生成系统 v0.1.0               ║
-echo ║     多智能体协同决策 — 揭榜挂帅 XH-202630                ║
-echo ╚══════════════════════════════════════════════════════════╝
+echo ============================================================
+echo   XH-Agent  -  domain knowledge personalized generation
+echo   multi-agent decision system  -  XH-202630
+echo ============================================================
 echo.
 
-:: ── 1. 检测 Python 环境 ──
-echo [1/5] 检测 Python 环境...
+:: -- 1. Check virtualenv -------------------------------------------------
+echo [1/4] Check virtualenv ...
 
-set "PYTHON_CMD="
-
-:: 优先查找 python3，其次 python
-where python3 >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "delims=" %%i in ('where python3') do set "PYTHON_CMD=%%i"
-    goto :found_python
-)
-
-where python >nul 2>&1
-if %ERRORLEVEL% EQU 0 (
-    for /f "delims=" %%i in ('where python') do set "PYTHON_CMD=%%i"
-    goto :found_python
-)
-
-echo [ERROR] 未检测到 Python，请先安装 Python 3.10+
-echo         下载地址: https://www.python.org/downloads/
-pause
-exit /b 1
-
-:found_python
-echo    Python 路径: %PYTHON_CMD%
-
-:: 版本检查
-for /f "tokens=2" %%v in ('"%PYTHON_CMD%" --version 2^>^&1') do set "PY_VER=%%v"
-echo    Python 版本: !PY_VER!
-for /f "tokens=1 delims=." %%a in ("!PY_VER!") do set "PY_MAJOR=%%a"
-for /f "tokens=2 delims=." %%a in ("!PY_VER!") do set "PY_MINOR=%%a"
-
-if !PY_MAJOR! LSS 3 (
-    echo [ERROR] Python 版本过低 (!PY_VER!)，需要 3.10+
+if not exist "%VENV_PY%" (
+    echo.
+    echo [ERROR] Virtualenv not found: .venv\Scripts\python.exe
+    echo.
+    echo Please set it up first:
+    echo     python -m venv .venv
+    echo     .venv\Scripts\python.exe -m pip install -r requirements.txt
+    echo.
     pause
     exit /b 1
 )
-if !PY_MAJOR! EQU 3 if !PY_MINOR! LSS 10 (
-    echo [WARN]  Python !PY_VER! 低于推荐版本 3.10，部分特性可能不可用
-)
 
-:: ── 2. 设置 PYTHONPATH ──
+echo   [OK] Using: %VENV_PY%
+
+:: -- 2. Check .env -------------------------------------------------------
 echo.
-echo [2/5] 设置环境变量...
-set "PYTHONPATH=%~dp0backend;%PYTHONPATH%"
-echo    PYTHONPATH = %~dp0backend
+echo [2/4] Check .env config ...
 
-:: ── 3. 检查 .env 配置文件 ──
-echo.
-echo [3/5] 检查配置...
-
-if exist "%~dp0.env" (
-    echo    .env 已存在，使用现有配置
+if exist "%PROJECT_ROOT%.env" (
+    echo   [OK] .env exists
 ) else (
-    echo    .env 不存在，正在从 .env.example 创建...
-    if exist "%~dp0.env.example" (
-        copy "%~dp0.env.example" "%~dp0.env" >nul
-        echo    [DONE] .env 已创建，默认运行在演示模式
-        echo           编辑 .env 填入 LLM_API_KEY 以启用真实 LLM 调用
+    if exist "%PROJECT_ROOT%.env.example" (
+        copy /y "%PROJECT_ROOT%.env.example" "%PROJECT_ROOT%.env" >nul
+        echo   [OK] .env created from .env.example (demo mode by default)
     ) else (
-        echo    [WARN] .env.example 也不存在，将使用硬编码默认值（演示模式）
+        echo   [WARN] .env.example not found, using built-in defaults
     )
 )
 
-:: ── 4. 检查关键依赖 ──
+:: -- 3. Check dependencies ------------------------------------------------
 echo.
-echo [4/5] 检查依赖...
+echo [3/4] Check dependencies ...
 
-"%PYTHON_CMD%" -c "import fastapi, uvicorn, loguru, dotenv, chromadb, openai" 2>nul
+"%VENV_PY%" -c "import fastapi, uvicorn, loguru, dotenv, chromadb, openai" 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo    缺少依赖，正在安装...
-    echo.
-    "%PYTHON_CMD%" -m pip install -r requirements.txt -q
+    echo   [..] Missing dependencies, installing from requirements.txt ...
+    "%VENV_PY%" -m pip install -r requirements.txt -q
     if %ERRORLEVEL% NEQ 0 (
-        echo    [ERROR] 依赖安装失败，请手动执行:
-        echo            pip install -r requirements.txt
+        echo   [ERROR] Install failed. Run manually:
+        echo           .venv\Scripts\python.exe -m pip install -r requirements.txt
         pause
         exit /b 1
     )
-    echo    [DONE] 依赖安装完成
+    echo   [OK] Dependencies installed
 ) else (
-    echo    核心依赖已就绪
+    echo   [OK] Dependencies ready
 )
 
-:: ── 5. 启动服务 ──
+:: -- 4. Start server ------------------------------------------------------
 echo.
-echo [5/5] 启动服务...
+echo [4/4] Starting server ...
 echo.
-echo ═══════════════════════════════════════════════════════════
-echo   服务地址 : http://localhost:8000
-echo   API 文档 : http://localhost:8000/docs
-echo   健康检查 : http://localhost:8000/health
-echo.
-echo   按 Ctrl+C 停止服务
-echo ═══════════════════════════════════════════════════════════
+echo ============================================================
+echo   API docs  : http://localhost:8000/docs
+echo   Health    : http://localhost:8000/health
+echo   Press Ctrl+C to stop
+echo ============================================================
 echo.
 
-:: 切换到项目根目录后启动
-cd /d "%~dp0"
-"%PYTHON_CMD%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --log-level info
+"%VENV_PY%" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-:: ── 退出 ──
 echo.
-echo 服务已停止。
+echo Server stopped.
 pause
 endlocal
