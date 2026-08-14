@@ -23,6 +23,7 @@ from ..agents.agent4 import CorrectionAgent  # Agent 4 标准入口（→ correc
 from ..agents.audit import AuditAgent
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation_v2 import GenerationAgent as GenerationAgent
+from ..knowledge import knowledge_base
 
 
 class AgentWorkflow:
@@ -91,6 +92,17 @@ class AgentWorkflow:
             state["status"] = "error"
             return state
 
+        # Step 1.5: 知识库检索（RAG 约束生成）
+        logger.info("[工作流] Step 1.5/4: 知识库检索")
+        state["status"] = "retrieving"
+        retrieved_chunks = await self._retrieve_knowledge(
+            learner_data, state.get("diagnosis_result", {})
+        )
+        state["retrieved_chunks"] = retrieved_chunks
+        state["agent_log"].append(
+            {"agent": "retrieval", "status": "done", "count": len(retrieved_chunks)}
+        )
+
         # Step 2: Agent 2 知识生成
         logger.info("[工作流] Step 2/4: 知识生成")
         state["status"] = "generating"
@@ -138,6 +150,32 @@ class AgentWorkflow:
 
         state["status"] = "completed"
         return state
+
+    async def _retrieve_knowledge(self, learner_data: dict, diagnosis: dict) -> list[dict]:
+        """知识库检索：用学习目标 + 关键盲区构造查询，检索 data/raw 语料。
+
+        检索失败或知识库为空时返回空列表（优雅降级），生成/修正 Agent 会
+        在 retrieved_chunks 为空时回退到 LLM 自身知识生成。
+        """
+        query_parts = [learner_data.get("learning_goal", "")]
+        gaps = diagnosis.get("skill_gaps", [])
+        for gap in gaps[:3]:
+            topic = gap.get("topic", "")
+            if topic:
+                query_parts.append(topic)
+        query = " ".join(p for p in query_parts if p).strip()
+
+        if not query:
+            logger.info("[工作流] 知识库检索：无查询词，跳过")
+            return []
+
+        try:
+            chunks = await knowledge_base.search(query=query, top_k=6)
+            logger.info(f"[工作流] 知识库检索：命中 {len(chunks)} 条")
+            return chunks
+        except Exception as e:
+            logger.warning(f"[工作流] 知识库检索失败（降级为无 KB 约束）: {e}")
+            return []
 
 
 workflow_engine = AgentWorkflow()

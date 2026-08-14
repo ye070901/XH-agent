@@ -68,26 +68,35 @@
 
 ## 快速启动
 
+前后端分开启动（各占一个终端窗口）。
+
+### 后端
+
 ```bash
-# 1. 安装后端依赖
-cd backend
-pip install -e ".[dev]"
+# 首次：创建虚拟环境并安装依赖
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt    # Windows
+# Linux/Mac: .venv/bin/pip install -r requirements.txt
 
-# 2. 配置 API Key
-cp ../.env.example ../.env
-# 编辑 .env，填写 LLM_API_KEY（DeepSeek / GLM-5 / MiniMax）
+# 复制配置（默认演示模式，真实调用需编辑 .env 填 LLM_API_KEY）
+copy .env.example .env          # Windows
+# Linux/Mac: cp .env.example .env
 
-# 3. 导入知识库
-python ../scripts/import_kb.py --dir ../data/knowledge_base/
-
-# 4. 启动后端
-cd backend
-python -m uvicorn src.api.main:app --reload --port 8000
-
-# 5. 启动前端
-cd frontend
-streamlit run streamlit/app_v2.py --server.port 8502
+# 启动后端（Windows 也可直接双击 start.bat）
+.venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+健康检查：http://localhost:8000/health（`kb_docs=32` 表示知识库就绪，首次启动会自动向量化导入约 15s）
+
+### 前端
+
+```bash
+cd frontend
+npm ci          # 首次安装依赖
+npm run dev     # 启动 Vite dev server
+```
+
+打开 http://localhost:5173/option-b.html（方案 B 当前界面；方案 A 为 http://localhost:5173/）
 
 ---
 
