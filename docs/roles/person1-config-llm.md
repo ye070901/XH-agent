@@ -31,11 +31,12 @@ settings.LLM_MODEL       # "deepseek-chat"
 ### 4. .env.example + start.bat
 
 - `.env.example`：模板文件，每个配置项有注释
-- `start.bat`：双击检查 .env → pip install → 启动后端（新窗口）→ 启动前端（新窗口）
+- `start.bat`：双击使用项目 .venv 检查依赖 → 启动后端（`uvicorn main:app`，端口 8000）
+- 前端单独启动：`cd frontend && npm ci && npm run dev`（打开 http://localhost:5173/option-b.html）
 
 ## 你怎么测
 
 - 不配 Key → 调 `call_json("学情诊断", "学习目标: Python")` → 不返回空
 - 配 Key → 同样调用 → 返回真实 LLM 内容
 - BaseAgent 被人2/3/4 继承后 `call_llm_json()` 不报错
-- 双击 start.bat → 后端和前端都启动
+- 双击 start.bat → 后端启动（前端另用 `npm run dev` 启动）

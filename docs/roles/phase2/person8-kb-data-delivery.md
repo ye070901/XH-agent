@@ -58,7 +58,8 @@
 
 ### 部署脚本 + 项目文档（6 天）
 
-- 一键启动脚本（Windows bat + Linux shell）：检查 Python 版本 → 检查 .env → pip install → 初始化 ChromaDB → 启动后端 → 启动前端
+- 后端启动脚本（Windows bat + Linux shell）：使用 .venv 检查依赖 → 检查 .env → 启动后端（`uvicorn main:app`）
+- 前端单独启动：`cd frontend && npm ci && npm run dev`（前后端分开，不合并为单脚本）
 - 环境配置模板（确认 .env.example 完整）
 - 设计实现方案文档框架（第三阶段先搭架子，后续补内容）
 
@@ -75,4 +76,4 @@
 - [ ] 每篇含完整来源标注和版本信息
 - [ ] 所有代码示例通过 verify_kb_code.py 验证
 - [ ] 审核通过率 ≥ 80%（≥ 26 篇通过人员2 审核）
-- [ ] 一键启动脚本在 Windows 上能正常启动
+- [ ] 后端启动脚本在 Windows 上能正常启动（前端用 npm run dev 单独启动）
