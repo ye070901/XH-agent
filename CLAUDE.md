@@ -19,7 +19,7 @@
 ## 技术栈
 
 - 后端: Python + FastAPI + ChromaDB
-- 前端: Streamlit + ECharts（st.components.v1.html 嵌入）
+- 前端: React + Vite + TypeScript + TailwindCSS（framer-motion 动画）
 - LLM: DeepSeek（可替换为 GLM-5 / MiniMax / OpenAI 兼容 API）
 - CI: GitHub Actions
 
@@ -35,7 +35,7 @@ backend/src/graph/         # 编排器 (Phase 2 升级)
 backend/src/llm/           # LLM 抽象层（多模型支持）
 backend/src/api/           # FastAPI + WebSocket
 backend/src/schemas.py     # 全员统一的数据模型（修改需周知）
-frontend/streamlit/        # 前端 + 可视化组件
+frontend/src/             # 前端（React + Vite，组件在 src/）
 data/knowledge_base/       # 知识库文档（4领域×8篇）
 docs/PHASE2_PLAN.md        # Phase 2 总体方案
 docs/roles/phase2/         # 8人详细分工

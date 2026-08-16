@@ -1,8 +1,10 @@
-# 人6：Streamlit 前端
+# 人6：前端
+
+> ⚠️ 本文为 Phase2 历史记录（当时前端为 Streamlit）。当前前端已迁移至 React + Vite（`frontend/src/`），见 `docs/PHASE3_PLAN.md` 4.7（K3 分工）。
 
 ## 你要做什么
 
-文件：`frontend/streamlit/app.py` — 一个文件搞定全部。
+文件：`frontend/src/vaultshield-hero.tsx` — 当前前端实现。
 
 ## 输入
 
