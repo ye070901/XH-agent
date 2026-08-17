@@ -107,9 +107,9 @@ class KnowledgeBase:
             self._initialized = True
             chroma_count = self._collection.count()
             logger.info(f"【知识库】ChromaDB模式, chunks={chroma_count}")
-            # collection 为空时自动向量化导入 data/raw（首次启动 / 数据未入库）
-            if chroma_count == 0:
-                await self._auto_import_raw_to_chroma()
+            # 每次启动都增量同步 data/raw 新文档（按 doc_id 幂等去重）
+            # 首次启动（空库）等价于全量导入；后续启动仅补新增
+            await self._auto_import_raw_to_chroma()
             # 兜底：无论 ChromaDB 是否有数据，都加载 data/raw 到内存，
             # 供 ChromaDB 空结果时回退关键词检索（embedding 不可用时的可靠路径）
             self._load_raw_docs()
@@ -187,12 +187,14 @@ class KnowledgeBase:
         return total_loaded
 
     async def _auto_import_raw_to_chroma(self) -> int:
-        """ChromaDB collection 为空时，自动将 data/raw 全部 .md 向量化入库。
+        """每次启动增量同步 data/raw 下的 .md 到 ChromaDB（按 doc_id 幂等去重）。
 
-        使用当前 collection 的 embedding function（chroma 模式为本地 ONNX
-        all-MiniLM-L6-v2，384 维）。逐篇调用 add_document 做切分 + 向量化，
-        单篇失败不阻断整体；若 embedding 连续失败触发降级（collection 置 None）
-        则提前停止，剩余文档由 _load_raw_docs 兜底为关键词检索。
+        首次启动（空库）等价于全量导入；后续启动仅补新增文档（对比库中已有
+        doc_id 跳过已入库者）。使用当前 collection 的 embedding function
+        （chroma 模式为本地 ONNX all-MiniLM-L6-v2，384 维）。逐篇调用
+        add_document 做切分 + 向量化，单篇失败不阻断整体；若 embedding 连续
+        失败触发降级（collection 置 None）则提前停止，剩余文档由 _load_raw_docs
+        兜底为关键词检索。
         """
         raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
         if not raw_dir.exists():
@@ -201,10 +203,23 @@ class KnowledgeBase:
         if not md_files:
             return 0
 
+        # 增量同步：读取库中已有 doc_id，跳过已入库文档（幂等，避免重复向量化）
+        existing_doc_ids: set[str] = set()
+        try:
+            existing_ids = self._collection.get()["ids"]
+            existing_doc_ids = {cid.rsplit("_chunk_", 1)[0] for cid in existing_ids}
+        except Exception:
+            pass  # 空库或读取失败 → 当作全量导入
+
         imported = 0
+        skipped = 0
         for md_file in md_files:
             if self._collection is None:
                 break
+            doc_id = md_file.stem
+            if doc_id in existing_doc_ids:
+                skipped += 1
+                continue
             try:
                 text = md_file.read_text(encoding="utf-8")
                 title = md_file.stem
@@ -213,13 +228,13 @@ class KnowledgeBase:
                     if s.startswith("# ") and not s.startswith("## "):
                         title = s[2:].strip()
                         break
-                await self.add_document(doc_id=md_file.stem, title=title, content=text)
+                await self.add_document(doc_id=doc_id, title=title, content=text)
                 imported += 1
             except Exception as e:
                 logger.warning(f"[知识库] 自动向量化失败: {md_file.name} — {e}")
 
-        if imported:
-            logger.info(f"[知识库] 自动向量化导入: {imported}/{len(md_files)} 篇写入 ChromaDB")
+        if imported or skipped:
+            logger.info(f"[知识库] 增量同步: 新增 {imported} 篇，跳过已存在 {skipped} 篇")
         return imported
 
     # ════ 文本切分 + 入库 ════
