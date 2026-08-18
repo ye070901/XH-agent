@@ -14,10 +14,9 @@
     {"error": "错误描述", "status": "error"}
   - 覆盖率统计不把测试脚本计入业务代码（仅 --cov 三个业务模块）
 
-运行方式（在项目根目录 C:/Users/CAT/Desktop）::
+运行方式（在仓库根目录 XH-agent-main）::
 
-    python -m pytest agents/test_all_agents.py --cov=agents.diagnosis \
-        --cov=agents.generation --cov=agents.correction --cov-report=term-missing
+    python -m pytest backend/src/agents/test_all_agents.py -q
 
 注意（现有业务源码的既有行为，测试如实断言，不修改源码）:
   - DiagnosisAgent / CorrectionAgent 的 run() 包装了 BaseAgent.run()，
@@ -40,17 +39,19 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-# ── 让 agents 包可被导入：把 agents 包所在目录的父目录加入 sys.path ──
-_PKG_PARENT = Path(__file__).resolve().parent.parent
+# ── 让 backend 包可被导入：把仓库根目录加入 sys.path，使
+#    `backend.src.agents.*` 全限定导入可用（agents 内部依赖相对导入
+#    `from ..config import settings`，必须以子包身份导入）──
+_PKG_PARENT = Path(__file__).resolve().parent.parent.parent.parent
 if str(_PKG_PARENT) not in sys.path:
     sys.path.insert(0, str(_PKG_PARENT))
 
-from agents.audit import AuditAgent  # noqa: E402
-from agents.base import BaseAgent  # noqa: E402
-from agents.correction import CorrectionAgent  # noqa: E402
-from agents.diagnosis import DiagnosisAgent  # noqa: E402
-from agents.event_bus import SimpleEventBus  # noqa: E402
-from agents.generation_v2 import GenerationAgent  # noqa: E402
+from backend.src.agents.audit import AuditAgent  # noqa: E402
+from backend.src.agents.base import BaseAgent  # noqa: E402
+from backend.src.agents.correction import CorrectionAgent  # noqa: E402
+from backend.src.agents.diagnosis import DiagnosisAgent  # noqa: E402
+from backend.src.agents.event_bus import SimpleEventBus  # noqa: E402
+from backend.src.agents.generation_v2 import GenerationAgent  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 测试数据（全部 mock，不调用真实大模型）
@@ -716,12 +717,57 @@ class TestCorrectionAgent:
         prompt = m.await_args.args[0]
         assert "事实校验不通过" in prompt
 
-    def test_downgrade_mode_adds_note(self):
-        """边界：downgrade_mode=True → prompt 追加降级模式说明。"""
+    def test_downgrade_mode_consistency_check(self):
+        """边界：downgrade_mode=True → 无 KB，纯规则一致性检查，不调用 LLM。
+
+        Phase 3 起降级模式走 _downgrade_check（只检查不自动改内容），
+        覆盖四项规则：前后矛盾 / 术语不一致 / 缺失 import / 步骤跳跃。
+        """
         state = deepcopy(CORRECTION_STATE)
         state["downgrade_mode"] = True
-        result, m = self._run(state, {"return_value": dict(CORRECTED_OK)})
-        assert "降级模式" in m.await_args.args[0]
+        state["diagnosis_result"] = {
+            **VALID_DIAGNOSIS,
+            "skill_gaps": [
+                {
+                    "topic": "LangGraph",
+                    "priority": "critical",
+                    "current_level": 0.1,
+                    "target_level": 0.9,
+                    "reason": "r",
+                }
+            ],
+        }
+        state["generated_resources"][0]["content"] = (
+            "LangGraph 支持状态机。langgraph 不支持状态机。\n\n"
+            "1. 第一步\n2. 第二步\n4. 第四步\n\n"
+            "```python\nimport pandas as pd\ndf = pd.DataFrame()\nplt.figure()\n```\n"
+        )
+        m = AsyncMock(return_value={})
+        agent = CorrectionAgent()
+        patcher = patch.object(agent, "call_llm_json", m)
+        patcher.start()
+        try:
+            result = asyncio.run(agent.run(state))
+        finally:
+            patcher.stop()
+
+        # 降级模式不调用 LLM
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert cr["_consistency_checked"] is True
+        assert cr["_downgrade_mode"] is True
+        # 只检查不自动改内容（不做事实判断）
+        assert "不支持状态机" in cr["content"] and "第四步" in cr["content"]
+        # consistency_report 覆盖四项规则
+        report = result["consistency_report"]
+        types = {issue["check_type"] for issue in report}
+        assert {"missing_import", "step_jump", "term_inconsistency", "contradiction"} <= types
+        assert result["correction_stats"]["consistency_findings"] == len(report)
+        # 日志 action=detected，correction_basis=consistency_check
+        assert all(log["action"] == "detected" for log in result["correction_log"])
+        assert all(
+            log["correction_basis"] == "consistency_check" for log in result["correction_log"]
+        )
 
     def test_no_kb_chunks(self):
         """边界：retrieved_chunks 为空 → prompt 提示无知识库素材。"""
@@ -886,6 +932,244 @@ class TestCorrectionAgent:
         assert agent._fmt_kb_chunks([]).startswith("⚠️ 无知识库参考素材")
         assert agent._fmt_structure_guide("unknown") == "保持原内容结构不变"
 
+    # ── Phase 3：辩论裁决落地 + 资源溯源绑定（纯数据处理，不调用 LLM）──
+    def test_arbitration_replace_lands_kb_text(self):
+        """裁决 replace：用 KB 原文替换错误断言并标注来源，追加事实溯源块。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 Google 开发的框架。",
+                    "decision": "replace",
+                    "replacement_text": "LangGraph is a library built by the LangChain team",
+                    "doc_id": "langgraph_intro.md",
+                    "chunk_index": 2,
+                    "evidence": "LangGraph is a library built by the LangChain team",
+                }
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        # 纯数据处理：不调用 LLM
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert cr["_was_corrected"] is True
+        assert cr["_arbitration_applied"] is True
+        # KB 原文替换 + 来源标注
+        assert "LangGraph is a library built by the LangChain team" in cr["content"]
+        assert "[来源: langgraph_intro.md, 段落 2]" in cr["content"]
+        assert "是 Google 开发" not in cr["content"]
+        # 溯源绑定（lecture）：【生成陈述】【KB原文出处】【来源】
+        assert "## 事实溯源" in cr["content"]
+        assert "【生成陈述】LangGraph is a library built by the LangChain team" in cr["content"]
+        assert "【来源】langgraph_intro.md#chunk_2" in cr["content"]
+        # 统计与日志
+        assert result["correction_stats"]["replacements_applied"] == 1
+        assert any(log["action"] == "replaced" for log in result["correction_log"])
+        assert result["correction_log"][0]["correction_basis"] == "arbitration"
+
+    def test_arbitration_delete_removes_sentence(self):
+        """裁决 delete：删除无权威参考支撑的整句（D1 规则）。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["generated_resources"][0]["content"] = (
+            "# LangGraph 入门讲义\n\n"
+            "LangGraph 是 Google 开发的框架。这是第二句保留内容。\n"
+        )
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 Google 开发的框架。",
+                    "decision": "delete",
+                    "doc_id": "unverified.md",
+                    "chunk_index": 0,
+                }
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert cr["_was_corrected"] is True
+        assert cr["_arbitration_applied"] is True
+        # 被裁决语句整句删除，其余内容保留
+        assert "LangGraph 是 Google 开发" not in cr["content"]
+        assert "这是第二句保留内容" in cr["content"]
+        assert result["correction_stats"]["deletions_applied"] == 1
+        assert result["correction_log"][0]["action"] == "deleted"
+
+    def test_arbitration_keep_marks_source(self):
+        """裁决 keep：保留原文并在断言后追加来源标注。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["generated_resources"][0]["content"] = (
+            "# LangGraph 入门讲义\n\nLangGraph 是 LangChain 团队开发的框架。\n"
+        )
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 LangChain 团队开发的框架。",
+                    "decision": "keep",
+                    "doc_id": "langgraph_intro.md",
+                    "chunk_index": 2,
+                    "evidence": "LangGraph is a library built by the LangChain team",
+                }
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert "（来源：langgraph_intro.md，段落 2）" in cr["content"]
+        # 溯源绑定：keep 断言也作为事实点
+        assert "## 事实溯源" in cr["content"]
+        assert result["correction_stats"]["keeps_sourced"] == 1
+        assert any(log["action"] == "kept" for log in result["correction_log"])
+
+    def test_arbitration_replace_claim_not_found_appends_correction(self):
+        """裁决 replace 但断言未定位 → 追加更正声明（不静默丢弃）。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["generated_resources"][0]["content"] = (
+            "# LangGraph 入门讲义\n\nLangGraph 是 Google 开发的框架。\n"
+        )
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "完全不存在于内容中的断言。",
+                    "decision": "replace",
+                    "replacement_text": "LangGraph is built by LangChain",
+                    "doc_id": "kb.md",
+                    "chunk_index": 1,
+                }
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert "更正声明" in cr["content"]
+        assert "LangGraph is built by LangChain" in cr["content"]
+        assert result["correction_stats"]["replacements_applied"] == 1
+        assert any(log["action"] == "replaced_appended" for log in result["correction_log"])
+
+    def test_quiz_skips_traceability_binding(self):
+        """quiz 资源：只落实 keep 来源标注，不追加事实溯源块。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["generated_resources"][0]["resource_type"] = "quiz"
+        state["generated_resources"][0]["content"] = "问题：LangGraph 是谁开发的？\n"
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "问题：LangGraph 是谁开发的？",
+                    "decision": "keep",
+                    "doc_id": "kb.md",
+                    "chunk_index": 0,
+                }
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        assert "（来源：kb.md，段落 0）" in cr["content"]  # keep 标注生效
+        assert "## 事实溯源" not in cr["content"]  # 非讲义/指南不绑定溯源块
+
+    def test_normalize_adjudications_variants(self):
+        """裁决规范化：dict / 扁平 list / DebateRecord rounds 三种形态 → 统一三态。"""
+        agent = CorrectionAgent()
+
+        # dict 形态（adjudications），decision 别名映射
+        r1 = agent._normalize_adjudications(
+            {
+                "adjudications": [
+                    {"resource_id": "r1", "claim": "A", "decision": "support_agent2"},
+                    {
+                        "resource_id": "r1",
+                        "claim": "B",
+                        "decision": "support_agent3",
+                        "kb_text": "KB-B",
+                    },
+                    {"resource_id": "r1", "claim": "C", "decision": "uncovered"},
+                    {"resource_id": "r1", "claim": "D", "decision": "weird-unknown"},
+                ]
+            }
+        )
+        decisions = {a["claim"]: a["decision"] for a in r1}
+        assert decisions == {"A": "keep", "B": "replace", "C": "delete", "D": "keep"}
+
+        # DebateRecord rounds 形态（concede→delete / accept_challenge→replace / rebut→keep）
+        r2 = agent._normalize_adjudications(
+            {
+                "resource_id": "r2",
+                "rounds": [
+                    {"challenge": {"claim": "X"}, "defense": {"action": "concede"}},
+                    {
+                        "challenge": {"claim": "Y", "evidence_from_kb": "KB-Y"},
+                        "defense": {"action": "accept_challenge"},
+                    },
+                    {"challenge": {"claim": "Z"}, "defense": {"action": "rebut"}},
+                ],
+            }
+        )
+        decisions2 = {a["claim"]: a["decision"] for a in r2}
+        assert decisions2 == {"X": "delete", "Y": "replace", "Z": "keep"}
+        # replace 且无 KB 原文 → 按 D1 降为 delete
+        r3 = agent._normalize_adjudications(
+            {
+                "resource_id": "r3",
+                "rounds": [
+                    {"challenge": {"claim": "W"}, "defense": {"action": "accept_challenge"}}
+                ],
+            }
+        )
+        assert r3[0]["decision"] == "delete"
+        # 空 / 缺字段 → 空列表
+        assert agent._normalize_adjudications(None) == []
+        assert agent._normalize_adjudications({}) == []
+        assert agent._normalize_adjudications([{"decision": "keep"}]) == []  # 缺 claim
+
+    def test_traceability_format_and_bind(self):
+        """溯源格式化：【生成陈述】【KB原文出处】【来源】三要素 + 防重复追加。"""
+        agent = CorrectionAgent()
+        point = {
+            "statement": "LangGraph 由 LangChain 团队开发",
+            "source_text": "LangGraph is a library built by the LangChain team",
+            "doc_id": "langgraph_intro.md",
+            "chunk_index": 2,
+        }
+        line = agent._format_fact_point(point)
+        assert "【生成陈述】LangGraph 由 LangChain 团队开发" in line
+        assert "【KB原文出处】LangGraph is a library built by the LangChain team" in line
+        assert "【来源】langgraph_intro.md#chunk_2" in line
+
+        content, lines = agent._bind_traceability("正文内容", [point])
+        assert "## 事实溯源" in content
+        assert content.endswith("【来源】langgraph_intro.md#chunk_2")
+        assert lines == [line]
+
+        # 已有溯源块 → 不重复追加
+        _, lines2 = agent._bind_traceability(content, [point])
+        assert lines2 == []
+        # 无事实点 → 原样返回
+        content3, lines3 = agent._bind_traceability("x", [])
+        assert content3 == "x" and lines3 == []
+
+    # ── Phase 3：降级模式一致性检查（纯规则）──
+    def test_consistency_rules_private(self):
+        """四项一致性规则：前后矛盾 / 术语不一致 / 缺失 import / 步骤跳跃。"""
+        agent = CorrectionAgent()
+        content = (
+            "LangGraph 支持状态机。langgraph 不支持状态机。\n\n"
+            "1. 第一步\n2. 第二步\n4. 第四步\n\n"
+            "```python\nimport pandas as pd\ndf = pd.DataFrame()\nplt.figure()\n```\n"
+        )
+        issues = agent._consistency_check(content, ["LangGraph"])
+        types = {i["check_type"] for i in issues}
+        assert {"missing_import", "step_jump", "term_inconsistency", "contradiction"} <= types
+        # 缺失 import：用了 plt. 但全文无 matplotlib import
+        missing = [i for i in issues if i["check_type"] == "missing_import"]
+        assert missing and "matplotlib" in missing[0]["detail"]
+        # 干净内容 → 无 finding
+        assert agent._consistency_check("LangGraph 是 LangChain 开发的。", ["LangGraph"]) == []
+
 
 # ═══════════════════════════════════════════════════════════
 # AuditAgent — 内容审核 Agent（只审不修）
@@ -932,26 +1216,58 @@ class TestAuditAgent:
         finally:
             patcher.stop()
 
+    def _run_no_kb(self, state: dict, behavior: dict | None = None) -> tuple[dict, AsyncMock]:
+        """运行 AuditAgent，同时 mock 掉 ChromaDB 检索（KB 证据池为空）。
+
+        Phase 3 audit.py 会逐条检索真实 knowledge_base.search；测试不依赖
+        真实 ChromaDB，统一 mock 为空证据池，使三态裁决可预测。
+        """
+        agent = AuditAgent()
+        m = AsyncMock()
+        if behavior is not None:
+            if "return_value" in behavior:
+                payload = behavior.pop("return_value")
+                behavior["side_effect"] = lambda *a, **k: deepcopy(payload)
+            m = AsyncMock(**behavior)
+        patch_llm = patch.object(agent, "call_llm_json", m)
+        patch_kb = patch(
+            "backend.src.agents.audit.knowledge_base.search", new=AsyncMock(return_value=[])
+        )
+        patch_llm.start()
+        patch_kb.start()
+        try:
+            return asyncio.run(agent.run(state)), m
+        finally:
+            patch_kb.stop()
+            patch_llm.stop()
+
     # ── 正常输入 ──
     def test_normal_audits_each_resource(self):
-        """正常输入：每份资源产出 1 份审核报告，verdict/issues 原样透传。"""
+        """正常输入：每份资源产出 1 份审核报告（KB 逐条比对 → 三态裁决）。"""
         state = deepcopy(AUDIT_STATE)
-        state["generated_resources"].append(dict(state["generated_resources"][0]))
-        result, m = self._run(state, {"return_value": dict(AUDIT_OK)})
+        state["generated_resources"].append(deepcopy(state["generated_resources"][0]))
+        state["generated_resources"][1]["resource_id"] = "res-002"
+        result, m = self._run_no_kb(
+            state, {"return_value": {"claims": ["LangGraph 是 Google 开发的框架。"]}}
+        )
 
         assert len(result["audit_result"]) == 2
         report = result["audit_result"][0]
-        assert report["verdict"] == "needs_revision"
-        assert report["issues"][0]["severity"] == "error"
+        assert report["resource_index"] == 0
+        assert report["title"] == "LangGraph 入门讲义"
+        # verdict 由代码规则裁决：无 KB 证据 → 全部 unverifiable → 无 error → approved
+        assert report["verdict"] == "approved"
+        assert report["fact_check"]["items"][0]["verdict"] == "unverifiable"
+        assert report["fact_check"]["unverifiable_count"] == 1
+        # 每份资源 1 次断言提取 LLM 调用（逐条比对在空证据池下走规则兜底）
         assert m.await_count == 2
 
-    def test_llm_prompt_contains_resource_and_gaps(self):
-        """正常输入：prompt 携带资源信息与 critical/high 盲区清单。"""
-        result, m = self._run(deepcopy(AUDIT_STATE), {"return_value": dict(AUDIT_OK)})
+    def test_llm_claim_extraction_prompt_contains_resource(self):
+        """正常输入：断言提取 prompt 携带资源标题与内容。"""
+        result, m = self._run_no_kb(deepcopy(AUDIT_STATE), {"return_value": {"claims": []}})
         prompt = m.await_args.args[0]
-        assert "LangGraph 入门讲义" in prompt
-        assert "推荐难度：beginner" in prompt
-        assert "[critical] LangGraph状态图" in prompt
+        assert "LangGraph 入门讲义" in prompt  # 标题
+        assert "LangGraph 是 Google 开发的框架" in prompt  # 内容
 
     # ── 边界输入 ──
     def test_empty_resources_skips_llm(self):
@@ -975,40 +1291,76 @@ class TestAuditAgent:
         assert result["status"] == "error"
         assert result["agent_log"][-1]["stage"] == "validation"
 
-    def test_fmt_gaps_private_helper(self):
-        """私有 _fmt_gaps：空 / 非空 / 上限 3 条三个分支。"""
+    def test_fallback_extract_claims_rules(self):
+        """私有 _fallback_extract_claims：剥离 markdown 标题/代码块/链接，过滤短句，上限截断。"""
         agent = AuditAgent()
-        assert agent._fmt_gaps([]) == "无"
-        gaps = [
-            {"priority": p, "topic": f"t{i}"}
-            for i, p in enumerate(["critical", "high", "medium", "low"])
-        ]
-        text = agent._fmt_gaps(gaps)
-        assert text.count("\n") == 2  # 只展示前 3 条
-        assert "critical" in text and "low" not in text
-        # 缺字段 → 缺省值兜底
-        assert "- [critical] " in agent._fmt_gaps([{"priority": "critical"}])
+        content = (
+            "# 标题\n\n"
+            "LangGraph 是 Google 开发的框架，这是一个足够长的句子。\n"
+            "短句。\n"
+            "```python\nx = 1\n```\n"
+            "[链接文字](https://example.com) 这又是一个很长的断言内容。\n"
+        )
+        claims = agent._fallback_extract_claims(content)
+        # 标题 / 代码块 / 链接均被剥离，短句被过滤
+        assert not any("标题" in c for c in claims)
+        assert not any("x = 1" in c for c in claims)
+        assert not any("链接文字" in c for c in claims)
+        assert "LangGraph 是 Google 开发的框架" in claims[0]
+        # 上限 MAX_CLAIMS_PER_RESOURCE=8
+        long_content = "。".join([f"第{i}条足够长的事实断言内容用于测试" for i in range(20)])
+        assert len(agent._fallback_extract_claims(long_content)) == 8
+
+    def test_resolve_verdict_authority_weighting(self):
+        """权威裁决 A>B：A 反驳 > A 支持 > B 反驳 > B 支持 > 无覆盖。"""
+        agent = AuditAgent()
+        assert agent._resolve_verdict({"contradict_a": "A反驳"}) == "hallucination"
+        assert agent._resolve_verdict({"support_a": "A支持"}) == "accurate"
+        assert agent._resolve_verdict({"contradict_b": "B反驳"}) == "hallucination"
+        assert agent._resolve_verdict({"support_b": "B支持"}) == "accurate"
+        assert agent._resolve_verdict({}) == "unverifiable"
 
     # ── 异常输入 ──
-    def test_llm_timeout_returns_error_dict(self):
-        """异常①调用超时：BaseAgent.run() 捕获 → 统一返回 error dict，不崩溃。"""
-        result, _ = self._run(
+    def test_llm_timeout_degrades_to_rule_fallback(self):
+        """异常①调用超时：断言提取降级为规则兜底，报告照常产出，不崩溃。"""
+        result, _ = self._run_no_kb(
             deepcopy(AUDIT_STATE),
             {"side_effect": asyncio.TimeoutError("LLM 调用超时")},
         )
         _no_crash(result)
-        assert result["status"] == "error"
-        assert "超时" in result["error"]
-        assert result["error_type"] == "TimeoutError"
+        # 未置 status=error：单资源 try/except 兜底而非向上传播
+        assert result.get("status") != "error"
+        assert len(result["audit_result"]) == 1
+        # 规则兜底提取的断言被逐条比对（无 KB 证据 → unverifiable）
+        assert result["audit_result"][0]["fact_check"]["items"]
+        assert result["audit_result"][0]["fact_check"]["items"][0]["verdict"] == "unverifiable"
 
-    def test_llm_invalid_json_passthrough(self):
-        """异常②返回非法 JSON：审核只透传不解析，报告原样进入 audit_result。"""
-        result, _ = self._run(
+    def test_llm_invalid_json_degrades_to_rule_fallback(self):
+        """异常②返回非法 JSON：断言提取降级为规则兜底，报告照常产出。"""
+        result, _ = self._run_no_kb(
             deepcopy(AUDIT_STATE),
             {"return_value": {"_parse_error": True, "raw": "not json"}},
         )
         _no_crash(result)
-        assert result["audit_result"][0]["_parse_error"] is True
+        report = result["audit_result"][0]
+        # 三态裁决仍由代码产出（非 LLM 透传）
+        assert report["verdict"] == "approved"
+        assert report["fact_check"]["items"][0]["verdict"] == "unverifiable"
+
+    # ── 降级模式（无 KB）──
+    def test_downgrade_mode_consistency_no_kb(self):
+        """downgrade_mode=True：不做 KB 比对，输出 no_kb_mode 一致性报告，不调 LLM。"""
+        state = deepcopy(AUDIT_STATE)
+        state["downgrade_mode"] = True
+        state["generated_resources"][0]["content"] = "步骤 1 完成。步骤 3 完成。"
+        result, m = self._run_no_kb(state, {"return_value": {}})
+        report = result["audit_result"][0]
+        assert report["no_kb_mode"] is True
+        assert report["verdict"] == "approved"
+        # 步骤跳跃：缺少第 2 步
+        assert any("步骤 2" in i["detail"] or "2" in i["detail"] for i in report["issues"])
+        # 一致性检查为纯规则，不调用 LLM
+        m.assert_not_awaited()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1076,13 +1428,13 @@ class TestBaseAgent:
             captured.update(kwargs)
             return "mock reply"
 
-        with patch("agents.base.llm.call", new=fake_call):
+        with patch("backend.src.agents.base.llm.call", new=fake_call):
             text = asyncio.run(agent.call_llm("hello"))
         assert text == "mock reply"
         assert captured["user_message"] == "hello"
         assert captured["temperature"] == agent.temperature
 
-        with patch("agents.base.llm.call", new=fake_call):
+        with patch("backend.src.agents.base.llm.call", new=fake_call):
             asyncio.run(agent.call_llm("hello", temperature=0.9))
         assert captured["temperature"] == 0.9
 
@@ -1093,7 +1445,7 @@ class TestBaseAgent:
         async def fake_call_json(**kwargs):
             return {"ok": True, "temperature": kwargs.get("temperature")}
 
-        with patch("agents.base.llm.call_json", new=fake_call_json):
+        with patch("backend.src.agents.base.llm.call_json", new=fake_call_json):
             result = asyncio.run(agent.call_llm_json("hello", temperature=0.1))
         assert result == {"ok": True, "temperature": 0.1}
 

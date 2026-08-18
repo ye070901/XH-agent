@@ -5,12 +5,31 @@ Agent 4: 保真修正 Agent
 
 输入: state["generated_resources"] + state["audit_result"]
       + state["diagnosis_result"] + state["retrieved_chunks"]
+      + state["debate_result"]   # Opt-2 博弈引擎裁决输出（未就绪时为空）
 输出: state["corrected_resources"] + state["correction_log"] + state["correction_stats"]
+      + state["consistency_report"]（降级模式执行一致性检查时存在）
 
 修正策略:
   - error   → 必须修正（查 KB 原文替换错误断言）
   - warning → 尽量修正（调整解释深度、难度匹配、遗漏覆盖）
   - info    → 可选修正（改进建议酌情采纳）
+
+Phase 3 新增（纯数据处理，不调用 LLM，不导入 Opt-2 真实模块）:
+  - 辩论裁决落地: 消费 state["debate_result"]，逐条落实 Opt-2 三态裁决
+      replace → 用 KB 原文替换错误断言并标注来源
+      delete  → 删除无权威参考支撑的语句（D1 规则）
+      keep    → 保留原文并补充来源标注
+  - 资源溯源绑定: lecture/guide 每条事实点强制输出
+      【生成陈述】...【KB原文出处】...【来源】...
+  - downgrade_mode=True（无 KB）: 只做纯规则一致性检查
+      （前后矛盾 / 术语不一致 / 缺失 import / 步骤跳跃），不做事实判断
+
+debate_result 契约（Opt-2 实现前先按此约定 Mock）:
+  - dict 形态: {"adjudications": [...], "unresolved_claims": [...]}
+  - list 形态: 扁平 adjudication 列表
+  - 单条 adjudication 字段:
+      resource_id, claim(被裁决断言), decision(replace|delete|keep),
+      replacement_text(KB 原文), doc_id, chunk_index, evidence(KB 出处)
 
 关键约束:
   1. 只改有问题的部分，不重写整个资源
@@ -22,8 +41,10 @@ Agent 4: 保真修正 Agent
 
 from __future__ import annotations
 
+import re
 import time
 import uuid
+from collections import defaultdict
 
 from .base import BaseAgent
 from .event_bus import event_bus
@@ -78,10 +99,37 @@ class CorrectionAgent(BaseAgent):
         "downgrade_mode",
         "diagnosis_completed",
         "resource_types",
+        "debate_result",  # Phase 3: Opt-2 博弈引擎裁决输出（未就绪时缺省为空）
     }
 
     # 修正超时保护：单个资源修正不超过 120 秒
     SINGLE_RESOURCE_TIMEOUT_SECONDS = 120
+
+    # ═══════════════════════════════════════════════════════
+    # 降级模式一致性检查常量（纯规则，不调 LLM）
+    # ═══════════════════════════════════════════════════════
+
+    # 常见别名 → (包名, 合法 import 子串集合)：用于"缺失 import"检测
+    _ALIAS_IMPORT_MAP: dict[str, tuple[str, tuple[str, ...]]] = {
+        "pd": ("pandas", ("import pandas", "from pandas")),
+        "np": ("numpy", ("import numpy", "from numpy")),
+        "plt": ("matplotlib", ("import matplotlib", "from matplotlib")),
+        "torch": ("torch", ("import torch", "from torch")),
+        "tf": ("tensorflow", ("import tensorflow", "from tensorflow")),
+        "cv2": ("opencv", ("import cv2", "from cv2")),
+        "requests": ("requests", ("import requests", "from requests")),
+        "sklearn": ("sklearn", ("import sklearn", "from sklearn")),
+    }
+
+    # 前后矛盾检测极性词（启发式，仅标记"疑似矛盾"供人工复核）
+    _NEGATIVE_CUES: tuple[str, ...] = (
+        "不", "没", "无法", "不能", "禁止", "不可", "不会", "不支持",
+        "不允许", "not", "cannot", "can't", "don't", "never",
+    )
+    _POSITIVE_CUES: tuple[str, ...] = (
+        "必须", "可以", "能够", "支持", "会", "能", "允许", "是",
+        "is", "can", "must", "should",
+    )
 
     def __init__(self):
         super().__init__(
@@ -106,7 +154,12 @@ class CorrectionAgent(BaseAgent):
     # ═══════════════════════════════════════════════════════════
 
     async def process(self, state: dict) -> dict:
-        """逐资源执行保真修正。
+        """逐资源执行保真修正（Phase 3 扩展）。
+
+        三种处理路径（优先级递减）：
+          1. downgrade_mode=True    → 纯规则一致性检查（无 KB，不调 LLM）
+          2. 存在裁决 adjudications → 辩论裁决落地（纯数据处理，不调 LLM）
+          3. 其余                    → 既有 LLM 修正路径（保留原行为）
 
         对每份 generated_resource 找到对应的 audit_result，
         提取需要修正的 issues 并调用 LLM 生成修正后内容。
@@ -117,6 +170,9 @@ class CorrectionAgent(BaseAgent):
         chunks = state.get("retrieved_chunks", [])
         diagnosis = state.get("diagnosis_result", {})
         downgrade_mode = state.get("downgrade_mode", False)
+
+        # Opt-2 裁决输出（纯数据处理，不导入真实 opt2 模块）
+        adjudications = self._normalize_adjudications(state.get("debate_result"))
 
         if not resources:
             self.log("⚠️ generated_resources 为空，跳过修正")
@@ -133,12 +189,23 @@ class CorrectionAgent(BaseAgent):
                 f"与 generated_resources 数量 ({len(resources)}) 不一致"
             )
 
+        # 裁决按 resource_id 分组
+        adjudications_by_resource: dict[str, list[dict]] = defaultdict(list)
+        for adj in adjudications:
+            if adj.get("resource_id"):
+                adjudications_by_resource[adj["resource_id"]].append(adj)
+
         start_time = time.time()
         corrected_resources = []
         all_logs = []
+        consistency_report: list[dict] = []
         errors_fixed = 0
         warnings_addressed = 0
         infos_applied = 0
+        deletions_applied = 0
+        replacements_applied = 0
+        keeps_sourced = 0
+        consistency_findings = 0
 
         for i, resource in enumerate(resources):
             resource_id = resource.get("resource_id", f"unknown-{i}")
@@ -148,13 +215,32 @@ class CorrectionAgent(BaseAgent):
             audit_report = audit_results[i] if i < len(audit_results) else {}
 
             try:
-                result = await self._correct_one(
-                    resource=resource,
-                    audit_report=audit_report,
-                    diagnosis=diagnosis,
-                    chunks=chunks,
-                    downgrade_mode=downgrade_mode,
-                )
+                if downgrade_mode:
+                    # ── 路径 1：无 KB 模式 → 纯规则一致性检查（不调 LLM）──
+                    result = self._downgrade_check(resource, diagnosis)
+                    consistency_report.extend(result["consistency"])
+                elif adjudications_by_resource.get(resource_id):
+                    # ── 路径 2：辩论裁决落地 → 纯数据处理（不调 LLM）──
+                    result = self._apply_arbitration_and_bind(
+                        resource=resource,
+                        audit_report=audit_report,
+                        adjudications=adjudications_by_resource[resource_id],
+                    )
+                else:
+                    # ── 路径 3：既有 LLM 修正（保留原行为）──
+                    result = await self._correct_one(
+                        resource=resource,
+                        audit_report=audit_report,
+                        diagnosis=diagnosis,
+                        chunks=chunks,
+                        downgrade_mode=False,
+                    )
+                    # 溯源绑定后处理（讲义/指南，有事实点才绑定）
+                    if resource_type in ("lecture", "guide"):
+                        corrected_resource = self._bind_if_fact_points(
+                            result["corrected_resource"], audit_report
+                        )
+                        result = {**result, "corrected_resource": corrected_resource}
 
                 corrected_resources.append(result["corrected_resource"])
                 all_logs.extend(result["logs"])
@@ -162,16 +248,26 @@ class CorrectionAgent(BaseAgent):
                 # 累计统计
                 for log_entry in result["logs"]:
                     severity = log_entry.get("severity", "")
+                    action = log_entry.get("action", "")
                     if severity == "error":
                         errors_fixed += 1
                     elif severity == "warning":
                         warnings_addressed += 1
                     elif severity == "info":
                         infos_applied += 1
+                    if action in ("deleted", "delete_unmatched"):
+                        deletions_applied += 1
+                    elif action in ("replaced", "replaced_appended"):
+                        replacements_applied += 1
+                    elif action == "kept":
+                        keeps_sourced += 1
+                    elif action == "detected":
+                        consistency_findings += 1
 
                 self.log(
                     f"[{i + 1}/{len(resources)}] {resource_type} "
-                    f"修正完成: {len(result['logs'])} 处修正"
+                    f"{'一致性检查' if downgrade_mode else '修正完成'}: "
+                    f"{len(result['logs'])} 处记录"
                 )
 
             except Exception as e:
@@ -205,6 +301,15 @@ class CorrectionAgent(BaseAgent):
             "infos_applied": infos_applied,
             "correction_time_ms": elapsed_ms,
         }
+        # 新增统计键仅在非零时写入，保持空结果 stats 与既有契约一致
+        if deletions_applied:
+            stats["deletions_applied"] = deletions_applied
+        if replacements_applied:
+            stats["replacements_applied"] = replacements_applied
+        if keeps_sourced:
+            stats["keeps_sourced"] = keeps_sourced
+        if consistency_findings:
+            stats["consistency_findings"] = consistency_findings
 
         self.log(
             f"修正全部完成: {stats['resources_corrected']}/{stats['total_resources']}"
@@ -213,11 +318,14 @@ class CorrectionAgent(BaseAgent):
             f" / {stats['infos_applied']} info, 耗时 {elapsed_ms}ms"
         )
 
-        return {
+        result = {
             "corrected_resources": corrected_resources,
             "correction_log": all_logs,
             "correction_stats": stats,
         }
+        if consistency_report:
+            result["consistency_report"] = consistency_report
+        return result
 
     # ═══════════════════════════════════════════════════════════
     # 私有：单资源修正
@@ -653,6 +761,666 @@ class CorrectionAgent(BaseAgent):
             "infos_applied": 0,
             "correction_time_ms": 0,
         }
+
+    # ═══════════════════════════════════════════════════════
+    # Phase 3：辩论裁决落地 + 资源溯源绑定（纯数据处理，不调 LLM）
+    # ═══════════════════════════════════════════════════════
+
+    def _bind_if_fact_points(self, corrected_resource: dict, audit_report: dict) -> dict:
+        """既有 LLM 修正路径的溯源绑定后处理。
+
+        仅 lecture/guide 且存在可绑定事实点时，才把【生成陈述 + KB原文出处】
+        追加到内容末尾，满足"讲义/指南每一条事实点强制绑定"。
+        """
+        if corrected_resource.get("resource_type") not in ("lecture", "guide"):
+            return corrected_resource
+        fact_points = self._collect_fact_points(corrected_resource, audit_report, [])
+        if not fact_points:
+            return corrected_resource
+        bound_content, bound_lines = self._bind_traceability(
+            corrected_resource.get("content", ""), fact_points
+        )
+        if not bound_lines:
+            return corrected_resource
+        bound = {
+            **corrected_resource,
+            "content": bound_content,
+            "_traceability_bound": True,
+        }
+        cites = self._fact_points_to_citations(fact_points)
+        if cites:
+            bound["citations"] = cites
+        return bound
+
+    def _normalize_adjudications(self, debate_result) -> list[dict]:
+        """规范化 Opt-2 博弈引擎裁决输出为统一 adjudication 列表。
+
+        纯数据处理，不导入 opt2 真实模块。支持三种输入形态：
+          1. dict: {"adjudications": [...], "unresolved_claims": [...]}
+          2. 扁平 list[dict]，每项含 claim + decision
+          3. list[dict] 形如 schemas.DebateRecord（含 rounds）→ 从 rounds 提取
+
+        Returns:
+            list[dict]，每项: {resource_id, claim, decision, replacement_text,
+                               doc_id, chunk_index, evidence}
+        """
+        if not debate_result:
+            return []
+        if isinstance(debate_result, dict):
+            items = debate_result.get(
+                "adjudications", debate_result.get("debate_rounds", [])
+            )
+            if not items and "rounds" in debate_result:
+                items = [debate_result]  # DebateRecord 形态：含 rounds 的裸 dict
+            elif not items and (debate_result.get("claim") or debate_result.get("decision")):
+                items = [debate_result]
+        elif isinstance(debate_result, list):
+            items = debate_result
+        else:
+            items = []
+
+        adjudications = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if "rounds" in item and isinstance(item.get("rounds"), list):
+                adjudications.extend(self._extract_from_rounds(item))
+                continue
+            norm = self._normalize_one_adjudication(item)
+            if norm:
+                adjudications.append(norm)
+        return adjudications
+
+    @staticmethod
+    def _normalize_one_adjudication(item: dict) -> dict | None:
+        """单条裁决 → 统一形态；未知裁决值保守回退 keep。"""
+        claim = str(item.get("claim") or item.get("original_claim") or "").strip()
+        if not claim:
+            return None
+        decision = str(item.get("decision", "")).strip().lower()
+        if decision in ("support_agent2", "support_a2", "rebut", "keep", "kept"):
+            decision = "keep"
+        elif decision in ("support_agent3", "support_a3", "withdraw", "retract", "replace"):
+            decision = "replace"
+        elif decision in ("uncovered", "unsupported", "unverifiable", "remove", "delete"):
+            decision = "delete"
+        else:
+            decision = "keep"  # 未知裁决 → 保守保留
+        return {
+            "resource_id": str(item.get("resource_id") or item.get("resource") or ""),
+            "claim": claim,
+            "decision": decision,
+            "replacement_text": (
+                item.get("replacement_text")
+                or item.get("kb_text")
+                or item.get("evidence_from_kb")
+                or ""
+            ),
+            "doc_id": str(
+                item.get("doc_id") or item.get("kb_source") or item.get("source") or "unknown"
+            ),
+            "chunk_index": item.get("chunk_index"),
+            "evidence": item.get("evidence") or item.get("evidence_from_kb") or "",
+        }
+
+    @staticmethod
+    def _extract_from_rounds(record: dict) -> list[dict]:
+        """从 schemas.DebateRecord 形态记录提取裁决（防御式，兼容未定稿契约）。
+
+        defense.action 映射: concede → delete / accept_challenge → replace /
+        rebut → keep；replacement_text 取质询/应诉双方提供的 KB 原文。
+        """
+        adjudications = []
+        resource_id = str(record.get("resource_id") or "")
+        for r in record.get("rounds", []) or []:
+            if not isinstance(r, dict):
+                continue
+            challenge = r.get("challenge", {}) or {}
+            defense = r.get("defense", {}) or {}
+            claim = str(challenge.get("claim") or defense.get("original_claim") or "").strip()
+            if not claim:
+                continue
+            action = str(defense.get("action", "") or "").strip().lower()
+            evidence = (
+                challenge.get("evidence_from_kb")
+                or defense.get("evidence_from_kb")
+                or ""
+            )
+            if action == "concede":
+                decision = "delete"
+            elif action == "accept_challenge":
+                decision = "replace" if evidence else "delete"
+            else:  # rebut / 未知 → 保守保留
+                decision = "keep"
+            adjudications.append(
+                {
+                    "resource_id": resource_id,
+                    "claim": claim,
+                    "decision": decision,
+                    "replacement_text": evidence,
+                    "doc_id": str(challenge.get("doc_id") or "unknown"),
+                    "chunk_index": challenge.get("chunk_index"),
+                    "evidence": evidence,
+                }
+            )
+        return adjudications
+
+    def _apply_arbitration_and_bind(
+        self, resource: dict, audit_report: dict, adjudications: list[dict]
+    ) -> dict:
+        """路径 2：辩论裁决落地 + 溯源绑定（纯数据处理，不调用 LLM）。
+
+        落实裁决的删除项、用 KB 原文替换错误断言并拼接回输出语境；
+        lecture/guide 资源随后强制绑定【生成陈述 + KB原文出处】。
+        """
+        resource_id = resource.get("resource_id", "")
+        resource_type = resource.get("resource_type", "unknown")
+        new_content, logs = self._apply_arbitration(
+            content=resource.get("content", ""),
+            adjudications=adjudications,
+            resource_id=resource_id,
+            resource_type=resource_type,
+        )
+        corrected_resource = {
+            **resource,
+            "content": new_content,
+            "_was_corrected": True,
+            "_arbitration_applied": True,
+            "_arbitration_log_count": len(logs),
+        }
+        # 溯源绑定（仅讲义/指南）
+        if resource_type in ("lecture", "guide"):
+            fact_points = self._collect_fact_points(
+                corrected_resource, audit_report, adjudications
+            )
+            if fact_points:
+                bound_content, bound_lines = self._bind_traceability(new_content, fact_points)
+                if bound_lines:
+                    corrected_resource["content"] = bound_content
+                    corrected_resource["_traceability_bound"] = True
+                    cites = self._fact_points_to_citations(fact_points)
+                    if cites:
+                        corrected_resource["citations"] = cites
+        return {"corrected_resource": corrected_resource, "logs": logs}
+
+    def _apply_arbitration(
+        self,
+        content: str,
+        adjudications: list[dict],
+        resource_id: str,
+        resource_type: str,
+    ) -> tuple[str, list[dict]]:
+        """落实裁决：replace 用 KB 原文替换、delete 删除、keep 标注来源。
+
+        纯字符串处理，不调用 LLM。每条裁决产生一条 correction_log。
+        裁决 replace 但未提供 KB 原文时，按 D1（无权威参考 = 删除）处理。
+        """
+        new_content = content or ""
+        logs = []
+        for idx, adj in enumerate(adjudications):
+            claim = str(adj.get("claim", "")).strip()
+            if not claim:
+                continue
+            decision = adj.get("decision", "keep")
+            kb_text = str(adj.get("replacement_text") or "").strip()
+            doc_id = str(adj.get("doc_id") or "unknown")
+            chunk_idx = adj.get("chunk_index")
+            source = f"[来源: {doc_id}"
+            if chunk_idx is not None:
+                source += f", 段落 {chunk_idx}"
+            source += "]"
+
+            if decision == "delete":
+                new_content, matched = self._remove_sentence(new_content, claim)
+                logs.append(
+                    {
+                        "resource_id": resource_id,
+                        "resource_type": resource_type,
+                        "issue_index": idx,
+                        "severity": "error",
+                        "original_text": claim[:300],
+                        "corrected_text": (
+                            "[已按裁决删除 — 无权威参考支撑]"
+                            if matched
+                            else "[未能定位待删除语句]"
+                        ),
+                        "correction_basis": "arbitration",
+                        "kb_source": doc_id,
+                        "action": "deleted" if matched else "delete_unmatched",
+                        "decision": "delete",
+                    }
+                )
+            elif decision == "replace":
+                if kb_text:
+                    replacement = f"{kb_text} {source}"
+                    if claim in new_content:
+                        new_content = new_content.replace(claim, replacement, 1)
+                        action = "replaced"
+                    else:
+                        note = (
+                            f"\n\n> ⚠️ 更正声明：原文「{claim}」未能定位，"
+                            f"按 KB 修正为「{kb_text}」{source}"
+                        )
+                        if note not in new_content:
+                            new_content = (new_content.rstrip() + note).strip()
+                        action = "replaced_appended"
+                    logs.append(
+                        {
+                            "resource_id": resource_id,
+                            "resource_type": resource_type,
+                            "issue_index": idx,
+                            "severity": "error",
+                            "original_text": claim[:300],
+                            "corrected_text": replacement[:300],
+                            "correction_basis": "arbitration",
+                            "kb_source": doc_id,
+                            "action": action,
+                            "decision": "replace",
+                        }
+                    )
+                else:
+                    # 裁决 replace 但无 KB 原文 → 按 D1 删除（无权威参考）
+                    new_content, matched = self._remove_sentence(new_content, claim)
+                    logs.append(
+                        {
+                            "resource_id": resource_id,
+                            "resource_type": resource_type,
+                            "issue_index": idx,
+                            "severity": "error",
+                            "original_text": claim[:300],
+                            "corrected_text": "[已按 D1 删除：裁决方未提供 KB 原文]",
+                            "correction_basis": "arbitration",
+                            "kb_source": doc_id,
+                            "action": "deleted" if matched else "delete_unmatched",
+                            "decision": "delete",
+                        }
+                    )
+            else:  # keep
+                new_content, matched = self._append_source_marker(
+                    new_content, claim, doc_id, chunk_idx
+                )
+                logs.append(
+                    {
+                        "resource_id": resource_id,
+                        "resource_type": resource_type,
+                        "issue_index": idx,
+                        "severity": "info",
+                        "original_text": claim[:300],
+                        "corrected_text": (
+                            f"[保留原文并标注来源 {source}]"
+                            if matched
+                            else "[未能定位待标注语句]"
+                        ),
+                        "correction_basis": "arbitration",
+                        "kb_source": doc_id,
+                        "action": "kept",
+                        "decision": "keep",
+                    }
+                )
+        return new_content, logs
+
+    @staticmethod
+    def _remove_sentence(content: str, claim: str) -> tuple[str, bool]:
+        """删除包含 claim 的整句（纯字符串，不调 LLM）。
+
+        句边界为换行或中英文句末标点；claim 未定位时原样返回。
+        """
+        if not claim or claim not in content:
+            return content, False
+        start = content.find(claim)
+        i = start - 1
+        while i >= 0 and content[i] not in "\n。！？!?":
+            i -= 1
+        sent_start = i + 1
+        # 句尾：claim 若已含句末标点（。！？!?），则句尾即 claim 结束处，
+        # 否则向后扫描到本句的结束标点（避免误删相邻下一句）。
+        claim_end = start + len(claim)
+        if claim_end > 0 and content[claim_end - 1] in "。！？!?":
+            sent_end = claim_end
+        else:
+            j = claim_end
+            while j < len(content) and content[j] not in "\n。！？!?":
+                j += 1
+            sent_end = j
+            if sent_end < len(content) and content[sent_end] in "。！？!?":
+                sent_end += 1
+        return (content[:sent_start] + content[sent_end:]).strip(), True
+
+    @staticmethod
+    def _append_source_marker(
+        content: str, claim: str, doc_id: str, chunk_index=None
+    ) -> tuple[str, bool]:
+        """在 claim 后追加来源标注（keep 裁决用）；已标注过则不重复。"""
+        if not claim or claim not in content:
+            return content, False
+        loc = f"（来源：{doc_id}"
+        if chunk_index is not None:
+            loc += f"，段落 {chunk_index}"
+        loc += "）"
+        if loc in content:
+            return content, True
+        return content.replace(claim, claim + loc, 1), True
+
+    def _collect_fact_points(
+        self, resource: dict, audit_report: dict, adjudications: list[dict]
+    ) -> list[dict]:
+        """收集本资源可绑定的事实点（用于【生成陈述 + KB原文出处】溯源）。
+
+        来源优先级：裁决 keep/replace 断言 → 审核 fact_check 中通过校验的断言。
+        is_accurate=False 的错误断言已被修正，不作为事实点绑定。
+        """
+        points = []
+        seen = set()
+
+        def add(statement, source_text, doc_id, chunk_index):
+            if not statement:
+                return
+            key = (statement, source_text or "", doc_id or "")
+            if key in seen:
+                return
+            seen.add(key)
+            points.append(
+                {
+                    "statement": statement,
+                    "source_text": source_text or "",
+                    "doc_id": doc_id or "",
+                    "chunk_index": chunk_index,
+                }
+            )
+
+        for adj in adjudications or []:
+            decision = adj.get("decision", "")
+            if decision not in ("keep", "replace"):
+                continue
+            if decision == "replace":
+                statement = adj.get("replacement_text") or adj.get("claim")
+            else:
+                statement = adj.get("claim")
+            source = adj.get("evidence") or adj.get("replacement_text") or ""
+            add(statement, source, adj.get("doc_id", ""), adj.get("chunk_index"))
+
+        for fc in (audit_report or {}).get("fact_check", {}).get("items", []) or []:
+            if fc.get("is_accurate") is False:
+                continue
+            add(
+                fc.get("claim", ""),
+                fc.get("evidence_from_kb", ""),
+                fc.get("citation_ref", "") or "",
+                fc.get("chunk_index"),
+            )
+        return points
+
+    @staticmethod
+    def _format_fact_point(point: dict) -> str:
+        """格式化单条事实点溯源行为：【生成陈述】...【KB原文出处】...【来源】..."""
+        loc = point.get("doc_id") or ""
+        chunk = point.get("chunk_index")
+        if loc and chunk is not None:
+            loc = f"{loc}#chunk_{chunk}"
+        elif not loc:
+            loc = "未标注"
+        source_part = point.get("source_text") or "暂无权威参考，建议补充学习"
+        return (
+            f"- 【生成陈述】{point.get('statement')}"
+            f"【KB原文出处】{source_part}"
+            f"【来源】{loc}"
+        )
+
+    @staticmethod
+    def _bind_traceability(content: str, fact_points: list[dict]) -> tuple[str, list[str]]:
+        """追加事实溯源块到讲义/指南内容末尾。返回 (新内容, 绑定行列表)。
+
+        已有溯源块时不重复追加；无事实点时原样返回。
+        """
+        if not fact_points or "## 事实溯源" in (content or ""):
+            return content, []
+        lines = [CorrectionAgent._format_fact_point(p) for p in fact_points]
+        section = "\n\n## 事实溯源\n" + "\n".join(lines)
+        return (content or "").rstrip() + section, lines
+
+    @staticmethod
+    def _fact_points_to_citations(fact_points: list[dict]) -> list[dict]:
+        """从事实点构建 citations 溯源记录（与 schemas.Citation 对齐）。"""
+        cites = []
+        seen = set()
+        for p in fact_points:
+            doc = p.get("doc_id") or ""
+            src = p.get("source_text") or ""
+            if not doc or not src:
+                continue
+            key = (doc, src)
+            if key in seen:
+                continue
+            seen.add(key)
+            cites.append(
+                {
+                    "doc_id": doc,
+                    "chunk_index": p.get("chunk_index") or 0,
+                    "original_text": src,
+                    "relevance_score": 1.0,
+                }
+            )
+        return cites
+
+    # ═══════════════════════════════════════════════════════
+    # Phase 3：降级模式一致性检查（纯规则，无 KB，不调 LLM）
+    # ═══════════════════════════════════════════════════════
+
+    def _downgrade_check(self, resource: dict, diagnosis: dict) -> dict:
+        """路径 1：降级模式一致性检查（无 KB，不调 LLM）。
+
+        纯规则检测前后矛盾 / 术语不一致 / 缺失 import / 步骤跳跃，
+        只记录 findings 不自动改内容（不做事实判断）。
+        """
+        content = resource.get("content", "") or ""
+        terms = [
+            g.get("topic", "")
+            for g in diagnosis.get("skill_gaps", [])
+            if g.get("topic")
+        ]
+        issues = self._consistency_check(content, terms)
+        logs = []
+        for idx, issue in enumerate(issues):
+            logs.append(
+                {
+                    "resource_id": resource.get("resource_id", ""),
+                    "resource_type": resource.get("resource_type", "unknown"),
+                    "issue_index": idx,
+                    "severity": issue.get("severity", "warning"),
+                    "original_text": issue.get("detail", ""),
+                    "corrected_text": "[降级模式：待人工确认，不做自动修正]",
+                    "correction_basis": "consistency_check",
+                    "kb_source": None,
+                    "action": "detected",
+                    "check_type": issue.get("check_type", ""),
+                }
+            )
+        corrected_resource = {
+            **resource,
+            "_consistency_checked": True,
+            "_downgrade_mode": True,
+        }
+        return {
+            "corrected_resource": corrected_resource,
+            "logs": logs,
+            "consistency": issues,
+        }
+
+    def _consistency_check(self, content: str, terms: list[str] | None = None) -> list[dict]:
+        """降级模式纯规则一致性检查：四项规则汇总。"""
+        terms = terms or []
+        issues = []
+        issues.extend(self._check_missing_imports(content))
+        issues.extend(self._check_step_jumps(content))
+        issues.extend(self._check_term_inconsistency(content, terms))
+        issues.extend(self._check_contradictions(content, terms))
+        return issues
+
+    def _check_missing_imports(self, content: str) -> list[dict]:
+        """检测代码块中使用了别名但全文缺少对应 import 语句。"""
+        issues = []
+        blocks = self._extract_code_blocks(content or "")
+        if not blocks:
+            return issues
+        for alias, (pkg, patterns) in self._ALIAS_IMPORT_MAP.items():
+            used = any(re.search(rf"\b{re.escape(alias)}\.\w+", block) for block in blocks)
+            if not used:
+                continue
+            if not any(p in content for p in patterns):
+                issues.append(
+                    {
+                        "check_type": "missing_import",
+                        "severity": "warning",
+                        "detail": (
+                            f"代码使用了 `{alias}.` 但全文未找到 `{pkg}` 的 import 语句"
+                        ),
+                        "location": f"alias `{alias}`",
+                    }
+                )
+        return issues
+
+    @staticmethod
+    def _extract_code_blocks(content: str) -> list[str]:
+        """提取 Markdown 围栏代码块内容（``` 开头/结尾）。"""
+        blocks = []
+        in_block = False
+        buf = []
+        for line in content.split("\n"):
+            if line.strip().startswith("```"):
+                if in_block:
+                    blocks.append("\n".join(buf))
+                    buf = []
+                    in_block = False
+                else:
+                    in_block = True
+            elif in_block:
+                buf.append(line)
+        return blocks
+
+    @staticmethod
+    def _check_step_jumps(content: str) -> list[dict]:
+        """检测编号步骤跳跃（如 1,2,4 → 缺 3）。
+
+        覆盖两种写法：编号列表 "N." 与 "步骤 N" / "Step N"。
+        """
+        issues = []
+        lines = content.split("\n")
+        block: list[int] = []
+
+        def flush():
+            if len(block) >= 2:
+                present = set(block)
+                gaps = sorted(set(range(min(block), max(block) + 1)) - present)
+                if gaps:
+                    issues.append(
+                        {
+                            "check_type": "step_jump",
+                            "severity": "warning",
+                            "detail": (
+                                f"步骤编号跳跃，缺少第 {', '.join(map(str, gaps))} 步 "
+                                f"（当前顺序: {block}）"
+                            ),
+                            "location": f"行序 {block}",
+                        }
+                    )
+            block.clear()
+
+        for line in lines:
+            m = re.match(r"^\s*(\d+)[.、．:：)]\s*\S", line)
+            if m:
+                block.append(int(m.group(1)))
+            else:
+                flush()
+        flush()
+
+        # "步骤 N" 写法
+        step_nums = [
+            int(x)
+            for x in re.findall(r"(?:步骤|step)\s*(\d+)", content, re.IGNORECASE)
+        ]
+        if len(step_nums) >= 2:
+            gaps = sorted(set(range(min(step_nums), max(step_nums) + 1)) - set(step_nums))
+            if gaps:
+                issues.append(
+                    {
+                        "check_type": "step_jump",
+                        "severity": "warning",
+                        "detail": f"步骤编号跳跃，缺少第 {', '.join(map(str, gaps))} 步",
+                        "location": f"步骤序列 {step_nums}",
+                    }
+                )
+        return issues
+
+    @staticmethod
+    def _check_term_inconsistency(content: str, terms: list[str]) -> list[dict]:
+        """检测含字母术语的大小写/拼写不一致写法（如 LangGraph vs langgraph）。"""
+        issues = []
+        for term in terms:
+            if not term or not isinstance(term, str) or not re.search(r"[A-Za-z]", term):
+                continue
+            spellings = {
+                m.group(0)
+                for m in re.finditer(re.escape(term), content, re.IGNORECASE)
+            }
+            if len(spellings) > 1:
+                issues.append(
+                    {
+                        "check_type": "term_inconsistency",
+                        "severity": "warning",
+                        "detail": (
+                            f"术语 `{term}` 存在不一致写法: "
+                            f"{', '.join(sorted(spellings))}"
+                        ),
+                        "location": term,
+                    }
+                )
+        return issues
+
+    @staticmethod
+    def _check_contradictions(content: str, terms: list[str]) -> list[dict]:
+        """启发式前后矛盾检测：同一段内同一术语同时出现肯定与否定表述。
+
+        仅标记"疑似矛盾"供人工复核，不自动改内容。
+        """
+        issues = []
+        paragraphs = re.split(r"\n\s*\n", content)
+        for pid, para in enumerate(paragraphs):
+            if not para.strip():
+                continue
+            sentences = [s.strip() for s in re.split(r"[。！？!?]+|\n", para) if s.strip()]
+            for term in terms:
+                if not term or not isinstance(term, str):
+                    continue
+                tl = term.lower()
+                hit = [s for s in sentences if tl in s.lower()]
+                if len(hit) < 2:
+                    continue
+                negative = [
+                    s for s in hit if any(c in s for c in CorrectionAgent._NEGATIVE_CUES)
+                ]
+                positive = [
+                    s
+                    for s in hit
+                    if not any(c in s for c in CorrectionAgent._NEGATIVE_CUES)
+                    and any(c in s for c in CorrectionAgent._POSITIVE_CUES)
+                ]
+                if negative and positive:
+                    issues.append(
+                        {
+                            "check_type": "contradiction",
+                            "severity": "warning",
+                            "detail": (
+                                f"段落 {pid + 1} 中术语 `{term}` 同时出现肯定与否定表述，"
+                                f"疑似前后矛盾"
+                            ),
+                            "location": f"段落 {pid + 1}",
+                            "evidence": {
+                                "positive": positive[0][:80],
+                                "negative": negative[0][:80],
+                            },
+                        }
+                    )
+        return issues
 
 
 # ═══════════════════════════════════════════════════════════

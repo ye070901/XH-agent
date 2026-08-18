@@ -5,12 +5,22 @@ Agent 4: 保真修正 Agent（入口文件）
 
 输入: state["generated_resources"] + state["audit_result"]
       + state["diagnosis_result"] + state["retrieved_chunks"]
+      + state["debate_result"]   # Phase 3: Opt-2 博弈引擎裁决输出（未就绪时为空）
 输出: state["corrected_resources"] + state["correction_log"] + state["correction_stats"]
+      + state["consistency_report"]（降级模式执行一致性检查时存在）
 
 修正策略:
   - error   → 必须修正（查 KB 原文替换错误断言）
   - warning → 尽量修正（调整解释深度、难度匹配、遗漏覆盖）
   - info    → 可选修正（改进建议酌情采纳）
+
+Phase 3 新增（纯数据处理，不调用 LLM，不导入 Opt-2 真实模块）:
+  - 辩论裁决落地: 消费 state["debate_result"]，落实 replace/delete/keep 三态裁决，
+    将 KB 原文替换、拼接回输出语境
+  - 资源溯源绑定: lecture/guide 每条事实点强制输出
+    【生成陈述】...【KB原文出处】...【来源】...
+  - downgrade_mode=True（无 KB）: 纯规则一致性检查
+    （前后矛盾 / 术语不一致 / 缺失 import / 步骤跳跃），不做事实判断
 
 关键约束:
   1. 只改有问题的部分，不重写整个资源
