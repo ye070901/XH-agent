@@ -5,6 +5,7 @@ Opt‑2 KB 引擎核心模块。只做存储检索，不包含 Agent / LLM 逻�
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -13,6 +14,10 @@ from loguru import logger
 
 from ..config import settings
 from .kb_utils import evaluate_search_quality, import_seed_documents, verify_persistence
+
+# 文档正文「权威等级」标记正则（采集规范 3.6：A=官方一手 / B=主流二手）
+# 兼容 Markdown 加粗写法「**权威等级**：A」与普通写法「权威等级：A」
+_SOURCE_LEVEL_RE = re.compile(r"权威等级\**\s*[：:]\s*\**([AB])")
 
 
 class KnowledgeBase:
@@ -165,6 +170,7 @@ class KnowledgeBase:
             try:
                 text = md_file.read_text(encoding="utf-8")
                 chunks = self._chunk_text(text)
+                source_level = self._extract_source_level(text)
                 for i, chunk in enumerate(chunks):
                     self._docs.append(
                         {
@@ -172,6 +178,7 @@ class KnowledgeBase:
                             "doc_title": md_file.stem,
                             "chunk_index": i,
                             "content": chunk,
+                            "source_level": source_level,
                         }
                     )
                 total_loaded += 1
@@ -288,9 +295,16 @@ class KnowledgeBase:
         重复导入不会产生重复向量。
         """
         chunks = self._chunk_text(content)
+        source_level = self._extract_source_level(content)
         chunk_ids = [f"{doc_id}_chunk_{i}" for i in range(len(chunks))]
         result = [
-            {"doc_id": doc_id, "doc_title": title, "chunk_index": i, "content": c}
+            {
+                "doc_id": doc_id,
+                "doc_title": title,
+                "chunk_index": i,
+                "content": c,
+                "source_level": source_level,
+            }
             for i, c in enumerate(chunks)
         ]
 
@@ -305,7 +319,12 @@ class KnowledgeBase:
                     )
 
                 metadatas = [
-                    {"doc_id": doc_id, "doc_title": title, "chunk_index": i}
+                    {
+                        "doc_id": doc_id,
+                        "doc_title": title,
+                        "chunk_index": i,
+                        "source_level": source_level,
+                    }
                     for i in range(len(chunks))
                 ]
                 self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
@@ -322,6 +341,14 @@ class KnowledgeBase:
         self._docs.extend(result)
         logger.info(f"[知识库] 文件降级写入: '{title}' → {len(chunks)} chunks")
         return result
+
+    @staticmethod
+    def _extract_source_level(content: str) -> str:
+        """从文档正文解析权威等级标记「权威等级：A/B」，无则返回空字符串。"""
+        if not content:
+            return ""
+        match = _SOURCE_LEVEL_RE.search(content)
+        return match.group(1) if match else ""
 
     async def add_documents_batch(self, docs: list[dict]) -> int:
         """批量入库，单篇失败不中断整体流程。返回成功入库数量。"""
@@ -393,6 +420,7 @@ class KnowledgeBase:
                     "chunk_index": meta.get("chunk_index", 0),
                     "content": docs_list[i] if i < len(docs_list) else "",
                     "relevance_score": score,
+                    "source_level": meta.get("source_level", ""),
                 }
             )
         return formatted

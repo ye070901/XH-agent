@@ -587,7 +587,15 @@ class AuditAgent(BaseAgent):
     # ═══════════════════════════════════════════════════════════
 
     def _infer_authority(self, chunk: dict) -> str:
-        """推断 KB 原文权威等级：显式元数据 > 标题关键词 > 默认 B（二手）。"""
+        """推断 KB 原文权威等级：显式 source_level > 元数据 > 标题关键词 > 默认 B（二手）。"""
+        # 1. 优先读平铺的 source_level（store.py 入库时从正文「权威等级：A/B」解析透传）
+        flat = str(chunk.get("source_level") or "").strip().lower()
+        if flat in ("a", "official", "primary", "一手", "一级", "官方"):
+            return AUTHORITY_A
+        if flat in ("b", "secondary", "二手", "二级"):
+            return AUTHORITY_B
+
+        # 2. 读嵌套 metadata（旧数据 / 外部来源兼容）
         meta = chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {}
         raw = str(
             meta.get("source_level")
@@ -600,6 +608,7 @@ class AuditAgent(BaseAgent):
         if raw in ("community", "b", "secondary", "二手", "二级"):
             return AUTHORITY_B
 
+        # 3. 标题关键词兜底
         text = (
             str(chunk.get("doc_title") or "")
             + " "
