@@ -7,11 +7,12 @@
 3. 确保所有 Agent 的输入/输出仍然匹配
 """
 
+import re
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # ═══════════════════════════════════════════════════════════
 # 枚举
@@ -202,15 +203,46 @@ class GeneratedResource(BaseModel):
 class FactCheckItem(BaseModel):
     claim: str = Field(description="从生成内容中提取的断言")
     citation_ref: Optional[str] = Field(default=None, description="对应的 Citation.doc_id")
-    is_accurate: bool
+    verdict: Literal["accurate", "hallucination", "unverifiable", "skip"] = Field(
+        description="三态事实核验结果；非事实性表述使用 skip"
+    )
+    is_accurate: Optional[bool] = Field(
+        default=None,
+        description="兼容字段：accurate=True，hallucination=False，其余为 None",
+    )
     evidence_from_kb: Optional[str] = Field(default=None, description="知识库中支撑/反驳的原句")
-    explanation: str
+    explanation: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_compatibility_fields(cls, value: Any) -> Any:
+        """兼容旧版仅含 is_accurate 的 Agent3 输出。"""
+
+        if not isinstance(value, dict):
+            return value
+        item = dict(value)
+        verdict = item.get("verdict")
+        if not verdict:
+            accurate = item.get("is_accurate")
+            if accurate is True:
+                item["verdict"] = "accurate"
+            elif accurate is False:
+                item["verdict"] = "hallucination"
+            else:
+                item["verdict"] = "unverifiable"
+        if "is_accurate" not in item:
+            item["is_accurate"] = {
+                "accurate": True,
+                "hallucination": False,
+            }.get(item["verdict"])
+        return item
 
 
 class FactCheckResult(BaseModel):
     overall_accuracy: float = Field(ge=0, le=1)
     items: list[FactCheckItem] = Field(default_factory=list)
     hallucination_count: int = 0
+    unverifiable_count: int = 0
 
 
 class ComplianceResult(BaseModel):
@@ -410,6 +442,101 @@ class CreateProfileRequest(BaseModel):
 class CreateProfileResponse(BaseModel):
     learner_id: str
     profile: LearnerProfile
+
+
+# ═══════════════════════════════════════════════════════════
+# Phase 3：认可画像快照持久化
+# ═══════════════════════════════════════════════════════════
+
+
+class ProfileSnapshotCreate(BaseModel):
+    """K3 点击“认可，保存画像”时提交的完整快照。"""
+
+    learner_id: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    profile: dict[str, Any] = Field(description="完整学情画像，含 knowledge_map/skill_gaps")
+    source_task_id: Optional[str] = Field(default=None, max_length=128)
+    label: Optional[str] = Field(default=None, max_length=100)
+
+
+class ProfileSnapshotResponse(BaseModel):
+    profile_id: str
+    learner_id: str
+    name: Optional[str] = None
+    profile: dict[str, Any]
+    source_task_id: Optional[str] = None
+    label: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProfileListResponse(BaseModel):
+    items: list[ProfileSnapshotResponse]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+
+
+class ProfileCleanupSettings(BaseModel):
+    max_profiles: int = Field(ge=1, le=10000)
+    cleanup_time: str = Field(description="服务器本地时间，HH:MM")
+    enabled: bool = True
+    updated_at: datetime
+
+    @field_validator("cleanup_time")
+    @classmethod
+    def validate_cleanup_time(cls, value: str) -> str:
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+            raise ValueError("cleanup_time must use 24-hour HH:MM format")
+        return value
+
+
+class ProfileCleanupSettingsUpdate(BaseModel):
+    max_profiles: Optional[int] = Field(default=None, ge=1, le=10000)
+    cleanup_time: Optional[str] = None
+    enabled: Optional[bool] = None
+
+    @field_validator("cleanup_time")
+    @classmethod
+    def validate_cleanup_time(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value):
+            raise ValueError("cleanup_time must use 24-hour HH:MM format")
+        return value
+
+
+# ═══════════════════════════════════════════════════════════
+# Phase 3：前置测试采集
+# ═══════════════════════════════════════════════════════════
+
+
+class PretestAnswer(BaseModel):
+    question_id: str = Field(min_length=1, max_length=64)
+    answer: str = Field(max_length=500)
+
+
+class PretestSubmission(BaseModel):
+    learner_id: str = Field(min_length=1, max_length=128)
+    answers: list[PretestAnswer] = Field(min_length=1)
+
+    @field_validator("answers")
+    @classmethod
+    def validate_unique_answers(
+        cls,
+        answers: list[PretestAnswer],
+    ) -> list[PretestAnswer]:
+        question_ids = [answer.question_id for answer in answers]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("each question_id may be submitted only once")
+        return answers
+
+
+class PretestScoreResponse(BaseModel):
+    learner_id: str
+    total_score: float
+    max_score: float
+    percentage: float = Field(ge=0, le=100)
+    topic_scores: dict[str, float]
+    pretest_results: list[PretestResult]
+    details: list[dict[str, Any]]
 
 
 class GenerateRequest(BaseModel):

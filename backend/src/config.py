@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from dotenv import load_dotenv
 from loguru import logger
@@ -198,6 +199,15 @@ class Settings:
     """订阅通道无消费最长存活时间（秒），超时自动回收，防止内存泄漏"""
 
     # ============================================================
+    # Phase 3 学习者画像持久化
+    # ============================================================
+    PROFILE_DB_PATH: str = os.getenv("PROFILE_DB_PATH", "./data/learner_profiles.db")
+    PROFILE_DEFAULT_MAX_PROFILES: int = _int_env("PROFILE_DEFAULT_MAX_PROFILES", 100)
+    PROFILE_DEFAULT_CLEANUP_TIME: str = os.getenv("PROFILE_DEFAULT_CLEANUP_TIME", "03:00")
+    PROFILE_CLEANUP_ENABLED: bool = _bool_env("PROFILE_CLEANUP_ENABLED", True)
+    PROFILE_CLEANUP_POLL_SECONDS: int = _int_env("PROFILE_CLEANUP_POLL_SECONDS", 60)
+
+    # ============================================================
     # App
     # ============================================================
     DEBUG: bool = _bool_env("DEBUG", True)
@@ -283,8 +293,8 @@ class Settings:
             f"  ChromaDB       : {self.CHROMA_PERSIST_DIR}",
             f"  Debate Rounds  : {self.DEBATE_MAX_ROUNDS}",
             f"  Hallucination  : < {self.HALLUCINATION_THRESHOLD}",
-            f"  Adaptation     : > {self.ADAPTATION_TARGET}",
-            f"  Coverage       : > {self.COVERAGE_TARGET}",
+            f"  Adaptation     : >= {self.ADAPTATION_TARGET}",
+            f"  Coverage       : >= {self.COVERAGE_TARGET}",
             f"  Debug          : {self.DEBUG}",
             f"  Server         : {self.HOST}:{self.PORT}",
             "─" * 50,
@@ -315,6 +325,12 @@ class Settings:
             warnings.append(
                 f"HALLUCINATION_THRESHOLD={self.HALLUCINATION_THRESHOLD} 应在 (0, 1) 区间"
             )
+        if self.PROFILE_DEFAULT_MAX_PROFILES < 1:
+            warnings.append("PROFILE_DEFAULT_MAX_PROFILES 应 ≥ 1")
+        if self.PROFILE_CLEANUP_POLL_SECONDS < 1:
+            warnings.append("PROFILE_CLEANUP_POLL_SECONDS 应 ≥ 1")
+        if not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", self.PROFILE_DEFAULT_CLEANUP_TIME):
+            warnings.append("PROFILE_DEFAULT_CLEANUP_TIME 必须使用 HH:MM 格式")
 
         return warnings
 

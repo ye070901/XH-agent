@@ -16,9 +16,12 @@ from fastapi import FastAPI, HTTPException  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from loguru import logger  # noqa: E402
 
+from backend.src.api.pretests import router as pretests_router  # noqa: E402
+from backend.src.api.profiles import router as profiles_router  # noqa: E402
 from backend.src.api.ws import router as ws_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
+from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
 from backend.src.scheduler.pipeline import scheduler  # noqa: E402
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
@@ -33,8 +36,12 @@ async def lifespan(app: FastAPI):
     # 初始化知识库
     await knowledge_base.initialize()
     logger.info("=" * 60)
-    yield
-    logger.info("系统关闭")
+    await profile_cleanup_service.start()
+    try:
+        yield
+    finally:
+        await profile_cleanup_service.stop()
+        logger.info("系统关闭")
 
 
 app = FastAPI(
@@ -45,6 +52,8 @@ app = FastAPI(
 )
 
 app.include_router(ws_router)
+app.include_router(profiles_router)
+app.include_router(pretests_router)
 
 app.add_middleware(
     CORSMiddleware,

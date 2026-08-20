@@ -1,0 +1,10 @@
+{
+  "meta": {
+    "name": "Agent3 三态判定人工金标准模板",
+    "version": "1.0",
+    "minimum_approved_fact_labels": 50,
+    "allowed_verdicts": ["accurate", "hallucination", "unverifiable", "skip"],
+    "instructions": "复制为 gold_labels.json 后，由领域标注员从真实流水线输出抽取断言并填写。模板故意不含任何标签，不能作为标定结果。"
+  },
+  "items": []
+}

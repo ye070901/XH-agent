@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "name": "工业机器人编程调试前置测试",
+    "version": "1.0",
+    "total_questions": 12,
+    "total_score": 120,
+    "scoring": "每题10分；topic_scores 按知识点换算为0-100百分制",
+    "mapping": "输出直接映射 backend.src.schemas.PretestResult"
+  },
+  "questions": [
+    {
+      "id": "PT-K1-001",
+      "domain": "K1",
+      "topic": "机器人坐标系",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "FANUC 中以工件为基准描述 TCP 运动的坐标系通常是哪个？",
+      "options": {"A": "WORLD", "B": "UFRAME", "C": "UTOOL", "D": "JOINT"},
+      "correct_answer": "B",
+      "score": 10,
+      "explanation": "UFRAME 是用户/工件坐标系；UTOOL 是工具末端坐标系。"
+    },
+    {
+      "id": "PT-K1-002",
+      "domain": "K1",
+      "topic": "机器人坐标系",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "工业机器人默认工具坐标系原点通常位于哪里？",
+      "options": {"A": "机器人底座中心", "B": "J6轴法兰中心", "C": "工件原点", "D": "控制柜原点"},
+      "correct_answer": "B",
+      "score": 10,
+      "explanation": "未标定工具时，默认工具原点位于 J6 轴法兰中心。"
+    },
+    {
+      "id": "PT-K1-003",
+      "domain": "K1",
+      "topic": "运动指令",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "需要末端沿精确直线路径运动时，应优先选用哪类指令？",
+      "options": {"A": "PTP/MoveJ", "B": "LIN/MoveL", "C": "CIRC/MoveC", "D": "MoveAbsJ"},
+      "correct_answer": "B",
+      "score": 10,
+      "explanation": "LIN/MoveL 约束 TCP 沿直线运动。"
+    },
+    {
+      "id": "PT-K1-004",
+      "domain": "K1",
+      "topic": "运动指令",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "空行程且路径无碰撞风险时，通常用于提高节拍的运动指令是？",
+      "options": {"A": "PTP/MoveJ", "B": "LIN/MoveL", "C": "CIRC/MoveC", "D": "仅能手动点动"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "关节运动路径不可控但速度快，适合安全空行程。"
+    },
+    {
+      "id": "PT-K2-001",
+      "domain": "K2",
+      "topic": "RobotStudio仿真",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "RobotStudio 中离线创建机器人系统时，核心的软件控制器对象是？",
+      "options": {"A": "虚拟控制器", "B": "电子表格", "C": "PLC强制表", "D": "示波器"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "虚拟控制器用于复现 ABB 控制器行为并运行 RAPID 程序。"
+    },
+    {
+      "id": "PT-K2-002",
+      "domain": "K2",
+      "topic": "RobotStudio仿真",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "RobotStudio 碰撞监控的基本设置对象是什么？",
+      "options": {"A": "两个需监控的对象及安全距离", "B": "一个文本文件", "C": "仅设置机器人速度", "D": "只需启用日志"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "应配置碰撞对象对和安全距离阈值，再运行仿真验证。"
+    },
+    {
+      "id": "PT-K2-003",
+      "domain": "K2",
+      "topic": "ROS2/Gazebo仿真",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "在 ROS2 机器人仿真中，URDF 的主要作用是？",
+      "options": {"A": "描述机器人连杆和关节结构", "B": "替代所有控制算法", "C": "保存数据库密码", "D": "编写前端样式"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "URDF 是运动学、碰撞检测和物理仿真的机器人模型基础。"
+    },
+    {
+      "id": "PT-K2-004",
+      "domain": "K2",
+      "topic": "ROS2/Gazebo仿真",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "相比直接编写裸 URDF，使用 Xacro 的主要优势是？",
+      "options": {"A": "参数化和模块化复用", "B": "自动消除所有碰撞", "C": "无需任何关节定义", "D": "让机器人脱离控制器运行"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "Xacro 宏可复用结构并通过参数生成 URDF。"
+    },
+    {
+      "id": "PT-K3-001",
+      "domain": "K3",
+      "topic": "SRVO-068数据传输故障",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "FANUC SRVO-068（DTERR）主要表示什么？",
+      "options": {"A": "编码器与伺服放大器串行数据传输异常", "B": "控制柜温度正常", "C": "程序语法警告", "D": "工件坐标系未命名"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "DTERR 指串行脉冲编码器数据传输错误。"
+    },
+    {
+      "id": "PT-K3-002",
+      "domain": "K3",
+      "topic": "SRVO-068数据传输故障",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "排查 SRVO-068 时，通常最先重点检查的是？",
+      "options": {"A": "脉冲编码器电缆及接头", "B": "前端页面颜色", "C": "工件重量标签", "D": "机器人铭牌字体"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "通讯电缆接触不良、断线或接头松动是常见根因。"
+    },
+    {
+      "id": "PT-K3-003",
+      "domain": "K3",
+      "topic": "安全急停链路",
+      "difficulty": "beginner",
+      "question_type": "single_choice",
+      "prompt": "SRVO-105 安全报警发生后，以下哪种做法正确？",
+      "options": {"A": "短接安全回路继续生产", "B": "保持安全停机并按手册检查门开关和急停连接", "C": "强制伺服使能", "D": "屏蔽报警日志"},
+      "correct_answer": "B",
+      "score": 10,
+      "explanation": "不得旁路安全功能，应在断电隔离和人员安全条件下按顺序检查。"
+    },
+    {
+      "id": "PT-K3-004",
+      "domain": "K3",
+      "topic": "安全急停链路",
+      "difficulty": "intermediate",
+      "question_type": "single_choice",
+      "prompt": "SRVO-105 在 R-30iB 中主要指向哪一类问题？",
+      "options": {"A": "控制柜门开关或控制器急停链路", "B": "所有围栏信号的统一代码", "C": "离线仿真许可证", "D": "TCP标定误差"},
+      "correct_answer": "A",
+      "score": 10,
+      "explanation": "该报警与控制柜门或急停链路相关，不能与 Fence Open 简单等同。"
+    }
+  ]
+}

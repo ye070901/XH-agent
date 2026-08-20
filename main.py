@@ -32,10 +32,13 @@ _BACKEND = _PROJECT_ROOT / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
+from backend.src.api.pretests import router as pretests_router  # noqa: E402
+from backend.src.api.profiles import router as profiles_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.exceptions import XHError  # noqa: E402
 from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
+from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 枚举（与前端表单下拉框一一对应）
@@ -184,9 +187,12 @@ async def lifespan(app: FastAPI):
     )
     logger.info("=" * 60)
 
-    yield
-
-    logger.info("系统关闭")
+    await profile_cleanup_service.start()
+    try:
+        yield
+    finally:
+        await profile_cleanup_service.stop()
+        logger.info("系统关闭")
 
 
 # ═══════════════════════════════════════════════════════════
@@ -202,6 +208,9 @@ app = FastAPI(
     version="0.2.0",
     lifespan=lifespan,
 )
+
+app.include_router(profiles_router)
+app.include_router(pretests_router)
 
 app.add_middleware(
     CORSMiddleware,
