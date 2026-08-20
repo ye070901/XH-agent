@@ -171,7 +171,7 @@ class TestDiagnosisGateBackwardCompat:
         state = _make_state(diag)
         result = await gate.check(state)
 
-        # knowledge_map 5 条 confidence: 0.9, 0.7, 0.95, 0.6, 0.65 → avg = 0.76 ≥ 0.6 → PASS
+        # knowledge_map 5 条 confidence: 0.9, 0.7, 0.95, 0.6, 0.65 → avg = 0.76（≥ 稀疏阈值 0.05）→ PASS
         assert result["verdict"] == GateVerdict.PASS.value, (
             f"Expected PASS via inferred confidence, "
             f"got verdict={result['verdict']}, violations={result['violations']}"

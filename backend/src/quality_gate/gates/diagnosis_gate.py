@@ -6,7 +6,7 @@ v0.1 采用简明的三路裁决，直接对接 Scheduler RETRY 回跳 / FALLBAC
 判定流程：
   1. 提取 state["diagnosis_result"]
   2. JSON 完全不可解析 → FALLBACK（返回默认初级用户诊断）
-  3. 检查 overall_confidence ≥ DIAGNOSIS_CONFIDENCE_THRESHOLD（0.6）
+  3. 检查 overall_confidence ≥ DIAGNOSIS_CONFIDENCE_THRESHOLD（0.3）
   4. 检查 recommended_difficulty 非空（用户水平）
   5. 检查 skill_gaps 非空（薄弱环节）
   6. 任一不满足 → RETRY（附带缺失提示，引导 Agent1 补充信息后重新诊断）

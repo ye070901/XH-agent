@@ -612,32 +612,43 @@ class PipelineScheduler:
         state["_retry_counts"][key] = state["_retry_counts"].get(key, 0) + 1
 
     # ═══════════════════════════════════════════════════════════
-    # 博弈引擎（占位 — 等待模板5完整实现）
+    # 博弈引擎（Opt-2 接入 — 三态裁决 + 权威加权 + 终止边界）
     # ═══════════════════════════════════════════════════════════
 
     async def _run_debate(self, state: dict[str, Any], task_id: str) -> dict[str, Any]:
-        """多Agent博弈辩论引擎调用。
+        """博弈引擎裁决：Agent3 三态断言 → 争议断言进 debate → 裁决结果回写资源。
 
-        当前为占位实现：尝试从 graph 模块加载辩论引擎。
-        加载成功 → 执行多Agent对抗迭代；加载失败 → 降级跳过。
-
-        TODO: 模板5完成后替换为正式辩论引擎调用。
+        裁决纯规则（不调 LLM），写入 state["debate_result"] 供 Agent4 修正消费
+        （correction.py 逐条落地 replace/delete/keep）。引擎不可用时降级跳过，
+        返回原 state（修正走既有 LLM 路径）。
         """
         try:
             from backend.src.graph.orchestrator import workflow_engine
 
-            if hasattr(workflow_engine, "debate") and callable(workflow_engine.debate):
-                logger.info(f"[Scheduler] task_id={task_id[:8]}… 启动博弈引擎")
-                debate_state = await workflow_engine.debate(state)
-                await self._broadcast(
-                    task_id,
-                    EventType.DEBATE_ROUND,
-                    {
-                        "rounds": len(debate_state.get("debate_rounds", [])),
-                        "verdict": debate_state.get("debate_verdict", "unknown"),
-                    },
+            engine = getattr(workflow_engine, "debate", None)
+            if engine is None:
+                logger.info(
+                    f"[Scheduler] task_id={task_id[:8]}… 博弈引擎未就绪，降级跳过辩论环节"
                 )
-                return debate_state
+                return state
+
+            logger.info(f"[Scheduler] task_id={task_id[:8]}… 启动博弈引擎")
+            debate_result = engine.adjudicate(
+                audit_result=state.get("audit_result", []),
+                generated_resources=state.get("generated_resources", []),
+            )
+            state["debate_result"] = debate_result
+            stats = debate_result.get("stats", {})
+            await self._broadcast(
+                task_id,
+                EventType.DEBATE_ROUND,
+                {
+                    "adjudications": stats.get("total_adjudications", 0),
+                    "decisions": stats.get("decisions", {}),
+                    "unresolved": stats.get("unresolved_count", 0),
+                },
+            )
+            return state
         except ImportError:
             pass
         except Exception as exc:

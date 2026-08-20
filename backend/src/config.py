@@ -181,7 +181,7 @@ class Settings:
     """闸门轻量LLM复核使用的模型，为空回退到 LLM_MODEL"""
 
     # -- 闸门 v0.1 新增：三路裁决 PASS/RETRY/FALLBACK --
-    DIAGNOSIS_CONFIDENCE_THRESHOLD: float = _float_env("DIAGNOSIS_CONFIDENCE_THRESHOLD", 0.1)
+    DIAGNOSIS_CONFIDENCE_THRESHOLD: float = _float_env("DIAGNOSIS_CONFIDENCE_THRESHOLD", 0.3)
     """DiagnosisGate v0.1：overall_confidence ≥ 此值 → PASS，否则 → RETRY"""
     RECALL_MAX_RETRIES: int = _int_env("RECALL_MAX_RETRIES", 3)
     """RecallGate v0.1：RAG 检索重试上限，超限 → FALLBACK"""

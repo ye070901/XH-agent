@@ -5,6 +5,11 @@
 
 Agent 3 只审不修，Agent 4 根据审核结果修正内容。
 
+Phase 3（Arch-L 接入）:
+  - 博弈引擎接入流水线: Agent3 三态断言 → 争议断言进 debate 引擎 → 裁决结果回写资源
+    （Step 3.5 博弈裁决，产出 state["debate_result"]，由 Agent 4 消费落地）
+  - 追问流程接入: regenerate() 提供「反馈 → 资源重生成」调度入口（D8 / §4.5）
+
 Agent 入口文件:
   Agent 1: backend/src/agents/diagnosis.py   → DiagnosisAgent
   Agent 2: backend/src/agents/generation_v2.py → GenerationAgent
@@ -23,6 +28,7 @@ from ..agents.agent4 import CorrectionAgent  # Agent 4 标准入口（→ correc
 from ..agents.audit import AuditAgent
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation_v2 import GenerationAgent as GenerationAgent
+from ..debate.engine import debate_engine
 from ..knowledge import knowledge_base
 
 
@@ -58,6 +64,15 @@ class AgentWorkflow:
         if self._correction is None:
             self._correction = CorrectionAgent()
         return self._correction
+
+    @property
+    def debate(self):
+        """博弈引擎（Opt-2）— 编排器（Arch-L）通过此属性接入三态裁决。
+
+        返回 debate/engine.py 的全局单例，供 Scheduler 的 _run_debate 复用；
+        本工作流在 _generate_and_refine 中直接调用其 adjudicate()。
+        """
+        return debate_engine
 
     async def run(
         self,
@@ -103,6 +118,50 @@ class AgentWorkflow:
             {"agent": "retrieval", "status": "done", "count": len(retrieved_chunks)}
         )
 
+        # Step 2~4: 生成 → 审核 → 博弈裁决 → 修正
+        await self._generate_and_refine(state)
+        if state.get("status") == "error":
+            return state
+
+        state["status"] = "completed"
+        return state
+
+    async def regenerate(self, state: dict, feedback: dict = None) -> dict:
+        """反馈 → 资源重生成 调度入口（追问流程接入 / 后置动态反馈 D8）。
+
+        复用既有 diagnosis_result / retrieved_chunks，仅重跑 生成→审核→博弈→修正，
+        不重跑学情诊断（收窄后的目标 / 回写后的画像由上游写回 diagnosis_result）。
+
+        feedback 可选字段:
+          - action: "simplify"（答错 → 降维解释）/ "advance"（答对 → 进阶挑战）
+          - hint:   目标收窄后的细化方向，注入生成上下文
+        """
+        feedback = feedback or {}
+        state.setdefault("agent_log", [])
+
+        # ── 动态决策：答错→降维、答对→进阶（D8），在诊断结果副本上调整 ──
+        diagnosis = dict(state.get("diagnosis_result") or {})
+        action = str(feedback.get("action", "") or "").strip().lower()
+        if action == "simplify":
+            diagnosis["recommended_difficulty"] = "beginner"
+        elif action == "advance":
+            diagnosis["recommended_difficulty"] = "advanced"
+        hint = str(feedback.get("hint", "") or "").strip()
+        if hint:
+            summary = str(diagnosis.get("summary", "") or "").strip()
+            diagnosis["summary"] = f"{summary}（细化方向：{hint}）" if summary else hint
+        state["diagnosis_result"] = diagnosis
+
+        state["status"] = "regenerating"
+        await self._generate_and_refine(state)
+        if state.get("status") == "error":
+            return state
+
+        state["status"] = "completed"
+        return state
+
+    async def _generate_and_refine(self, state: dict) -> None:
+        """生成 → 审核 → 博弈裁决 → 修正 四步链（run 与 regenerate 共用）。"""
         # Step 2: Agent 2 知识生成
         logger.info("[工作流] Step 2/4: 知识生成")
         state["status"] = "generating"
@@ -118,7 +177,7 @@ class AgentWorkflow:
 
         if result.get("status") == "error":
             state["status"] = "error"
-            return state
+            return
 
         # Step 3: Agent 3 内容审核（只审不修）
         logger.info("[工作流] Step 3/4: 内容审核")
@@ -129,9 +188,21 @@ class AgentWorkflow:
 
         if result.get("status") == "error":
             state["status"] = "error"
-            return state
+            return
 
-        # Step 4: Agent 4 保真修正（根据审核结果修正内容）
+        # Step 3.5: 博弈引擎裁决（Agent3 三态断言 → 争议断言进 debate → 裁决结果回写）
+        logger.info("[工作流] Step 3.5/4: 博弈引擎裁决")
+        state["status"] = "debating"
+        debate_result = self.debate.adjudicate(
+            audit_result=state.get("audit_result", []),
+            generated_resources=state.get("generated_resources", []),
+        )
+        state["debate_result"] = debate_result
+        state["agent_log"].append(
+            {"agent": "debate", "status": "done", "stats": debate_result.get("stats", {})}
+        )
+
+        # Step 4: Agent 4 保真修正（消费 audit_result + debate_result 落地裁决）
         logger.info("[工作流] Step 4/4: 保真修正")
         state["status"] = "correcting"
         result = await self.correction.run(state)
@@ -146,10 +217,6 @@ class AgentWorkflow:
 
         if result.get("status") == "error":
             state["status"] = "error"
-            return state
-
-        state["status"] = "completed"
-        return state
 
     async def _retrieve_knowledge(self, learner_data: dict, diagnosis: dict) -> list[dict]:
         """知识库检索：用学习目标 + 关键盲区构造查询，检索 data/raw 语料。
