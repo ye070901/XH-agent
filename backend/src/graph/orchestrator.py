@@ -29,6 +29,7 @@ from ..agents.audit import AuditAgent
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation_v2 import GenerationAgent as GenerationAgent
 from ..debate.engine import debate_engine
+from ..event_broadcast import EventType, event_bus
 from ..knowledge import knowledge_base
 
 
@@ -94,13 +95,25 @@ class AgentWorkflow:
             "status": "starting",
             "agent_log": [],
         }
+        await self._broadcast_status(
+            task_id, "workflow", EventType.AGENT_START, "工作流已启动，正在准备 Agent 协作。"
+        )
 
         # Step 1: Agent 1 学情诊断
         logger.info("[工作流] Step 1/4: 学情诊断")
         state["status"] = "diagnosing"
+        await self._broadcast_status(
+            task_id, "diagnosis", EventType.AGENT_START, "正在分析学习者画像与学习目标。"
+        )
         result = await self.diagnosis.run(state)
         state.update(result)
         state["agent_log"].append({"agent": "diagnosis", "status": result.get("status", "done")})
+        await self._broadcast_status(
+            task_id,
+            "diagnosis",
+            EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
+            "学情诊断失败。" if result.get("status") == "error" else "学情画像已完成。",
+        )
 
         # 诊断失败时终止工作流
         if result.get("status") == "error":
@@ -110,12 +123,22 @@ class AgentWorkflow:
         # Step 1.5: 知识库检索（RAG 约束生成）
         logger.info("[工作流] Step 1.5/4: 知识库检索")
         state["status"] = "retrieving"
+        await self._broadcast_status(
+            task_id, "retrieval", EventType.AGENT_START, "正在从知识库检索相关依据。"
+        )
         retrieved_chunks = await self._retrieve_knowledge(
             learner_data, state.get("diagnosis_result", {})
         )
         state["retrieved_chunks"] = retrieved_chunks
         state["agent_log"].append(
             {"agent": "retrieval", "status": "done", "count": len(retrieved_chunks)}
+        )
+        await self._broadcast_status(
+            task_id,
+            "retrieval",
+            EventType.AGENT_DONE,
+            f"知识库检索完成，命中 {len(retrieved_chunks)} 个片段。",
+            {"count": len(retrieved_chunks)},
         )
 
         # Step 2~4: 生成 → 审核 → 博弈裁决 → 修正
@@ -124,6 +147,9 @@ class AgentWorkflow:
             return state
 
         state["status"] = "completed"
+        await self._broadcast_status(
+            task_id, "workflow", EventType.WORKFLOW_COMPLETE, "全部 Agent 已完成协作。"
+        )
         return state
 
     async def regenerate(self, state: dict, feedback: dict = None) -> dict:
@@ -138,6 +164,7 @@ class AgentWorkflow:
         """
         feedback = feedback or {}
         state.setdefault("agent_log", [])
+        task_id = state.get("task_id", "")
 
         # ── 动态决策：答错→降维、答对→进阶（D8），在诊断结果副本上调整 ──
         diagnosis = dict(state.get("diagnosis_result") or {})
@@ -153,18 +180,29 @@ class AgentWorkflow:
         state["diagnosis_result"] = diagnosis
 
         state["status"] = "regenerating"
+        await self._broadcast_status(
+            task_id, "workflow", EventType.AGENT_START, "收到反馈，正在重新生成学习资源。"
+        )
         await self._generate_and_refine(state)
         if state.get("status") == "error":
             return state
 
         state["status"] = "completed"
+        await self._broadcast_status(
+            task_id, "workflow", EventType.WORKFLOW_COMPLETE, "资源重生成完成。"
+        )
         return state
 
     async def _generate_and_refine(self, state: dict) -> None:
         """生成 → 审核 → 博弈裁决 → 修正 四步链（run 与 regenerate 共用）。"""
+        task_id = state.get("task_id", "")
+
         # Step 2: Agent 2 知识生成
         logger.info("[工作流] Step 2/4: 知识生成")
         state["status"] = "generating"
+        await self._broadcast_status(
+            task_id, "generation", EventType.AGENT_START, "正在依据诊断与知识库内容生成学习资源。"
+        )
         result = await self.generation.run(state)
         state.update(result)
         state["agent_log"].append(
@@ -174,6 +212,14 @@ class AgentWorkflow:
                 "count": len(result.get("generated_resources", [])),
             }
         )
+        gen_count = len(result.get("generated_resources", []))
+        await self._broadcast_status(
+            task_id,
+            "generation",
+            EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
+            "知识生成失败。" if result.get("status") == "error" else f"已生成 {gen_count} 类资源。",
+            {"count": gen_count},
+        )
 
         if result.get("status") == "error":
             state["status"] = "error"
@@ -182,9 +228,18 @@ class AgentWorkflow:
         # Step 3: Agent 3 内容审核（只审不修）
         logger.info("[工作流] Step 3/4: 内容审核")
         state["status"] = "auditing"
+        await self._broadcast_status(
+            task_id, "audit", EventType.AGENT_START, "正在审核资源的依据、难度与表达质量。"
+        )
         result = await self.audit.run(state)
         state.update(result)
         state["agent_log"].append({"agent": "audit", "status": result.get("status", "done")})
+        await self._broadcast_status(
+            task_id,
+            "audit",
+            EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
+            "内容审核失败。" if result.get("status") == "error" else "内容审核已完成。",
+        )
 
         if result.get("status") == "error":
             state["status"] = "error"
@@ -193,6 +248,9 @@ class AgentWorkflow:
         # Step 3.5: 博弈引擎裁决（Agent3 三态断言 → 争议断言进 debate → 裁决结果回写）
         logger.info("[工作流] Step 3.5/4: 博弈引擎裁决")
         state["status"] = "debating"
+        await self._broadcast_status(
+            task_id, "debate", EventType.AGENT_START, "正在进行事实核查与博弈裁决。"
+        )
         debate_result = self.debate.adjudicate(
             audit_result=state.get("audit_result", []),
             generated_resources=state.get("generated_resources", []),
@@ -201,10 +259,16 @@ class AgentWorkflow:
         state["agent_log"].append(
             {"agent": "debate", "status": "done", "stats": debate_result.get("stats", {})}
         )
+        await self._broadcast_status(
+            task_id, "debate", EventType.AGENT_DONE, "博弈裁决完成。"
+        )
 
         # Step 4: Agent 4 保真修正（消费 audit_result + debate_result 落地裁决）
         logger.info("[工作流] Step 4/4: 保真修正")
         state["status"] = "correcting"
+        await self._broadcast_status(
+            task_id, "correction", EventType.AGENT_START, "正在根据审核与裁决结果进行保真修正。"
+        )
         result = await self.correction.run(state)
         state.update(result)
         state["agent_log"].append(
@@ -214,9 +278,32 @@ class AgentWorkflow:
                 "stats": result.get("correction_stats", {}),
             }
         )
+        await self._broadcast_status(
+            task_id,
+            "correction",
+            EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
+            "保真修正失败。" if result.get("status") == "error" else "保真修正已完成。",
+        )
 
         if result.get("status") == "error":
             state["status"] = "error"
+
+    @staticmethod
+    async def _broadcast_status(
+        task_id: str,
+        agent: str,
+        event_type: EventType,
+        message: str,
+        extra: dict | None = None,
+    ) -> None:
+        """推送当前工作流节点状态；广播失败不影响实际任务。"""
+        data = {"agent": agent, "message": message, "status": event_type.value}
+        if extra:
+            data.update(extra)
+        try:
+            await event_bus.broadcast(task_id, event_type, data)
+        except Exception as exc:
+            logger.debug(f"[工作流] 状态广播失败（不影响任务）: {exc}")
 
     async def _retrieve_knowledge(self, learner_data: dict, diagnosis: dict) -> list[dict]:
         """知识库检索：用学习目标 + 关键盲区构造查询，检索 data/raw 语料。

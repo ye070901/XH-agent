@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import sys
+import uuid
 from contextlib import asynccontextmanager
 from enum import Enum
 from pathlib import Path
@@ -34,6 +35,7 @@ if str(_BACKEND) not in sys.path:
 
 from backend.src.api.pretests import router as pretests_router  # noqa: E402
 from backend.src.api.profiles import router as profiles_router  # noqa: E402
+from backend.src.api.ws import router as ws_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.exceptions import XHError  # noqa: E402
 from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
@@ -87,6 +89,7 @@ class GenerateRequest(BaseModel):
         max_length=50,
         examples=["张三"],
     )
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=100)
     education_level: EducationLevel = Field(
         ...,
         description="最高学历",
@@ -219,6 +222,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(ws_router)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -329,6 +333,7 @@ async def generate(request: GenerateRequest):
 
     # ── 2. 启动工作流（异常由全局 handler 兜底）──
     result = await workflow_engine.run(
+        task_id=request.task_id,
         learner_data=learner_data,
         resource_types=resource_types,
     )

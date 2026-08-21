@@ -73,7 +73,7 @@
 ### 后端
 
 ```bash
-# 首次：创建虚拟环境并安装依赖
+# 首次：创建虚拟环境并安装依赖（或在 Windows 项目目录运行 .\start.bat 自动完成）
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt    # Windows
 # Linux/Mac: .venv/bin/pip install -r requirements.txt
@@ -82,11 +82,11 @@ python -m venv .venv
 copy .env.example .env          # Windows
 # Linux/Mac: cp .env.example .env
 
-# 启动后端（Windows 也可直接双击 start.bat）
+# 启动后端（Windows 也可在项目目录直接双击 start.bat）
 .venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-健康检查：http://localhost:8000/health（`kb_docs=32` 表示知识库就绪，首次启动会自动向量化导入约 15s）
+健康检查：http://localhost:8000/health（启动时会增量同步 `data/raw`：新文章自动向量化，已修改文章自动重建，未变更文章跳过）
 
 ### 前端
 

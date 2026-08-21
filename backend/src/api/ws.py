@@ -70,6 +70,8 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
 
     # 并行运行：转发事件 + 接收客户端消息
     forward_task = asyncio.create_task(forward_to_ws())
+    # 让订阅协程先注册，避免客户端紧接着发起 HTTP 请求时遗漏首个状态事件。
+    await asyncio.sleep(0)
 
     try:
         while True:

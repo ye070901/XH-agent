@@ -5,6 +5,7 @@ Opt‑2 KB 引擎核心模块。只做存储检索，不包含 Agent / LLM 逻�
 
 from __future__ import annotations
 
+import hashlib
 import re
 import time
 from pathlib import Path
@@ -194,14 +195,10 @@ class KnowledgeBase:
         return total_loaded
 
     async def _auto_import_raw_to_chroma(self) -> int:
-        """每次启动增量同步 data/raw 下的 .md 到 ChromaDB（按 doc_id 幂等去重）。
+        """每次启动增量同步 data/raw 下的 .md 到 ChromaDB。
 
-        首次启动（空库）等价于全量导入；后续启动仅补新增文档（对比库中已有
-        doc_id 跳过已入库者）。使用当前 collection 的 embedding function
-        （chroma 模式为本地 ONNX all-MiniLM-L6-v2，384 维）。逐篇调用
-        add_document 做切分 + 向量化，单篇失败不阻断整体；若 embedding 连续
-        失败触发降级（collection 置 None）则提前停止，剩余文档由 _load_raw_docs
-        兜底为关键词检索。
+        以 ``source_sha256`` 判断源文件是否变化：新增或已修改的文件写入，
+        未变化的文件跳过。旧库没有该元数据时会在本次启动补写一次。
         """
         raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
         if not raw_dir.exists():
@@ -210,39 +207,47 @@ class KnowledgeBase:
         if not md_files:
             return 0
 
-        # 增量同步：读取库中已有 doc_id，跳过已入库文档（幂等，避免重复向量化）
-        existing_doc_ids: set[str] = set()
-        try:
-            existing_ids = self._collection.get()["ids"]
-            existing_doc_ids = {cid.rsplit("_chunk_", 1)[0] for cid in existing_ids}
-        except Exception:
-            pass  # 空库或读取失败 → 当作全量导入
-
-        imported = 0
+        synced = 0
         skipped = 0
         for md_file in md_files:
             if self._collection is None:
                 break
             doc_id = md_file.stem
-            if doc_id in existing_doc_ids:
-                skipped += 1
-                continue
             try:
                 text = md_file.read_text(encoding="utf-8")
+                source_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
                 title = md_file.stem
                 for line in text.split("\n"):
                     s = line.strip()
                     if s.startswith("# ") and not s.startswith("## "):
                         title = s[2:].strip()
                         break
-                await self.add_document(doc_id=doc_id, title=title, content=text)
-                imported += 1
-            except Exception as e:
-                logger.warning(f"[知识库] 自动向量化失败: {md_file.name} — {e}")
+                existing = self._collection.get(
+                    where={"doc_id": doc_id}, include=["metadatas"]
+                )
+                metadatas = existing.get("metadatas") or []
+                if metadatas and all(
+                    metadata.get("source_sha256") == source_sha256
+                    for metadata in metadatas
+                ):
+                    skipped += 1
+                    continue
 
-        if imported or skipped:
-            logger.info(f"[知识库] 增量同步: 新增 {imported} 篇，跳过已存在 {skipped} 篇")
-        return imported
+                await self.add_document(
+                    doc_id=doc_id,
+                    title=title,
+                    content=text,
+                    source_sha256=source_sha256,
+                )
+                synced += 1
+            except Exception as e:
+                logger.warning(f"[知识库] 增量向量化失败: {md_file.name} — {e}")
+
+        logger.info(
+            f"[知识库] 增量同步完成: 写入/更新 {synced} 篇，跳过未变更 {skipped} 篇，"
+            f"扫描 {len(md_files)} 篇"
+        )
+        return synced
 
     # ════ 文本切分 + 入库 ════
 
@@ -288,7 +293,13 @@ class KnowledgeBase:
             chunks.append(current.strip())
         return chunks or [text[:chunk_size]]
 
-    async def add_document(self, doc_id: str, title: str, content: str) -> list[dict]:
+    async def add_document(
+        self,
+        doc_id: str,
+        title: str,
+        content: str,
+        source_sha256: Optional[str] = None,
+    ) -> list[dict]:
         """添加单篇文档 → 切分 → 向量化写入 / 文件追加 → 返回 chunk 列表。
 
         幂等写入：ChromaDB 模式下先删除同名 doc_id 的旧 chunks 再写入，
@@ -318,15 +329,17 @@ class KnowledgeBase:
                         f"[知识库] 清理旧 chunks: doc_id={doc_id}, count={len(existing['ids'])}"
                     )
 
-                metadatas = [
-                    {
+                metadatas = []
+                for i in range(len(chunks)):
+                    metadata = {
                         "doc_id": doc_id,
                         "doc_title": title,
                         "chunk_index": i,
                         "source_level": source_level,
                     }
-                    for i in range(len(chunks))
-                ]
+                    if source_sha256:
+                        metadata["source_sha256"] = source_sha256
+                    metadatas.append(metadata)
                 self._collection.add(ids=chunk_ids, documents=chunks, metadatas=metadatas)
                 logger.info(f"[知识库] ChromaDB写入: '{title}' → {len(chunks)} chunks")
                 return result

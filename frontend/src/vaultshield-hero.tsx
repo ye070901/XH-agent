@@ -9,6 +9,7 @@ const workflowSteps = ["学情诊断", "知识生成", "内容审核"];
 const ease = [0.22, 1, 0.36, 1] as const;
 type Panel = "overview" | "diagnosis" | "generation" | "audit" | "workspace";
 type QualityGate = "evidence" | "difficulty" | "expression";
+type WorkspaceDialog = { kind: "workflow"; index: number } | { kind: "quality"; id: QualityGate };
 
 const panelIds: Panel[] = ["overview", "diagnosis", "generation", "audit", "workspace"];
 const panelDetails: Record<Panel, { eyebrow: string; title: string; description: string; metric: string }> = {
@@ -286,6 +287,78 @@ function ActionButton({ children, kind, onClick }: { children: ReactNode; kind: 
   );
 }
 
+function ExpandedWorkspaceLayout({
+  generationResult,
+  topic,
+  selectedResource,
+  setSelectedResource,
+  activeStep,
+  setActiveStep,
+  selectedQualityGate,
+  setSelectedQualityGate,
+  onOpenWorkflow,
+  onOpenQualityGate,
+}: {
+  generationResult: GenerationResult | null;
+  topic: string;
+  selectedResource: string | null;
+  setSelectedResource: (value: string) => void;
+  activeStep: number | null;
+  setActiveStep: (value: number | null) => void;
+  selectedQualityGate: QualityGate | null;
+  setSelectedQualityGate: (value: QualityGate | null) => void;
+  onOpenWorkflow: (index: number) => void;
+  onOpenQualityGate: (id: QualityGate) => void;
+}) {
+  const resource = generationResult?.resources?.find((item) => item.resource_type === selectedResource);
+  const resourceIndex = generationResult?.resources?.findIndex((item) => item.resource_type === selectedResource);
+  const audit = generationResult?.audit?.find((item) => item.resource_type === selectedResource || item.resource_index === resourceIndex);
+  const workflowDetail = "详情已在弹窗中打开。";
+  return (
+    <div className="workspace-expanded-content mt-8 grid min-h-[calc(100dvh-150px)] min-w-0 w-full max-w-none grid-cols-[230px_minmax(0,1fr)] gap-8 rounded-[2rem] bg-[#192837] p-5 text-white shadow-[0_24px_70px_rgba(25,40,55,0.2)] sm:p-7 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
+      <nav aria-label="学习工作台目录" className="self-start lg:sticky lg:top-7">
+        <div className="rounded-2xl bg-white/[0.07] p-4">
+          <p className="text-xs font-semibold tracking-[0.14em] text-white/55">资源目录</p>
+          <div className="mt-4 grid gap-2">
+            {(generationResult?.resources ?? []).map((item, index) => <button aria-current={selectedResource === item.resource_type ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${selectedResource === item.resource_type ? "bg-[#7342E2] text-white shadow-[0_8px_20px_rgba(115,66,226,0.28)]" : "bg-white/[0.06] text-white/75 hover:bg-white/12 hover:text-white"}`} key={item.resource_type} onClick={() => setSelectedResource(item.resource_type)} type="button"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/15 text-[11px]">0{index + 1}</span><span className="truncate">{resourceLabel(item.resource_type)}</span></button>)}
+            {!generationResult?.resources?.length ? <p className="px-3 py-2 text-sm leading-6 text-white/55">生成资源后显示目录</p> : null}
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-white/[0.07] p-4">
+          <p className="text-xs font-semibold tracking-[0.14em] text-white/55">协同工作流</p>
+          <div className="mt-4 grid gap-2">
+            {workflowSteps.map((step, index) => <button aria-current={activeStep === index ? "step" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${activeStep === index ? "bg-white text-[#192837]" : "text-white/75 hover:bg-white/[0.08] hover:text-white"}`} key={step} onClick={() => { setActiveStep(index); onOpenWorkflow(index); }} type="button"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] ${activeStep === index ? "bg-[#7342E2] text-white" : "bg-white/12"}`}>0{index + 1}</span><span>{step}</span></button>)}
+          </div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-white/[0.07] p-4">
+          <p className="text-xs font-semibold tracking-[0.14em] text-white/55">质量闸门</p>
+          <div className="mt-4 grid gap-2">
+            {qualityGates.map((gate) => <button aria-pressed={selectedQualityGate === gate.id} className={`rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${selectedQualityGate === gate.id ? "bg-white text-[#192837]" : "text-white/75 hover:bg-white/[0.08] hover:text-white"}`} key={gate.id} onClick={() => { setSelectedQualityGate(gate.id); onOpenQualityGate(gate.id); }} type="button">{gate.label}</button>)}
+          </div>
+        </div>
+      </nav>
+
+      <main className="min-w-0 w-full">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div><p className="text-xs font-semibold tracking-[0.14em] text-white/55">本次生成结果</p><h3 className="mt-2 text-2xl font-semibold leading-tight">{topic || "学习资源工作台"}</h3></div>
+          <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/85">{generationResult?.mode === "demo" ? "本地演示" : "DeepSeek Chat"}</span>
+        </div>
+        {generationResult?.diagnosis?.summary ? <p className="mt-5 max-w-[78ch] text-base leading-8 text-white/80">诊断：{generationResult.diagnosis.summary}</p> : null}
+
+        {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
+          <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">资源预览</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
+          {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
+          <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
+          <footer className="mt-9 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}{audit?.issues?.[0]?.detail ? <span className="ml-2">{audit.issues[0].detail}</span> : null}</footer>
+        </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
+
+        {activeStep !== null ? <motion.section className="mt-6 rounded-2xl bg-white/[0.08] p-6" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={`workflow-${activeStep}`}><p className="text-xs font-semibold tracking-[0.14em] text-white/55">工作流详情</p><h4 className="mt-2 text-xl font-semibold text-white">{workflowSteps[activeStep]}</h4><p className="mt-3 text-sm leading-7 text-white/75">{workflowDetail}</p></motion.section> : null}
+        <motion.section className="mt-6 rounded-2xl bg-white/[0.08] p-6" layout><p className="text-xs font-semibold tracking-[0.14em] text-white/55">质量闸门详情</p><h4 className="mt-2 text-xl font-semibold text-white">{qualityGates.find((gate) => gate.id === selectedQualityGate)?.label}</h4><p className="mt-3 text-sm leading-7 text-white/75">{selectedQualityGate === "evidence" ? "查看每种资源是否有知识库依据和审核结论。" : selectedQualityGate === "difficulty" ? `建议难度：${generationResult?.diagnosis?.recommended_difficulty || "等待学情诊断"}` : "查看资源的表达质量、结构完整性和可用性。"}</p></motion.section>
+      </main>
+    </div>
+  );
+}
+
 function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspace, onOpenKb }: { open: boolean; onClose: () => void; onNavigate: (index: number) => void; onOpenGenerator: () => void; onOpenWorkspace: () => void; onOpenKb: () => void }) {
   const reducedMotion = useReducedMotion();
   return (
@@ -315,7 +388,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [kbOpen, setKbOpen] = useState(false);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
-  const [selectedQualityGate, setSelectedQualityGate] = useState<QualityGate>("evidence");
+  const [selectedQualityGate, setSelectedQualityGate] = useState<QualityGate | null>("evidence");
+  const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog | null>(null);
   const [topic, setTopic] = useState("");
   const [resourceTypes, setResourceTypes] = useState<string[]>(["lecture"]);
   const [resourceReady, setResourceReady] = useState(false);
@@ -337,6 +411,12 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   useEffect(() => {
     if (!workspaceOpen) setShowWorkspaceTopButton(false);
   }, [workspaceOpen]);
+  useEffect(() => {
+    if (!workspaceDialog) {
+      setActiveStep(null);
+      setSelectedQualityGate(null);
+    }
+  }, [workspaceDialog]);
   const schemeB = variant === "b";
   const pointerX = useSpring(useMotionValue(0), { damping: 24, stiffness: 140, mass: 0.45 });
   const pointerY = useSpring(useMotionValue(0), { damping: 24, stiffness: 140, mass: 0.45 });
@@ -356,6 +436,15 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   };
   const scrollWorkspaceToTop = () => {
     workspaceScrollRef.current?.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+  };
+  const selectWorkspaceResource = (value: string) => {
+    setSelectedResource(value);
+    requestAnimationFrame(scrollWorkspaceToTop);
+  };
+  const closeWorkspaceDialog = () => {
+    setWorkspaceDialog(null);
+    setActiveStep(null);
+    setSelectedQualityGate(null);
   };
   const selectPanel = (index: number) => setActivePanel(panelIds[index] ?? "overview");
   const openGenerator = () => {
@@ -501,8 +590,9 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-              {resourceReady && generationResult ? (
-                <section className="mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7">
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {resourceReady && generationResult ? (
+                 <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
@@ -551,7 +641,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                   })() : null}
                 </section>
               ) : null}
-              <div className="mt-8 grid gap-3">
+               <div className={`mt-8 grid gap-3 ${workspaceExpanded ? "hidden" : ""}`}>
                 {workflowSteps.map((step, index) => (
                   <div key={step}>
                     <motion.button aria-expanded={activeStep === index} className="flex w-full items-center gap-4 rounded-2xl bg-white/65 p-4 text-left shadow-[0_8px_24px_rgba(25,40,55,0.05)]" onClick={() => setActiveStep(activeStep === index ? null : index)} type="button" whileHover={{ x: 4 }}>
@@ -569,6 +659,30 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
               </div>
               <div className="mt-8 rounded-2xl bg-[#192837] p-6 text-white"><p className="text-xs font-semibold text-white/55">质量闸门</p><div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold">{qualityGates.map((gate) => <button aria-pressed={selectedQualityGate === gate.id} className={`rounded-xl px-2 py-3 transition ${selectedQualityGate === gate.id ? "bg-white text-[#192837]" : "bg-white/10 text-white hover:bg-white/20"}`} key={gate.id} onClick={() => setSelectedQualityGate(gate.id)} type="button">{gate.label}</button>)}</div><AnimatePresence mode="wait"><motion.div className="mt-4 rounded-xl bg-white/10 p-4 text-sm leading-6 text-white/80" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} key={selectedQualityGate}>{selectedQualityGate === "evidence" ? <><p className="font-semibold text-white">依据校验</p><p className="mt-1">{generationResult?.audit?.length ? "以下为每种资源的审核结论。" : "生成后将展示每种资源的审核结论。"}</p>{generationResult?.audit?.length ? <ul className="mt-2 grid gap-1 text-xs">{generationResult.audit.map((audit, index) => <li key={`${audit.resource_type}-${index}`}>{resourceLabel(audit.resource_type || "资源")}：{audit.verdict || "未返回结论"}{audit.issues?.[0]?.detail ? `，${audit.issues[0].detail}` : ""}</li>)}</ul> : null}</> : null}{selectedQualityGate === "difficulty" ? <><p className="font-semibold text-white">难度匹配</p><p className="mt-1">建议难度：{generationResult?.diagnosis?.recommended_difficulty || "等待学情诊断"}</p>{generationResult?.resources?.length ? <ul className="mt-2 grid gap-1 text-xs">{generationResult.resources.map((resource, index) => <li key={`${resource.resource_type}-${index}`}>{resourceLabel(resource.resource_type)}：{resource.difficulty_level || "未返回难度"}</li>)}</ul> : <p className="mt-1 text-xs text-white/65">生成资源后将比较资源难度与学情诊断。</p>}</> : null}{selectedQualityGate === "expression" ? <><p className="font-semibold text-white">表达审核</p><p className="mt-1">{generationResult?.audit?.some((audit) => audit.issues?.length) ? "存在需要关注的表达或内容问题，请查看下方审核意见。" : generationResult ? "未返回额外表达问题，当前资源通过审核。" : "生成后将展示表达审核意见。"}</p>{generationResult?.audit?.flatMap((audit) => audit.issues ?? []).length ? <ul className="mt-2 grid gap-1 text-xs">{generationResult.audit.flatMap((audit) => audit.issues ?? []).map((issue, index) => <li key={`${issue.detail}-${index}`}>{issue.detail || "未提供具体问题"}</li>)}</ul> : null}</> : null}</motion.div></AnimatePresence></div>
             </motion.aside>
+            <AnimatePresence>
+              {workspaceDialog ? (
+                <>
+                  <motion.button aria-label="关闭详情弹窗" className="fixed inset-0 z-[60] bg-[#192837]/45 backdrop-blur-[5px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceDialog(null)} type="button" />
+                  <motion.section aria-label="工作流详情" className="fixed left-1/2 top-1/2 z-[70] max-h-[min(760px,calc(100dvh-64px))] w-[min(92vw,680px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[1.75rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_24px_80px_rgba(25,40,55,0.3)] sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.97 }} transition={{ duration: 0.32, ease }} role="dialog" aria-modal="true">
+                    <div className="flex items-start justify-between gap-5">
+                      <div>
+                        <p className="text-xs font-semibold tracking-[0.14em] text-[#192837]/55">{workspaceDialog.kind === "workflow" ? "协同工作流" : "质量闸门"}</p>
+                        <h3 className="mt-2 font-[var(--font-heading)] text-2xl leading-tight">{workspaceDialog.kind === "workflow" ? workflowSteps[workspaceDialog.index] : qualityGates.find((gate) => gate.id === workspaceDialog.id)?.label}</h3>
+                      </div>
+                      <button aria-label="关闭详情" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceDialog(null)} type="button"><X size={19} strokeWidth={1.8} /></button>
+                    </div>
+                    <div className="mt-6 rounded-2xl bg-[#192837] p-5 text-white sm:p-6">
+                      {workspaceDialog.kind === "workflow" && workspaceDialog.index === 0 ? <><p className="text-sm font-semibold text-white/60">学习画像诊断</p><p className="mt-3 text-sm leading-7 text-white/85">{generationResult?.diagnosis?.summary || "生成资源后将展示学习目标、基础能力和知识缺口诊断。"}</p>{generationResult?.diagnosis?.skill_gaps?.length ? <ul className="mt-5 grid gap-2 text-sm text-white/80">{generationResult.diagnosis.skill_gaps.map((gap, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-gap-${index}`}>{gap.topic || "待补充知识点"}{gap.priority ? <span className="ml-2 text-white/55">· 优先级 {gap.priority}</span> : null}</li>)}</ul> : null}</> : null}
+                      {workspaceDialog.kind === "workflow" && workspaceDialog.index === 1 ? <><p className="text-sm font-semibold text-white/60">RAG 知识生成</p><p className="mt-3 text-sm leading-7 text-white/85">根据学习画像检索知识库，生成与当前目标匹配的学习资源。本次已生成 {generationResult?.resources?.length ?? 0} 类资源。</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{(generationResult?.resources ?? []).map((item) => <div className="rounded-xl bg-white/[0.08] px-4 py-3 text-sm text-white/85" key={item.resource_type}>{resourceLabel(item.resource_type)}<span className="mt-1 block text-xs text-white/55">{item.difficulty_level || "待评估难度"}</span></div>)}</div></> : null}
+                      {workspaceDialog.kind === "workflow" && workspaceDialog.index === 2 ? <><p className="text-sm font-semibold text-white/60">内容审核与保真修正</p><p className="mt-3 text-sm leading-7 text-white/85">逐项检查资源的知识依据、难度匹配和表达质量，并保留需要修正的具体问题。</p><ul className="mt-5 grid gap-2 text-sm text-white/80">{(generationResult?.audit ?? []).map((item, index) => <li className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-audit-${index}`}><span>{resourceLabel(item.resource_type || "资源")}</span><span className="text-white/60">{auditVerdictLabel(item.verdict)}</span></li>)}</ul></> : null}
+                      {workspaceDialog.kind === "quality" && workspaceDialog.id === "evidence" ? <><p className="text-sm font-semibold text-white/60">依据校验</p><p className="mt-3 text-sm leading-7 text-white/85">检查生成内容是否有知识库依据，并显示每种资源对应的审核结论。</p><ul className="mt-5 grid gap-2 text-sm text-white/80">{(generationResult?.audit ?? []).map((item, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-evidence-${index}`}><span>{resourceLabel(item.resource_type || "资源")}</span><span className="ml-3 text-white/60">{auditVerdictLabel(item.verdict)}</span>{item.issues?.[0]?.detail ? <span className="mt-1 block text-xs text-white/55">{item.issues[0].detail}</span> : null}</li>)}</ul></> : null}
+                      {workspaceDialog.kind === "quality" && workspaceDialog.id === "difficulty" ? <><p className="text-sm font-semibold text-white/60">难度匹配</p><p className="mt-3 text-sm leading-7 text-white/85">当前建议难度：{generationResult?.diagnosis?.recommended_difficulty || "等待学情诊断"}。系统会将资源难度与学习基础和目标进行比对。</p></> : null}
+                      {workspaceDialog.kind === "quality" && workspaceDialog.id === "expression" ? <><p className="text-sm font-semibold text-white/60">表达审核</p><p className="mt-3 text-sm leading-7 text-white/85">{generationResult?.audit?.some((item) => item.issues?.length) ? "部分内容需要进一步修正，请结合下方审核问题检查表达、结构和可用性。" : "当前资源通过表达质量检查，结构清晰，适合继续学习。"}</p>{generationResult?.audit?.flatMap((item) => item.issues ?? []).length ? <ul className="mt-5 grid gap-2 text-sm text-white/80">{generationResult.audit.flatMap((item) => item.issues ?? []).map((issue, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-issue-${index}`}>{issue.detail || "待补充审核说明"}</li>)}</ul> : null}</> : null}
+                    </div>
+                  </motion.section>
+                </>
+              ) : null}
+            </AnimatePresence>
             <AnimatePresence>
               {showWorkspaceTopButton ? (
                 <motion.button aria-label="返回工作台顶部" className="fixed bottom-7 right-7 z-50 grid h-11 w-11 place-items-center rounded-full bg-[#192837] text-white shadow-[0_10px_30px_rgba(25,40,55,0.28)] transition-transform hover:scale-105" initial={reducedMotion ? false : { opacity: 0, y: 12, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.9 }} onClick={scrollWorkspaceToTop} title="返回顶部" type="button" whileTap={{ scale: 0.94 }}>

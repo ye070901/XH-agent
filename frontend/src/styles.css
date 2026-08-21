@@ -13,4 +13,44 @@ html { background: var(--color-login-bg); }
 body { margin: 0; min-width: 320px; }
 button, a { font: inherit; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.workspace-expanded-content ~ section,
+.workspace-expanded-content ~ div { display: none; }
+.workspace-expanded-content main > section { display: none; }
+.workspace-expanded-content main > article {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+.workspace-expanded-content {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  height: auto;
+  flex-shrink: 0;
+}
+.workspace-expanded-content main {
+  flex: 1 1 auto;
+  min-height: max-content;
+  height: auto;
+}
+.workspace-expanded-content > nav {
+  flex: 0 0 260px;
+  height: auto;
+}
+.workspace-expanded-content article[class~="max-w-[76ch]"] {
+  width: 100%;
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1023px) {
+  .workspace-expanded-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace-expanded-content > nav {
+    flex: none;
+    width: 100%;
+  }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }

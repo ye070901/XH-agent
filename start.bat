@@ -1,8 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: XH-Agent Windows launcher (uses project-local .venv, same entry as run.bat)
-:: Usage: double-click start.bat, or run .\start.bat
+:: XH-Agent Windows launcher
+:: Usage: double-click start.bat, or run .\start.bat from this directory
 
 title XH-Agent Server
 
@@ -22,15 +22,26 @@ echo.
 echo [1/4] Check virtualenv ...
 
 if not exist "%VENV_PY%" (
-    echo.
-    echo [ERROR] Virtualenv not found: .venv\Scripts\python.exe
-    echo.
-    echo Please set it up first:
-    echo     python -m venv .venv
-    echo     .venv\Scripts\python.exe -m pip install -r requirements.txt
-    echo.
-    pause
-    exit /b 1
+    echo   [..] Virtualenv not found, creating .venv ...
+    where python >nul 2>&1
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] Python was not found on PATH.
+        echo Install Python 3.11-3.13 and enable "Add python.exe to PATH".
+        echo.
+        pause
+        exit /b 1
+    )
+    python -m venv "%PROJECT_ROOT%.venv"
+    if errorlevel 1 (
+        echo.
+        echo [ERROR] Failed to create the virtualenv.
+        echo Run manually: python -m venv .venv
+        echo.
+        pause
+        exit /b 1
+    )
+    echo   [OK] Virtualenv created
 )
 
 echo   [OK] Using: %VENV_PY%
@@ -39,37 +50,43 @@ echo   [OK] Using: %VENV_PY%
 echo.
 echo [2/4] Check .env config ...
 
+if exist "%PROJECT_ROOT%.env" goto env_ready
+if exist "%PROJECT_ROOT%.env.example" copy /y "%PROJECT_ROOT%.env.example" "%PROJECT_ROOT%.env" >nul
 if exist "%PROJECT_ROOT%.env" (
-    echo   [OK] .env exists
+    echo   [OK] .env created from .env.example (demo mode by default)
 ) else (
-    if exist "%PROJECT_ROOT%.env.example" (
-        copy /y "%PROJECT_ROOT%.env.example" "%PROJECT_ROOT%.env" >nul
-        echo   [OK] .env created from .env.example (demo mode by default)
-    ) else (
-        echo   [WARN] .env.example not found, using built-in defaults
-    )
+    echo   [WARN] .env.example not found, using built-in defaults
 )
+goto dependencies
+
+:env_ready
+echo   [OK] .env exists
 
 :: -- 3. Check dependencies ------------------------------------------------
+:dependencies
 echo.
 echo [3/4] Check dependencies ...
 
 "%VENV_PY%" -c "import fastapi, uvicorn, loguru, dotenv, chromadb, openai" 2>nul
-if %ERRORLEVEL% NEQ 0 (
-    echo   [..] Missing dependencies, installing from requirements.txt ...
-    "%VENV_PY%" -m pip install -r requirements.txt -q
-    if %ERRORLEVEL% NEQ 0 (
-        echo   [ERROR] Install failed. Run manually:
-        echo           .venv\Scripts\python.exe -m pip install -r requirements.txt
-        pause
-        exit /b 1
-    )
-    echo   [OK] Dependencies installed
-) else (
-    echo   [OK] Dependencies ready
-)
+if not errorlevel 1 goto dependencies_ready
+echo   [..] Missing dependencies, installing from requirements.txt ...
+"%VENV_PY%" -m pip install -r requirements.txt -q
+if errorlevel 1 goto dependencies_failed
+echo   [OK] Dependencies installed
+goto start_server
+
+:dependencies_ready
+echo   [OK] Dependencies ready
+goto start_server
+
+:dependencies_failed
+echo   [ERROR] Install failed. Run manually:
+echo           .venv\Scripts\python.exe -m pip install -r requirements.txt
+pause
+exit /b 1
 
 :: -- 4. Start server ------------------------------------------------------
+:start_server
 echo.
 echo [4/4] Starting server ...
 echo.
