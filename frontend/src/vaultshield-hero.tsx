@@ -1,6 +1,8 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
 import { ArrowRightCircle, ArrowUp, BrainCircuit, Database, Maximize2, Menu, Minimize2, RefreshCw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
+import { initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
 
 type Variant = "a" | "b";
 
@@ -32,9 +34,11 @@ type GeneratedResource = {
   difficulty_level?: string;
   estimated_duration_minutes?: number;
   key_takeaways?: string[];
+  quiz?: Quiz;
 };
 
 type GenerationResult = {
+  task_id?: string;
   status?: string;
   diagnosis?: { summary?: string; learning_style?: string; recommended_difficulty?: string; skill_gaps?: Array<{ topic?: string; priority?: string }> };
   resources?: GeneratedResource[];
@@ -264,6 +268,118 @@ function KnowledgeManager({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
+function LearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<LearnerQuestionResponse | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+  const [revisionApplied, setRevisionApplied] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
+  const [submittingQuiz, setSubmittingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const quiz = resource.quiz || (resource.resource_type === "quiz" ? createDemoQuiz(topic) : null);
+  const correctCount = quizResult?.correct_count ?? 0;
+
+  const submitQuestion = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!question.trim()) return;
+    setAsking(true);
+    setQuestionError(null);
+    try {
+      setAnswer(await askStudyQuestion(question.trim(), topic, resource.content ?? ""));
+      setRevisionApplied(false);
+    } catch (error) {
+      setAnswer(null);
+      setQuestionError(error instanceof Error ? error.message : "Unable to get a learning answer.");
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const submitQuizAnswers = async () => {
+    if (!quiz) return;
+    setSubmittingQuiz(true);
+    setQuizError(null);
+    try {
+      setQuizResult(await submitQuiz(quiz, answers, topic, resource.title));
+      setSubmitted(true);
+    } catch (error) {
+      setQuizError(error instanceof Error ? error.message : "Unable to submit answers.");
+    } finally {
+      setSubmittingQuiz(false);
+    }
+  };
+
+  return (
+    <section className="mt-8 grid gap-5 border-t border-white/10 pt-7">
+      <div className="rounded-2xl bg-white/[0.07] p-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-white/55">学习中遇到疑问？</p>
+        <h5 className="mt-2 text-lg font-semibold text-white">提出问题，生成针对性补充</h5>
+        <form className="mt-4 grid gap-3" onSubmit={submitQuestion}>
+          <textarea className="min-h-24 resize-y rounded-xl bg-black/20 px-4 py-3 text-sm leading-6 text-white outline-none ring-[#B99DFF] placeholder:text-white/45 focus:ring-2" onChange={(event) => setQuestion(event.target.value)} placeholder="例如：工具坐标系和工件坐标系有什么区别？" value={question} />
+          <button className="flex items-center justify-between rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#192837] transition hover:brightness-95 disabled:cursor-wait disabled:opacity-60" disabled={asking} type="submit">{asking ? "正在整理建议..." : "获取学习建议"}<Sparkles size={17} strokeWidth={1.8} /></button>
+        </form>
+        {questionError ? <p className="mt-3 rounded-xl bg-red-400/15 px-4 py-3 text-sm leading-6 text-red-100">{questionError}</p> : null}
+        {answer ? <motion.div className="mt-5 rounded-xl bg-[#0B1D2A] p-4 text-sm leading-7 text-white/85" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <p className="font-semibold text-white">针对你的疑问</p><p className="mt-2">{answer.answer}</p>
+          <ul className="mt-4 grid gap-2 text-white/75">{answer.suggestions.map((suggestion) => <li key={suggestion}>- {suggestion}</li>)}</ul>
+          <button className="mt-4 rounded-full bg-[#7342E2] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110" onClick={() => onApplyRevision(resource.resource_type, answer)} type="button">应用这段补充到当前资源</button>
+        </motion.div> : null}
+      </div>
+      {quiz ? <div
+        className="rounded-2xl bg-white/[0.07] p-5"
+        onClickCapture={(event) => {
+          if (!submitted && !submittingQuiz && (event.target as HTMLElement).closest("button")) {
+            event.preventDefault();
+            event.stopPropagation();
+            void submitQuizAnswers();
+          }
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.12em] text-white/55">即时练习</p><h5 className="mt-2 text-lg font-semibold text-white">{quiz.title}</h5></div>{submitted ? <span className="rounded-full bg-[#B99DFF]/20 px-3 py-2 text-xs font-semibold text-[#E5DBFF]">得分 {correctCount}/{quiz.questions.length}</span> : null}</div>
+        <div className="mt-5 grid gap-5">{quiz.questions.map((item, index) => <fieldset className="rounded-xl bg-black/15 p-4" key={item.id}><legend className="px-1 text-sm font-semibold text-white">{index + 1}. {item.stem}</legend><div className="mt-3 grid gap-2">{item.options.map((option) => <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${submitted && option.id === item.answer ? "bg-emerald-400/20 text-white" : submitted && answers[item.id] === option.id ? "bg-red-400/20 text-white" : "bg-white/[0.06] text-white/85 hover:bg-white/10"}`} key={option.id}><input checked={answers[item.id] === option.id} className="accent-[#7342E2]" disabled={submitted} name={item.id} onChange={() => setAnswers((current) => ({ ...current, [item.id]: option.id }))} type="radio" /><span><strong>{option.id}.</strong> {option.text}</span></label>)}</div>{submitted ? <p className="mt-3 text-sm leading-6 text-white/75"><span className="font-semibold text-white">解析：</span>{item.explanation}</p> : null}</fieldset>)}</div>
+        {!submitted ? <button className="mt-5 flex w-full items-center justify-between rounded-full bg-[#7342E2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={Object.keys(answers).length !== quiz.questions.length} onClick={() => setSubmitted(true)} type="button">提交并查看解析<ArrowRightCircle size={17} /></button> : <button className="mt-5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20" onClick={() => { setAnswers({}); setSubmitted(false); }} type="button">重新作答</button>}
+        {quizError ? <p className="mt-4 rounded-xl bg-red-400/15 px-4 py-3 text-sm text-red-100">{quizError}</p> : null}
+        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {advice}</li>)}</ul> : null}
+      </div> : null}
+    </section>
+  );
+}
+
+function WorkflowProgress({ events, mode }: { events: WorkflowEvent[]; mode: "idle" | "waiting" | "connected" | "demo" | "complete" }) {
+  const modeLabel = mode === "connected" ? "实时连接中" : mode === "demo" ? "演示流程" : mode === "waiting" ? "等待任务响应" : mode === "complete" ? "任务已完成" : "尚未开始";
+  return (
+    <section className="rounded-2xl bg-[#0B1D2A] p-5 text-white" aria-label="Agent 实时工作状态">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.12em] text-white/55">Agent 工作状态</p><h5 className="mt-2 text-lg font-semibold">协同工作流</h5></div><span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">{modeLabel}</span></div>
+      <ol className="mt-5 grid gap-2">{workflowStages.map((stage, index) => { const event = events.find((item) => item.agent === stage.agent); const status = event?.status || "pending"; const color = status === "done" ? "bg-emerald-400" : status === "running" ? "bg-[#B99DFF] animate-pulse" : status === "error" ? "bg-red-400" : "bg-white/25"; const label = status === "done" ? "已完成" : status === "running" ? "进行中" : status === "error" ? "异常" : "等待中"; return <li className="flex items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3 text-sm" key={stage.agent}><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} /><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/10 text-[11px]">0{index + 1}</span><span className="flex-1 font-semibold">{stage.label}</span><span className="text-xs text-white/60">{event?.message || label}</span></li>; })}</ol>
+    </section>
+  );
+}
+
+function GenerationProgressScreen({ events, mode }: { events: WorkflowEvent[]; mode: "idle" | "waiting" | "connected" | "demo" | "complete" }) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <>
+      <motion.div className="fixed inset-0 z-[80] bg-[#192837]/35 backdrop-blur-[5px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+      <motion.section
+        aria-live="polite"
+        aria-label="生成进度"
+        className="fixed inset-x-3 bottom-3 top-3 z-[90] mx-auto flex max-w-[760px] flex-col overflow-y-auto rounded-[2rem] bg-[#F2F2EE]/95 p-6 text-[#192837] shadow-[0_28px_100px_rgba(25,40,55,0.34)] backdrop-blur-xl sm:inset-x-auto sm:bottom-auto sm:right-8 sm:top-1/2 sm:max-h-[calc(100dvh-48px)] sm:w-[min(720px,calc(100vw-64px))] sm:-translate-y-1/2 sm:p-8"
+        initial={reducedMotion ? false : { opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08, duration: 0.48, ease }}
+      >
+        <p className="text-xs font-semibold tracking-[0.16em] text-[#192837]/55">XH-AGENT</p>
+        <h2 className="mt-3 font-[var(--font-heading)] text-3xl leading-tight sm:text-4xl">正在构建你的学习方案</h2>
+        <p className="mt-4 max-w-[60ch] text-sm leading-7 text-[#192837]/72">系统会依次完成学习画像诊断、知识检索、资源生成、内容审核与保真修正。完成后将自动进入学习工作台。</p>
+        <div className="mt-8"><WorkflowProgress events={events} mode={mode} /></div>
+      </motion.section>
+    </>
+  );
+}
+
 function BrandMark() {
   return (
     <svg aria-label="XH Agent" className="h-8 w-8 shrink-0" fill="none" overflow="visible" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
@@ -298,6 +414,7 @@ function ExpandedWorkspaceLayout({
   setSelectedQualityGate,
   onOpenWorkflow,
   onOpenQualityGate,
+  onApplyRevision,
 }: {
   generationResult: GenerationResult | null;
   topic: string;
@@ -309,6 +426,7 @@ function ExpandedWorkspaceLayout({
   setSelectedQualityGate: (value: QualityGate | null) => void;
   onOpenWorkflow: (index: number) => void;
   onOpenQualityGate: (id: QualityGate) => void;
+  onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void;
 }) {
   const resource = generationResult?.resources?.find((item) => item.resource_type === selectedResource);
   const resourceIndex = generationResult?.resources?.findIndex((item) => item.resource_type === selectedResource);
@@ -349,6 +467,7 @@ function ExpandedWorkspaceLayout({
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">资源预览</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
           <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
+          <LearningTools onApplyRevision={onApplyRevision} resource={resource} topic={topic} />
           <footer className="mt-9 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}{audit?.issues?.[0]?.detail ? <span className="ml-2">{audit.issues[0].detail}</span> : null}</footer>
         </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
 
@@ -397,7 +516,13 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgressOpen, setGenerationProgressOpen] = useState(false);
+  const [workflowEvents, setWorkflowEvents] = useState<WorkflowEvent[]>(initialWorkflowEvents);
+  const [workflowMode, setWorkflowMode] = useState<"idle" | "waiting" | "connected" | "demo" | "complete">("idle");
   const [learningGoal, setLearningGoal] = useState("");
+  const [confirmedGoal, setConfirmedGoal] = useState<string | null>(null);
+  const [clarification, setClarification] = useState<{ reason: string; questions: ClarificationQuestion[] } | null>(null);
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
   const [education, setEducation] = useState("本科");
   const [major, setMajor] = useState("");
   const [skills, setSkills] = useState("");
@@ -408,6 +533,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [showWorkspaceTopButton, setShowWorkspaceTopButton] = useState(false);
   const reducedMotion = useReducedMotion();
   const workspaceScrollRef = useRef<HTMLElement>(null);
+  const generationFormRef = useRef<HTMLFormElement>(null);
+  const stopWorkflowRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!workspaceOpen) setShowWorkspaceTopButton(false);
   }, [workspaceOpen]);
@@ -417,6 +544,18 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       setSelectedQualityGate(null);
     }
   }, [workspaceDialog]);
+  useEffect(() => () => stopWorkflowRef.current?.(), []);
+  useEffect(() => {
+    if (!generationResult?.task_id || generationResult.status === "completed") return;
+    stopWorkflowRef.current?.();
+    setWorkflowMode("connected");
+    stopWorkflowRef.current = subscribeWorkflow(
+      generationResult.task_id,
+      (incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)),
+      () => setWorkflowMode("waiting"),
+    );
+    return () => stopWorkflowRef.current?.();
+  }, [generationResult?.status, generationResult?.task_id]);
   const schemeB = variant === "b";
   const pointerX = useSpring(useMotionValue(0), { damping: 24, stiffness: 140, mass: 0.45 });
   const pointerY = useSpring(useMotionValue(0), { damping: 24, stiffness: 140, mass: 0.45 });
@@ -446,6 +585,29 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setActiveStep(null);
     setSelectedQualityGate(null);
   };
+  const applyRevision = (resourceType: string, response: LearnerQuestionResponse) => {
+    setGenerationResult((current) => current ? {
+      ...current,
+      resources: (current.resources ?? []).map((resource) => {
+        if (resource.resource_type !== resourceType || (resource.content || "").includes(`## ${response.revisionTitle}`)) {
+          return resource;
+        }
+        return {
+        ...resource,
+        content: (resource.content || "") + "\n\n## " + response.revisionTitle + "\n\n" + response.revisionContent,
+        key_takeaways: [...(resource.key_takeaways ?? []), "已根据你的学习疑问补充说明"],
+        };
+      }),
+    } : current);
+  };
+  const confirmClarification = () => {
+    const refined = refineLearningGoal(learningGoal, clarificationAnswers);
+    setLearningGoal(refined);
+    setTopic(refined);
+    setConfirmedGoal(refined);
+    setClarification(null);
+    requestAnimationFrame(() => generationFormRef.current?.requestSubmit());
+  };
   const selectPanel = (index: number) => setActivePanel(panelIds[index] ?? "overview");
   const openGenerator = () => {
     if (!topic && learningGoal) setTopic(learningGoal);
@@ -453,10 +615,24 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setGenerationError(null);
     setGeneratorOpen(true);
   };
-  const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
+  const submitGenerationLegacy = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (confirmedGoal !== learningGoal.trim()) {
+      const assessment = await assessLearningGoal(learningGoal);
+      if (assessment.status === "needs_clarification") {
+        setClarification({ reason: assessment.reason, questions: assessment.questions });
+        setClarificationAnswers({});
+        return;
+      }
+      setConfirmedGoal(learningGoal.trim());
+    }
     setIsGenerating(true);
+    stopWorkflowRef.current?.();
+    setWorkflowEvents(initialWorkflowEvents());
+    setWorkflowMode("waiting");
     setGenerationError(null);
+    setGeneratorOpen(false);
+    setGenerationProgressOpen(true);
     const payload = {
       learning_goal: learningGoal.trim(),
       education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
@@ -479,6 +655,9 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       if (!response.ok) throw new Error(`API ${response.status}`);
       result = { ...(await response.json() as GenerationResult), mode: "api" };
     } catch {
+      setWorkflowMode("demo");
+      stopWorkflowRef.current = simulateWorkflow((incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)));
+      await new Promise((resolve) => window.setTimeout(resolve, workflowStages.length * 620 + 500));
       result = {
         mode: "demo",
         status: "completed",
@@ -488,11 +667,117 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         agent_log: [{ agent: "diagnosis", status: "done" }, { agent: "generation", status: "done" }, { agent: "audit", status: "done" }],
       };
     }
+    if (result.mode === "api") {
+      setWorkflowEvents((current) => (result.agent_log ?? []).reduce((events, item) => mergeWorkflowEvent(events, { agent: item.agent || "generation", status: item.status === "error" ? "error" : "done", message: item.status === "error" ? "异常" : "已完成" }), current));
+      if (result.status === "completed") setWorkflowMode("complete");
+    }
     setGenerationResult(result);
     setResourceReady(true);
     setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
     setIsGenerating(false);
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    setGenerationProgressOpen(false);
     setGeneratorOpen(false);
+    setWorkspaceOpen(true);
+  };
+  const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (confirmedGoal !== learningGoal.trim()) {
+      const assessment = await assessLearningGoal(learningGoal);
+      if (assessment.status === "needs_clarification") {
+        setClarification({ reason: assessment.reason, questions: assessment.questions });
+        setClarificationAnswers({});
+        return;
+      }
+      setConfirmedGoal(learningGoal.trim());
+    }
+
+    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    const payload = {
+      learning_goal: learningGoal.trim(),
+      education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
+      major: major.trim(),
+      work_years: workYears,
+      industry: industry.trim(),
+      positions: role ? [role.trim()] : [],
+      skills_used: skills.split(/[,，]/).map((skill) => skill.trim()).filter(Boolean),
+      pretest_results: [],
+      resource_types: resourceTypes,
+    };
+
+    setIsGenerating(true);
+    stopWorkflowRef.current?.();
+    setWorkflowEvents(initialWorkflowEvents());
+    setWorkflowMode("waiting");
+    setGenerationError(null);
+    setGeneratorOpen(false);
+    setGenerationProgressOpen(true);
+
+    let result: GenerationResult;
+    try {
+      if (demoMode) throw new Error("Demo mode selected");
+      const startResponse = await fetch(`${apiBase}/api/generate/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!startResponse.ok) throw new Error(`API ${startResponse.status}`);
+      const start = await startResponse.json() as { task_id?: string };
+      if (!start.task_id) throw new Error("The API did not return a task id");
+
+      setWorkflowMode("connected");
+      setWorkflowEvents((current) => mergeWorkflowEvent(current, {
+        task_id: start.task_id,
+        agent: "diagnosis",
+        status: "running",
+        message: "任务已创建，正在开始学情诊断",
+      }));
+      stopWorkflowRef.current = subscribeWorkflow(
+        start.task_id,
+        (incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)),
+        () => undefined,
+      );
+
+      let task: { status?: string; result?: GenerationResult; error?: string } | null = null;
+      for (let attempt = 0; attempt < 720; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        const taskResponse = await fetch(`${apiBase}/api/tasks/${encodeURIComponent(start.task_id)}`);
+        if (!taskResponse.ok) throw new Error(`Task API ${taskResponse.status}`);
+        task = await taskResponse.json() as { status?: string; result?: GenerationResult; error?: string };
+        if (task.status === "completed" && task.result) break;
+        if (task.status === "error") throw new Error(task.error || "Generation failed");
+      }
+      if (!task?.result) throw new Error("The task did not finish in time");
+      result = { ...task.result, mode: "api" };
+    } catch {
+      setWorkflowMode("demo");
+      stopWorkflowRef.current = simulateWorkflow((incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)));
+      await new Promise((resolve) => window.setTimeout(resolve, workflowStages.length * 620 + 500));
+      result = {
+        mode: "demo",
+        status: "completed",
+        diagnosis: { summary: `本地 API 未连接，以下为 ${learningGoal} 的演示学习画像。`, learning_style: "practice_first", recommended_difficulty: "beginner", skill_gaps: [{ topic: learningGoal, priority: "high" }] },
+        resources: resourceTypes.map((type) => ({ resource_type: type, title: `${resourceLabel(type)}：${learningGoal}`, content: `# ${learningGoal}\n\n这是 XH-agent 的本地演示资源。连接后端后会显示真实 Agent 生成内容。`, difficulty_level: "beginner", estimated_duration_minutes: type === "quiz" ? 15 : 30 })),
+        audit: resourceTypes.map((type, index) => ({ resource_index: index, resource_type: type, verdict: "approved" })),
+        agent_log: workflowStages.map((stage) => ({ agent: stage.agent, status: "done" })),
+      };
+    }
+
+    setWorkflowEvents((current) => (result.agent_log ?? []).reduce(
+      (events, item) => mergeWorkflowEvent(events, {
+        agent: item.agent || "generation",
+        status: item.status === "error" ? "error" : "done",
+        message: item.status === "error" ? "执行失败" : "已完成",
+      }),
+      current,
+    ));
+    setWorkflowMode("complete");
+    setGenerationResult(result);
+    setResourceReady(true);
+    setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
+    setIsGenerating(false);
+    await new Promise((resolve) => window.setTimeout(resolve, 450));
+    setGenerationProgressOpen(false);
     setWorkspaceOpen(true);
   };
   const toggleResourceType = (item: string) => {
@@ -569,7 +854,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                 <div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习画像</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">先了解你的学习需求</h2></div>
                 <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={() => setGeneratorOpen(false)} type="button"><X size={20} strokeWidth={1.8} /></button>
               </div>
-              <form className="mt-7 grid gap-7" onSubmit={submitGeneration}>
+              <form className="mt-7 grid gap-7" onSubmit={submitGeneration} ref={generationFormRef}>
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">学习目标</legend><label className="grid gap-2 text-sm font-medium">希望完成什么学习任务<textarea className="min-h-24 resize-y rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => { setLearningGoal(event.target.value); setTopic(event.target.value); }} placeholder="例如：掌握 LangGraph 多智能体 AI 应用开发" required value={learningGoal} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">工作背景</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">工作年限<span className="text-[#7342E2]">{workYears.toFixed(1)} 年</span><input className="accent-[#7342E2]" max="15" min="0" onChange={(event) => setWorkYears(Number(event.target.value))} step="0.5" type="range" value={workYears} /></label><label className="grid gap-2 text-sm font-medium">所在行业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setIndustry(event.target.value)} placeholder="例如：互联网" value={industry} /></label></div><label className="grid gap-2 text-sm font-medium">岗位<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setRole(event.target.value)} placeholder="例如：Python 开发" value={role} /></label></fieldset>
@@ -585,12 +870,28 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
+        {generationProgressOpen ? <GenerationProgressScreen events={workflowEvents} mode={workflowMode} /> : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {clarification ? (
+          <>
+            <motion.button aria-label="关闭学习目标追问" className="fixed inset-0 z-50 bg-[#192837]/45 backdrop-blur-[5px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setClarification(null)} type="button" />
+            <motion.section aria-label="细化学习目标" className="fixed left-1/2 top-1/2 z-[60] max-h-[calc(100dvh-48px)] w-[min(92vw,620px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[2rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_24px_80px_rgba(25,40,55,0.3)] sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.97 }} transition={{ duration: 0.32, ease }} role="dialog" aria-modal="true">
+              <div className="flex items-start justify-between gap-5"><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习目标追问</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">先把学习方向说清楚</h2></div><button aria-label="关闭" className="grid h-10 w-10 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={() => setClarification(null)} type="button"><X size={20} strokeWidth={1.8} /></button></div>
+              <p className="mt-5 rounded-2xl bg-[#7342E2]/10 p-4 text-sm leading-7 text-[#192837]/80">{clarification.reason}</p>
+              <div className="mt-6 grid gap-6">{clarification.questions.map((item) => <fieldset className="grid gap-3" key={item.id}><legend className="text-base font-semibold">{item.label}</legend><p className="-mt-1 text-sm text-[#192837]/65">{item.helper}</p>{item.options ? <div className="flex flex-wrap gap-2">{item.options.map((option) => <button aria-pressed={clarificationAnswers[item.id] === option} className={`rounded-full px-4 py-2 text-sm font-semibold transition ${clarificationAnswers[item.id] === option ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] text-[#192837] hover:bg-[#192837]/[0.14]"}`} key={option} onClick={() => setClarificationAnswers((current) => ({ ...current, [item.id]: option }))} type="button">{option}</button>)}</div> : <textarea className="min-h-24 resize-y rounded-xl bg-white px-4 py-3 text-sm outline-none ring-[#7342E2] focus:ring-2" onChange={(event) => setClarificationAnswers((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="请用一句话描述你希望完成的成果" value={clarificationAnswers[item.id] || ""} />}</fieldset>)}</div>
+              <button className="mt-8 flex w-full items-center justify-between rounded-full bg-[#7342E2] px-6 py-4 font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={clarification.questions.some((item) => !clarificationAnswers[item.id]?.trim())} onClick={confirmClarification} type="button">确认目标并生成资源<ArrowRightCircle size={20} /></button>
+            </motion.section>
+          </>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
         {workspaceOpen ? (
           <>
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
                  <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
@@ -632,6 +933,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                           </aside>
                         ) : null}
                         <div className="mt-6"><ResourceMarkdown content={resource.content || ""} /></div>
+                        <LearningTools onApplyRevision={applyRevision} resource={resource} topic={topic} />
                         <footer className="mt-8 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80">
                           <span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}
                           {audit?.issues?.[0]?.detail ? <span className="ml-2 text-white/65">{audit.issues[0].detail}</span> : null}

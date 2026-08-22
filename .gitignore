@@ -35,3 +35,8 @@ deliverables/
 
 # 日志
 logs/*.log
+
+# 运行时产物（学习画像数据库 / pytest 缓存，勿提交）
+data/learner_profiles.db*
+.pytest_cache/
+pytest-of-*/

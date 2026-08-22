@@ -62,7 +62,19 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         """从 EventBus 订阅事件并转发到 WebSocket。"""
         try:
             async for event in event_bus.subscribe(task_id):
-                await websocket.send_json(event)
+                payload = dict(event.get("data", {}))
+                event_type = str(event.get("event_type", ""))
+                status_map = {
+                    "agent_start": "running",
+                    "agent_done": "done",
+                    "agent_error": "error",
+                    "workflow_complete": "done",
+                }
+                payload.setdefault("task_id", task_id)
+                payload["event_type"] = event_type
+                payload["timestamp"] = event.get("timestamp")
+                payload["status"] = status_map.get(event_type, payload.get("status", "running"))
+                await websocket.send_json(payload)
         except WebSocketDisconnect:
             pass
         except Exception as e:
