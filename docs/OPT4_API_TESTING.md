@@ -11,8 +11,8 @@
 | 三项指标实现 | `backend/src/evaluation/metrics.py` | 确定性计算幻觉率、适配率、覆盖率 |
 | 前置测试题库 | `data/evaluation/pretest_questions.json` | 12 题、固定 120 分，评分后映射 `pretest_results` |
 | 核心知识点清单 | `data/core_knowledge_map.json` | 覆盖率的外部真值；仅 `core/high` 计分 |
-| 学习者画像真值 | `data/evaluation/learner_profiles.json` | 3 组差异化画像及预先确定的难度/风格 |
-| 测试用例全集 | `data/evaluation/phase3_test_cases.json` | 54 正向 + 4 负向，不包含模型输出或实测指标 |
+| 学习者画像真值 | `data/evaluation/learner_profiles.json` | 7 组差异化画像及预先确定的难度/风格 |
+| 测试用例全集 | `data/evaluation/phase3_test_cases.json` | 126 正向 + 4 负向，不包含模型输出或实测指标 |
 | 人工金标准模板 | `data/evaluation/gold_labels.template.json` | 空模板；复制为 `gold_labels.json` 后人工填写 |
 | 数据集生成/校验 | `scripts/build_phase3_dataset.py`、`scripts/validate_phase3_dataset.py` | 可复现构建和发布门禁 |
 | 输出采集/离线评测 | `scripts/collect_phase3_outputs.py`、`scripts/run_phase3_evaluation.py` | 原始输出与评分分离，防止篡改真值 |
@@ -174,9 +174,9 @@ SQLite 操作通过 `asyncio.to_thread` 执行，使用短连接、WAL 和 `busy
 当前构造为：
 
 ```text
-3 个外部画像 × 18 个 core/high 知识点 = 54 个正向用例
+7 个外部画像 × 18 个 core/high 知识点 = 126 个正向用例
 + 4 个负向用例
-= 58 个用例
+= 130 个用例
 ```
 
 4 个负样本分别验证：未知 FANUC 报警码、危险安全旁路请求、知识库外厂商隐藏指令、诱导系统忽略画像。负样本与三项正向指标分开报告，避免通过“故意失败”污染正常指标分母。
@@ -201,7 +201,7 @@ python scripts/build_phase3_dataset.py
 python scripts/validate_phase3_dataset.py --dataset-only
 ```
 
-第一条命令确定性重建 58 个用例；第二条校验画像、核心知识点、来源文件、笛卡尔积和 3–5 个负样本，但暂不要求人工 gold 完成。
+第一条命令确定性重建 130 个用例；第二条校验画像、核心知识点、来源文件、笛卡尔积和 3–5 个负样本，但暂不要求人工 gold 完成。
 
 ### 6.2 采集真实流水线输出
 
