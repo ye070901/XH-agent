@@ -115,3 +115,4 @@ API 层 → 全局兜底 → HTTPException(500)
 3. **禁止自证循环**：测试里的假数据字段名必须与生产端定义一致；测试断言不得依赖「自己刚推断出来的同一套字段名」当正确性证据。
 4. **多文件归并**：同一实体散落多文件时，先归并出唯一权威定义再用；两处冲突取「更靠近实际运行入口」的那份，并注释指出冲突。
 5. **数据契约唯一源**：所有 dict 键名/枚举值以 `backend/src/schemas.py` 与各 Agent 的实际 `_build_*` 输出为准，不在测试里另造一套。
+6. **引用同步**：删除/重命名 `data/raw/` 下任何知识库文档前，先全局 grep 该文件名，同步更新 `data/core_knowledge_map.json`、`data/evaluation/phase3_test_cases.json`、`data/qa_dataset/` 等所有引用，再删文件——否则评测数据会指向不存在的文档（已发生：K3 删 SRVO-068 旧稿未同步，导致 phase3 runner 测试 gold 校验 3 条证据失效）。

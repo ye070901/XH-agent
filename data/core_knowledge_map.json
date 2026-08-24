@@ -138,7 +138,7 @@
           "topic": "SRVO-068数据传输故障诊断",
           "level": "core",
           "aliases": ["SRVO-068", "DTERR", "脉冲编码器数据传输", "编码器电缆", "伺服放大器"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"]
+          "source_documents": ["data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"]
         },
         {
           "id": "K3-CORE-002",

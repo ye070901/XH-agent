@@ -172,7 +172,11 @@ def check_imports(exports: dict[Path, set[str]]) -> list[str]:
         if tree is None:
             continue
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("backend.src"):
+            if (
+                isinstance(node, ast.ImportFrom)
+                and node.module
+                and node.module.startswith("backend.src")
+            ):
                 for alias in node.names:
                     files = _module_to_files(node.module)
                     hits = [f for f in files if f.resolve() in exports]
@@ -246,7 +250,10 @@ def main() -> None:
     if total == 0:
         _green("\n✅ 未发现编造符号。")
         sys.exit(0)
-    _red(f"\n❌ 发现 {total} 处疑似编造符号，请逐条复核（可能是幻觉，也可能是 re-export 未覆盖的边界）")
+    _red(
+        f"\n❌ 发现 {total} 处疑似编造符号，"
+        "请逐条复核（可能是幻觉，也可能是 re-export 未覆盖的边界）"
+    )
     sys.exit(1)
 
 

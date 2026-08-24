@@ -1007,7 +1007,7 @@
           "伺服放大器"
         ],
         "acceptable_evidence_documents": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ],
         "unsupported_claim_policy": "unverifiable_then_remove"
       },
@@ -1015,7 +1015,7 @@
         "profile": "data/evaluation/learner_profiles.json",
         "coverage": "data/core_knowledge_map.json",
         "hallucination": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ]
       }
     },
@@ -2409,7 +2409,7 @@
           "伺服放大器"
         ],
         "acceptable_evidence_documents": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ],
         "unsupported_claim_policy": "unverifiable_then_remove"
       },
@@ -2417,7 +2417,7 @@
         "profile": "data/evaluation/learner_profiles.json",
         "coverage": "data/core_knowledge_map.json",
         "hallucination": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ]
       }
     },
@@ -3829,7 +3829,7 @@
           "伺服放大器"
         ],
         "acceptable_evidence_documents": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ],
         "unsupported_claim_policy": "unverifiable_then_remove"
       },
@@ -3837,7 +3837,7 @@
         "profile": "data/evaluation/learner_profiles.json",
         "coverage": "data/core_knowledge_map.json",
         "hallucination": [
-          "data/raw/K3_safety_fault/K3_20260803_001_fanuc_srvo068_error_fix.md"
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
         ]
       }
     },
