@@ -130,6 +130,28 @@ class Settings:
     COVERAGE_TARGET: float = _float_env("COVERAGE_TARGET", 0.90)
 
     # ============================================================
+    # Phase 3 难度适配评估
+    #  链路A = Agent1 画像难度判定准确率（vs 外部真值）
+    #  链路B = 原有 compute_adaptation 资源适配准确率
+    #  E2E   = Agent2 是否遵从 Agent1 给出的难度
+    # ============================================================
+    ADAPTATION_MIN_SAMPLES: int = _int_env("ADAPTATION_MIN_SAMPLES", 30)
+    """链路A 画像难度判定最少样本数；低于此值仅告警「样本不足、可信度低」，不阻断门禁"""
+    ADAPTATION_PDCA_TARGET: float = _float_env("ADAPTATION_PDCA_TARGET", 0.90)
+    """链路A 画像难度判定准确率下限（判定档位 == 真值档位）"""
+    ADAPTATION_OFFBYONE_TARGET: float = _float_env("ADAPTATION_OFFBYONE_TARGET", 0.95)
+    """链路A 相邻档位容错准确率下限（|判定-真值| ≤ 1 视为可接受）"""
+    ADAPTATION_KAPPA_TARGET: float = _float_env("ADAPTATION_KAPPA_TARGET", 0.60)
+    """链路A 线性加权 Cohen's Kappa 下限（剔除随机一致后的判定质量）"""
+    ADAPTATION_BIAS_MIN: float = _float_env("ADAPTATION_BIAS_MIN", -0.15)
+    ADAPTATION_BIAS_MAX: float = _float_env("ADAPTATION_BIAS_MAX", 0.15)
+    """链路A 系统性偏置范围（正=偏难、负=偏易，超出即系统性高估/低估难度）"""
+    ADAPTATION_MAE_TARGET: float = _float_env("ADAPTATION_MAE_TARGET", 0.50)
+    """链路A 难度档位平均绝对误差上限（档位粒度 0/1/2，误差最大 2）"""
+    ADAPTATION_E2E_TARGET: float = _float_env("ADAPTATION_E2E_TARGET", 0.90)
+    """端到端一致性下限（Agent2 生成资源难度遵从 Agent1 判定难度的比例）"""
+
+    # ============================================================
     # Scheduler（调度器并发/超时）
     # ============================================================
     SCHEDULER_MAX_CONCURRENT_TASKS: int = _int_env("SCHEDULER_MAX_CONCURRENT_TASKS", 10)
@@ -325,6 +347,18 @@ class Settings:
             warnings.append(
                 f"HALLUCINATION_THRESHOLD={self.HALLUCINATION_THRESHOLD} 应在 (0, 1) 区间"
             )
+        if not (0 < self.ADAPTATION_PDCA_TARGET <= 1):
+            warnings.append("ADAPTATION_PDCA_TARGET 应在 (0, 1] 区间")
+        if not (0 < self.ADAPTATION_OFFBYONE_TARGET <= 1):
+            warnings.append("ADAPTATION_OFFBYONE_TARGET 应在 (0, 1] 区间")
+        if not (0 < self.ADAPTATION_KAPPA_TARGET <= 1):
+            warnings.append("ADAPTATION_KAPPA_TARGET 应在 (0, 1] 区间")
+        if not (0 < self.ADAPTATION_E2E_TARGET <= 1):
+            warnings.append("ADAPTATION_E2E_TARGET 应在 (0, 1] 区间")
+        if self.ADAPTATION_BIAS_MIN >= self.ADAPTATION_BIAS_MAX:
+            warnings.append("ADAPTATION_BIAS_MIN 应小于 ADAPTATION_BIAS_MAX")
+        if self.ADAPTATION_MAE_TARGET < 0:
+            warnings.append("ADAPTATION_MAE_TARGET 不应为负值")
         if self.PROFILE_DEFAULT_MAX_PROFILES < 1:
             warnings.append("PROFILE_DEFAULT_MAX_PROFILES 应 ≥ 1")
         if self.PROFILE_CLEANUP_POLL_SECONDS < 1:
