@@ -41,6 +41,7 @@ debate_result 契约（Opt-2 实现前先按此约定 Mock）:
 
 from __future__ import annotations
 
+import json
 import re
 import time
 import uuid
@@ -48,6 +49,7 @@ from collections import defaultdict
 
 from .base import BaseAgent
 from .event_bus import event_bus
+from .generation_v2 import derive_profile_tag
 
 SYSTEM_PROMPT = """你是一个严格的内容修正专家。你的任务是：
 1. 根据审核报告（audit_result）中标记的问题，逐条修正学习资源中的错误
@@ -71,10 +73,20 @@ SYSTEM_PROMPT = """你是一个严格的内容修正专家。你的任务是：
    - lecture: 引言 → 3~4小节 → 总结
    - guide: 概述 → 前置准备 → 分步操作 → 常见问题
    - quiz: 基础选择题×2 → 进阶题×1 → 挑战实操题×1
+8. **画像匹配**：修正后的 difficulty_level 必须与传入的结构化画像参数中的 difficulty 完全一致，
+   内容表达方式必须与 learning_style 一致，禁止自行调整难度或改变风格。
 
 输出必须为严格的 JSON 格式。
 
 【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
+
+# 学习风格 → 内容特征标记（用于画像匹配软校验，启发式，仅提示不硬判）
+_STYLE_MARKERS: dict[str, tuple[str, ...]] = {
+    "visual": ("示意图", "图", "图解", "图示", "动画", "拆解"),
+    "theory_first": ("原理", "概念", "为什么", "机制", "原因", "依据"),
+    "practice_first": ("步骤", "命令", "代码", "操作", "执行", "运行", "示教"),
+    "project_based": ("项目", "案例", "产线", "任务", "场景", "实战", "方案"),
+}
 
 
 class CorrectionAgent(BaseAgent):
@@ -169,6 +181,7 @@ class CorrectionAgent(BaseAgent):
         audit_results = state.get("audit_result", [])
         chunks = state.get("retrieved_chunks", [])
         diagnosis = state.get("diagnosis_result", {})
+        learner_data = state.get("learner_data", {})
         downgrade_mode = state.get("downgrade_mode", False)
 
         # Opt-2 裁决输出（纯数据处理，不导入真实 opt2 模块）
@@ -233,6 +246,7 @@ class CorrectionAgent(BaseAgent):
                         audit_report=audit_report,
                         diagnosis=diagnosis,
                         chunks=chunks,
+                        learner_data=learner_data,
                         downgrade_mode=False,
                     )
                     # 溯源绑定后处理（讲义/指南，有事实点才绑定）
@@ -337,6 +351,7 @@ class CorrectionAgent(BaseAgent):
         audit_report: dict,
         diagnosis: dict,
         chunks: list[dict],
+        learner_data: dict | None = None,
         downgrade_mode: bool = False,
     ) -> dict:
         """修正单份学习资源。
@@ -346,6 +361,7 @@ class CorrectionAgent(BaseAgent):
             audit_report:  Agent 3 的审核报告 dict
             diagnosis:     Agent 1 的诊断结果 dict
             chunks:        RAG 检索知识库素材 list[dict]
+            learner_data:  学习者原始画像（用于纯规则推导 profile_tag，可选）
             downgrade_mode: 是否降级模式（无 KB 覆盖）
 
         Returns:
@@ -355,13 +371,33 @@ class CorrectionAgent(BaseAgent):
         resource_type = resource.get("resource_type", "lecture")
         original_content = resource.get("content", "")
 
+        # ── 结构化画像（权威，供画像匹配校验 + 重试兜底）──
+        expected_diff = diagnosis.get("recommended_difficulty", "beginner")
+        expected_style = diagnosis.get("learning_style", "unknown")
+        expected_tag = diagnosis.get("profile_tag") or derive_profile_tag(
+            learner_data or {}, expected_diff, expected_style
+        )
+
         # ── 提取审核 issues ──
         issues = audit_report.get("issues", [])
         fact_check_items = audit_report.get("fact_check", {}).get("items", [])
 
-        # 如果无问题，原样返回
-        if not issues and not fact_check_items:
-            self.log(f"  {resource_type}: 无审核问题，跳过修正")
+        # ── 画像匹配前置校验：难度不一致 → 注入 error issue 触发修正 ──
+        profile_mismatch_issue: dict | None = None
+        actual_diff = resource.get("difficulty_level", "")
+        if actual_diff and expected_diff and actual_diff != expected_diff:
+            profile_mismatch_issue = {
+                "severity": "error",
+                "detail": (
+                    f"难度标注不一致：资源 difficulty_level={actual_diff}，"
+                    f"但结构化画像参数要求 {expected_diff}，需调整内容解释深度对齐"
+                ),
+                "kb_evidence": "",
+            }
+
+        # 如果无问题且难度一致，原样返回
+        if not issues and not fact_check_items and profile_mismatch_issue is None:
+            self.log(f"  {resource_type}: 无审核问题且画像匹配，跳过修正")
             return {
                 "corrected_resource": resource,
                 "logs": [],
@@ -371,6 +407,10 @@ class CorrectionAgent(BaseAgent):
         errors = [iss for iss in issues if iss.get("severity") == "error"]
         warnings = [iss for iss in issues if iss.get("severity") == "warning"]
         infos = [iss for iss in issues if iss.get("severity") == "info"]
+
+        # 难度不匹配作为 error 注入（保证触发修正）
+        if profile_mismatch_issue is not None:
+            errors.append(profile_mismatch_issue)
 
         # 将 fact_check_items 中 is_accurate=False 的提升为 error
         for fc_item in fact_check_items:
@@ -399,6 +439,7 @@ class CorrectionAgent(BaseAgent):
             infos=infos,
             diagnosis=diagnosis,
             chunks=chunks,
+            profile_tag=expected_tag,
             downgrade_mode=downgrade_mode,
         )
 
@@ -431,6 +472,14 @@ class CorrectionAgent(BaseAgent):
             ),
         }
 
+        # ── 画像匹配校验：难度硬校验 + 风格软校验，不匹配则重试，重试失败降级兜底 ──
+        corrected_resource, profile_retry_logs = await self._enforce_profile_match(
+            resource=corrected_resource,
+            expected_diff=expected_diff,
+            expected_style=expected_style,
+            profile_tag=expected_tag,
+        )
+
         # ── 构建修正日志 ──
         logs = self._build_correction_logs(
             resource_id=resource_id,
@@ -441,6 +490,7 @@ class CorrectionAgent(BaseAgent):
             corrected_result=corrected,
             original_content=original_content,
         )
+        logs.extend(profile_retry_logs)
 
         return {
             "corrected_resource": corrected_resource,
@@ -459,6 +509,7 @@ class CorrectionAgent(BaseAgent):
         infos: list[dict],
         diagnosis: dict,
         chunks: list[dict],
+        profile_tag: str = "custom",
         downgrade_mode: bool = False,
     ) -> str:
         """构建修正 prompt，包含原始内容 + 审核问题 + KB 素材 + 修正指令。
@@ -488,9 +539,10 @@ class CorrectionAgent(BaseAgent):
         # ── 结构模板提示 ──
         structure_guide = self._fmt_structure_guide(resource_type)
 
-        prompt = f"""## 学习者信息
-- 推荐难度：{difficulty}
-- 学习风格：{learning_style}
+        prompt = f"""## 结构化画像参数（权威，禁止改写）
+{json.dumps({"difficulty": difficulty, "learning_style": learning_style, "profile_tag": profile_tag}, ensure_ascii=False)}
+
+## 学习者信息
 - 学习目标：{diagnosis.get("summary", "未指定")}
 {downgrade_note}
 ## 原始资源
@@ -532,8 +584,8 @@ class CorrectionAgent(BaseAgent):
     ],
     "key_takeaways": ["修正后的学习要点1", "修正后的学习要点2", "修正后的学习要点3"],
     "correction_summary": "一句话概括做了哪些修正"
-    "（如：修正了LangGraph开发者归属错误，调整了RAG概念定义，"
-    "并列展示了两种检索策略）"
+    "（如：修正了SRVO-068故障代码归属，调整了坐标系标定步骤描述，"
+    "并列展示了FANUC与KUKA的差异）"
 }}
 
 ## 硬性要求
@@ -546,9 +598,179 @@ class CorrectionAgent(BaseAgent):
 7. {structure_guide}
 8. 内容格式为 Markdown，代码示例和命令行用 `````` 标注语言类型
 9. citations 列表包含所有引用 KB 原文的溯源记录，
-   每条 citation 的 original_text 必须是 KB 中的逐字原文"""
+   每条 citation 的 original_text 必须是 KB 中的逐字原文
+10. **画像锁定**：difficulty_level 必须严格等于结构化画像参数中的 difficulty（{difficulty}），
+    内容表达必须符合 learning_style（{learning_style}），禁止自行调整难度或改变风格"""
 
         return prompt
+
+    # ═══════════════════════════════════════════════════════════
+    # 私有：画像匹配校验（难度硬校验 + 风格软校验 + 重试 + 降级兜底）
+    # ═══════════════════════════════════════════════════════════
+
+    def _validate_profile_match(
+        self,
+        resource: dict,
+        expected_diff: str,
+        expected_style: str,
+    ) -> dict:
+        """画像匹配校验（难度硬校验 + 风格软校验，启发式）。
+
+        - difficulty 硬校验：difficulty_level 必须等于 expected_diff。
+        - learning_style 软校验：内容中出现该风格的典型特征标记即视为通过，
+          只提示不硬判（风格是表达倾向，不能靠关键词完全判定）。
+
+        Returns:
+            {"difficulty_ok": bool, "style_ok": bool, "reason": str}
+        """
+        actual_diff = resource.get("difficulty_level", "")
+        difficulty_ok = actual_diff == expected_diff
+        content = resource.get("content", "") or ""
+
+        markers = _STYLE_MARKERS.get(expected_style, ())
+        style_ok = any(m in content for m in markers) if markers else True
+
+        if difficulty_ok and style_ok:
+            reason = "画像匹配"
+        elif not difficulty_ok:
+            reason = f"难度不匹配：expected={expected_diff}，actual={actual_diff}"
+        else:
+            reason = f"风格特征缺失：expected_style={expected_style}"
+        return {
+            "difficulty_ok": difficulty_ok,
+            "style_ok": style_ok,
+            "reason": reason,
+        }
+
+    def _build_profile_retry_prompt(
+        self,
+        resource: dict,
+        expected_diff: str,
+        expected_style: str,
+        profile_tag: str,
+    ) -> str:
+        """画像匹配失败后的对齐重写 prompt。
+
+        只对难度与风格做对齐重写，不引入新事实断言。
+        """
+        resource_type = resource.get("resource_type", "lecture")
+        profile_params = {
+            "difficulty": expected_diff,
+            "learning_style": expected_style,
+            "profile_tag": profile_tag,
+        }
+        return f"""## 结构化画像参数（权威，禁止改写）
+{json.dumps(profile_params, ensure_ascii=False)}
+
+## 重写任务
+上一轮修正产出的资源未通过画像匹配校验。请**仅对难度与风格做对齐重写**：
+- 难度对齐 {expected_diff}
+- 风格对齐 {expected_style}
+- **禁止新增任何事实断言**：只调整解释深度与表达方式，保留原内容的技术事实与结构
+
+## 原始资源（待对齐）
+- 类型：{resource_type}
+- 当前难度标注：{resource.get("difficulty_level", "")}
+- 内容：
+{resource.get("content", "")[:5000]}
+
+## 输出 JSON
+{{
+    "content": "对齐后的 Markdown 完整内容",
+    "difficulty_level": "{expected_diff}"
+}}"""
+
+    async def _enforce_profile_match(
+        self,
+        resource: dict,
+        expected_diff: str,
+        expected_style: str,
+        profile_tag: str,
+    ) -> tuple[dict, list[dict]]:
+        """画像匹配校验：难度硬校验 + 风格软校验，不匹配则重试，重试失败降级兜底。
+
+        - 难度不匹配 → 用对齐重写 prompt 重试一次
+        - 重试失败 / 仍不匹配 → 降级兜底：强制 difficulty_level 字段为期望值
+        - 仅风格特征弱 → 软提示，不强制改写（避免过度改写破坏内容）
+
+        Returns:
+            (可能被改写的 resource, 追加的重试/兜底日志列表)
+        """
+        resource_type = resource.get("resource_type", "lecture")
+        check = self._validate_profile_match(resource, expected_diff, expected_style)
+
+        # 难度硬校验不通过 → 重试对齐
+        if not check["difficulty_ok"]:
+            retry_prompt = self._build_profile_retry_prompt(
+                resource, expected_diff, expected_style, profile_tag
+            )
+            retried = await self.call_llm_json(retry_prompt, temperature=0.2)
+            if retried and not retried.get("_parse_error"):
+                retried_resource = {
+                    **resource,
+                    "content": retried.get("content", resource.get("content", "")),
+                    "difficulty_level": retried.get(
+                        "difficulty_level", resource.get("difficulty_level", expected_diff)
+                    ),
+                    "_profile_retried": True,
+                }
+                recheck = self._validate_profile_match(
+                    retried_resource, expected_diff, expected_style
+                )
+                if recheck["difficulty_ok"]:
+                    self.log(f"  ✅ {resource_type}: 画像重试对齐成功")
+                    return retried_resource, [
+                        self._make_profile_log(
+                            resource, retried_resource, expected_diff, "retry_success"
+                        )
+                    ]
+                resource = retried_resource
+
+            # 重试失败或仍未对齐 → 降级兜底：强制难度字段
+            fallback = {
+                **resource,
+                "difficulty_level": expected_diff,
+                "_profile_fallback": True,
+            }
+            self.log(
+                f"  ⚠️ {resource_type}: 画像重试失败，降级兜底强制 "
+                f"difficulty_level={expected_diff}"
+            )
+            return fallback, [
+                self._make_profile_log(resource, fallback, expected_diff, "fallback_forced")
+            ]
+
+        # 难度一致但风格特征缺失 → 软提示（不重试，避免过度改写）
+        if not check["style_ok"]:
+            self.log(
+                f"  ℹ️ {resource_type}: 风格特征较弱（{expected_style}），仅记录不强制改写"
+            )
+            return resource, []
+
+        return resource, []
+
+    @staticmethod
+    def _make_profile_log(
+        before: dict,
+        after: dict,
+        expected_diff: str,
+        action: str,
+    ) -> dict:
+        """构建画像匹配相关日志条目。"""
+        return {
+            "resource_id": before.get("resource_id", ""),
+            "resource_type": before.get("resource_type", "unknown"),
+            "issue_index": -1,
+            "severity": "warning",
+            "original_text": (
+                f"difficulty_level={before.get('difficulty_level', '')} "
+                f"(期望 {expected_diff})"
+            ),
+            "corrected_text": f"difficulty_level={after.get('difficulty_level', '')}",
+            "correction_basis": "profile_match",
+            "kb_source": None,
+            "action": action,
+        }
 
     # ═══════════════════════════════════════════════════════════
     # 私有：格式化辅助方法（风格对齐 Agent 2 generation_v2.py）
@@ -1435,33 +1657,33 @@ async def demo():
     agent = CorrectionAgent()
     state = {
         "diagnosis_result": {
-            "summary": "学习 LangGraph 开发 AI Agent",
-            "recommended_difficulty": "beginner",
-            "learning_style": "theory_first",
+            "summary": "系统入门工业机器人示教编程与故障诊断",
+            "recommended_difficulty": "intermediate",
+            "learning_style": "practice_first",
             "skill_gaps": [
                 {
                     "priority": "critical",
-                    "topic": "LangGraph 状态管理",
-                    "current_level": 0.1,
+                    "topic": "SRVO-068 数据传输故障",
+                    "current_level": 0.3,
                     "target_level": 0.9,
-                    "reason": "不清楚图状态流转机制",
+                    "reason": "不清楚示教器与主机间通信链路排查顺序",
                 },
             ],
         },
         "generated_resources": [
             {
                 "resource_id": "res-001",
-                "resource_type": "lecture",
-                "title": "LangGraph 入门讲义",
+                "resource_type": "guide",
+                "title": "SRVO-068 故障排查指南",
                 "content": (
-                    "# LangGraph 入门讲义\\n\\n"
-                    "LangGraph 是 Google 开发的图状态管理框架。\\n\\n"
-                    "## 核心概念\\n"
-                    "StateGraph 让你用状态字典在节点间传递数据。\\n"
+                    "# SRVO-068 故障排查指南\\n\\n"
+                    "SRVO-068 是 ABB 机器人伺服报警。\\n\\n"
+                    "## 步骤 1：检查通信链路\\n"
+                    "先断电，再检查示教器与主机间的电缆连接。\\n"
                 ),
-                "difficulty_level": "beginner",
+                "difficulty_level": "beginner",  # 与诊断难度不符，应被画像校验纠正
                 "citations": [],
-                "key_takeaways": ["理解 LangGraph", "掌握 StateGraph"],
+                "key_takeaways": ["定位 SRVO-068 报警", "掌握通信链路排查"],
             },
         ],
         "audit_result": [
@@ -1470,38 +1692,25 @@ async def demo():
                 "issues": [
                     {
                         "severity": "error",
-                        "detail": "LangGraph 不是 Google 开发的，是 LangChain 团队开发的",
-                        "kb_evidence": "LangGraph is a library built by the LangChain team",
+                        "detail": "SRVO-068 是 FANUC 的数据传输故障代码，不是 ABB 伺服报警",
+                        "kb_evidence": "FANUC 手册：SRVO-068 表示数据传输故障",
                     },
                     {
                         "severity": "warning",
-                        "detail": "缺少对 StateGraph 三个要素（节点、边、状态字典）的逐一说明",
-                    },
-                    {
-                        "severity": "info",
-                        "detail": "建议在引言中加入一个生活类比帮助理解",
+                        "detail": "缺少通信链路排查的完整步骤（供电→电缆→参数→复位）",
                     },
                 ],
             },
         ],
         "retrieved_chunks": [
             {
-                "doc_id": "langgraph_intro.md",
+                "doc_id": "fanuc_srvo068.md",
                 "chunk_index": 2,
                 "content": (
-                    "LangGraph is a library built by the LangChain team "
-                    "for building stateful, multi-actor applications with LLMs."
+                    "FANUC 手册：SRVO-068 表示数据传输故障，"
+                    "需检查示教器与主机间的通信链路。"
                 ),
                 "relevance_score": 0.95,
-            },
-            {
-                "doc_id": "langgraph_intro.md",
-                "chunk_index": 5,
-                "content": (
-                    "StateGraph 的三个核心要素：节点（Node）定义处理逻辑、"
-                    "边（Edge）定义流转方向、状态字典（State）传递上下文数据。"
-                ),
-                "relevance_score": 0.90,
             },
         ],
     }
