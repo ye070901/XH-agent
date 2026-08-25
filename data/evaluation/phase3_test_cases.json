@@ -2,12 +2,12 @@
   "meta": {
     "name": "O4 Phase 3 可复现评测用例全集",
     "version": "1.0",
-    "case_count": 130,
-    "positive_case_count": 126,
+    "case_count": 184,
+    "positive_case_count": 180,
     "negative_case_count": 4,
-    "profile_count": 7,
+    "profile_count": 10,
     "counted_knowledge_point_count": 18,
-    "construction": "7 external profiles × 18 core/high knowledge points + 4 negative cases",
+    "construction": "10 external profiles × 18 core/high knowledge points + 4 negative cases",
     "contains_model_outputs": false,
     "contains_measured_metrics": false
   },
@@ -9740,6 +9740,4191 @@
         "source_profile_id": "profile-j-authority-expert",
         "expected_difficulty": "advanced",
         "expected_learning_style": "project_based"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-006",
+          "topic": "SRVO-230/231双通道安全链失配",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-230/231双通道安全链失配",
+          "SRVO-230",
+          "SRVO-231",
+          "安全链失配",
+          "Chain Error Reset",
+          "双通道安全信号"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-CORE-001",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：工业机器人基础安全与急停",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-001",
+          "topic": "工业机器人基础安全与急停",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人基础安全与急停",
+          "机器人安全",
+          "操作前安全",
+          "急停",
+          "E-Stop",
+          "手动限速"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-CORE-002",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：示教器基本操作与运行模式",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-002",
+          "topic": "示教器基本操作与运行模式",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "示教器基本操作与运行模式",
+          "示教器",
+          "Teach Pendant",
+          "FlexPendant",
+          "手动模式",
+          "自动模式",
+          "Deadman"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-CORE-003",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：工业机器人坐标系",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-003",
+          "topic": "工业机器人坐标系",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人坐标系",
+          "机器人坐标系",
+          "基坐标系",
+          "工具坐标系",
+          "用户坐标系",
+          "工件坐标系",
+          "WORLD"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-HIGH-004",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：工具与工件坐标系标定",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-004",
+          "topic": "工具与工件坐标系标定",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工具与工件坐标系标定",
+          "TCP标定",
+          "tooldata",
+          "wobjdata",
+          "UTOOL",
+          "UFRAME",
+          "三点法",
+          "六点法"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-CORE-005",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：点位示教与PTP/LIN/CIRC运动",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-005",
+          "topic": "点位示教与PTP/LIN/CIRC运动",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "点位示教与PTP/LIN/CIRC运动",
+          "点位示教",
+          "PTP",
+          "LIN",
+          "CIRC",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "运动指令"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K1-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K1-HIGH-006",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：搬运上下料与夹具I/O",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-006",
+          "topic": "搬运上下料与夹具I/O",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "搬运上下料与夹具I/O",
+          "搬运上下料",
+          "取料点",
+          "放料点",
+          "夹爪信号",
+          "SetDO",
+          "RO",
+          "安全点"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-CORE-001",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：RobotStudio工作站与虚拟控制器",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-001",
+          "topic": "RobotStudio工作站与虚拟控制器",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RobotStudio工作站与虚拟控制器",
+          "RobotStudio",
+          "工作站搭建",
+          "虚拟控制器",
+          "机器人模型导入",
+          "Virtual Controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-CORE-002",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：离线路径生成与碰撞检测",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-002",
+          "topic": "离线路径生成与碰撞检测",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "离线路径生成与碰撞检测",
+          "路径生成",
+          "碰撞检测",
+          "碰撞监控",
+          "节拍分析",
+          "无碰撞路径"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-CORE-003",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：RAPID程序结构与运动指令",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-003",
+          "topic": "RAPID程序结构与运动指令",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RAPID程序结构与运动指令",
+          "RAPID",
+          "PROC",
+          "robtarget",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "zonedata"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-HIGH-004",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：KUKA KRL离线仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-004",
+          "topic": "KUKA KRL离线仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "KUKA KRL离线仿真",
+          "KUKA",
+          "KRL",
+          "KUKA.Sim",
+          "PTP",
+          "LIN",
+          "CIRC"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-HIGH-005",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-HIGH-005",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：FANUC ROBOGUIDE离线编程",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-005",
+          "topic": "FANUC ROBOGUIDE离线编程",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "FANUC ROBOGUIDE离线编程",
+          "FANUC ROBOGUIDE",
+          "ROBOGUIDE",
+          "虚拟示教器",
+          "TP程序",
+          "Cell Browser"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K2-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K2-HIGH-006",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：ROS2 URDF/Xacro与Gazebo仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-006",
+          "topic": "ROS2 URDF/Xacro与Gazebo仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "ROS2 URDF/Xacro与Gazebo仿真",
+          "ROS2",
+          "URDF",
+          "Xacro",
+          "Gazebo",
+          "ros2_control",
+          "joint_trajectory_controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-CORE-001",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-068数据传输故障诊断",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-001",
+          "topic": "SRVO-068数据传输故障诊断",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-068数据传输故障诊断",
+          "SRVO-068",
+          "DTERR",
+          "脉冲编码器数据传输",
+          "编码器电缆",
+          "伺服放大器"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-CORE-002",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-062 BZAL绝对位置恢复",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-002",
+          "topic": "SRVO-062 BZAL绝对位置恢复",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-062 BZAL绝对位置恢复",
+          "SRVO-062",
+          "BZAL",
+          "备份电池",
+          "绝对位置",
+          "MASTERING",
+          "重新标定"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-HIGH-003",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-HIGH-003",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-038脉冲不匹配处理",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-003",
+          "topic": "SRVO-038脉冲不匹配处理",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-038脉冲不匹配处理",
+          "SRVO-038",
+          "Pulse mismatch",
+          "脉冲不匹配",
+          "轴滑移",
+          "MASTERING"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-CORE-004",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-CORE-004",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-105控制柜门与急停链路",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-004",
+          "topic": "SRVO-105控制柜门与急停链路",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-105控制柜门与急停链路",
+          "SRVO-105",
+          "Door open or E-Stop",
+          "控制柜门",
+          "急停链路",
+          "CRMA92",
+          "CRMA94"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-CORE-005",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-004安全围栏报警",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-005",
+          "topic": "SRVO-004安全围栏报警",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-004安全围栏报警",
+          "SRVO-004",
+          "Fence open",
+          "安全围栏",
+          "安全门",
+          "EAS双通道"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-08-K3-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-k-over-confident",
+      "knowledge_point_id": "K3-HIGH-006",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础；本用例重点：SRVO-230/231双通道安全链失配",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-k-over-confident",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-006",
+          "topic": "SRVO-230/231双通道安全链失配",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-230/231双通道安全链失配",
+          "SRVO-230",
+          "SRVO-231",
+          "安全链失配",
+          "Chain Error Reset",
+          "双通道安全信号"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-CORE-001",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：工业机器人基础安全与急停",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-001",
+          "topic": "工业机器人基础安全与急停",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人基础安全与急停",
+          "机器人安全",
+          "操作前安全",
+          "急停",
+          "E-Stop",
+          "手动限速"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-CORE-002",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：示教器基本操作与运行模式",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-002",
+          "topic": "示教器基本操作与运行模式",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "示教器基本操作与运行模式",
+          "示教器",
+          "Teach Pendant",
+          "FlexPendant",
+          "手动模式",
+          "自动模式",
+          "Deadman"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-CORE-003",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：工业机器人坐标系",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-003",
+          "topic": "工业机器人坐标系",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人坐标系",
+          "机器人坐标系",
+          "基坐标系",
+          "工具坐标系",
+          "用户坐标系",
+          "工件坐标系",
+          "WORLD"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-HIGH-004",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：工具与工件坐标系标定",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-004",
+          "topic": "工具与工件坐标系标定",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工具与工件坐标系标定",
+          "TCP标定",
+          "tooldata",
+          "wobjdata",
+          "UTOOL",
+          "UFRAME",
+          "三点法",
+          "六点法"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-CORE-005",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：点位示教与PTP/LIN/CIRC运动",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-005",
+          "topic": "点位示教与PTP/LIN/CIRC运动",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "点位示教与PTP/LIN/CIRC运动",
+          "点位示教",
+          "PTP",
+          "LIN",
+          "CIRC",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "运动指令"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K1-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K1-HIGH-006",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：搬运上下料与夹具I/O",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-006",
+          "topic": "搬运上下料与夹具I/O",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "搬运上下料与夹具I/O",
+          "搬运上下料",
+          "取料点",
+          "放料点",
+          "夹爪信号",
+          "SetDO",
+          "RO",
+          "安全点"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-CORE-001",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：RobotStudio工作站与虚拟控制器",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-001",
+          "topic": "RobotStudio工作站与虚拟控制器",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RobotStudio工作站与虚拟控制器",
+          "RobotStudio",
+          "工作站搭建",
+          "虚拟控制器",
+          "机器人模型导入",
+          "Virtual Controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-CORE-002",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：离线路径生成与碰撞检测",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-002",
+          "topic": "离线路径生成与碰撞检测",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "离线路径生成与碰撞检测",
+          "路径生成",
+          "碰撞检测",
+          "碰撞监控",
+          "节拍分析",
+          "无碰撞路径"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-CORE-003",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：RAPID程序结构与运动指令",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-003",
+          "topic": "RAPID程序结构与运动指令",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RAPID程序结构与运动指令",
+          "RAPID",
+          "PROC",
+          "robtarget",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "zonedata"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-HIGH-004",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：KUKA KRL离线仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-004",
+          "topic": "KUKA KRL离线仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "KUKA KRL离线仿真",
+          "KUKA",
+          "KRL",
+          "KUKA.Sim",
+          "PTP",
+          "LIN",
+          "CIRC"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-HIGH-005",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-HIGH-005",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：FANUC ROBOGUIDE离线编程",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-005",
+          "topic": "FANUC ROBOGUIDE离线编程",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "FANUC ROBOGUIDE离线编程",
+          "FANUC ROBOGUIDE",
+          "ROBOGUIDE",
+          "虚拟示教器",
+          "TP程序",
+          "Cell Browser"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K2-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K2-HIGH-006",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：ROS2 URDF/Xacro与Gazebo仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-006",
+          "topic": "ROS2 URDF/Xacro与Gazebo仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "ROS2 URDF/Xacro与Gazebo仿真",
+          "ROS2",
+          "URDF",
+          "Xacro",
+          "Gazebo",
+          "ros2_control",
+          "joint_trajectory_controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-CORE-001",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-068数据传输故障诊断",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-001",
+          "topic": "SRVO-068数据传输故障诊断",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-068数据传输故障诊断",
+          "SRVO-068",
+          "DTERR",
+          "脉冲编码器数据传输",
+          "编码器电缆",
+          "伺服放大器"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-CORE-002",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-062 BZAL绝对位置恢复",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-002",
+          "topic": "SRVO-062 BZAL绝对位置恢复",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-062 BZAL绝对位置恢复",
+          "SRVO-062",
+          "BZAL",
+          "备份电池",
+          "绝对位置",
+          "MASTERING",
+          "重新标定"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-HIGH-003",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-HIGH-003",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-038脉冲不匹配处理",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-003",
+          "topic": "SRVO-038脉冲不匹配处理",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-038脉冲不匹配处理",
+          "SRVO-038",
+          "Pulse mismatch",
+          "脉冲不匹配",
+          "轴滑移",
+          "MASTERING"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-CORE-004",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-CORE-004",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-105控制柜门与急停链路",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-004",
+          "topic": "SRVO-105控制柜门与急停链路",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-105控制柜门与急停链路",
+          "SRVO-105",
+          "Door open or E-Stop",
+          "控制柜门",
+          "急停链路",
+          "CRMA92",
+          "CRMA94"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-CORE-005",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-004安全围栏报警",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-005",
+          "topic": "SRVO-004安全围栏报警",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-004安全围栏报警",
+          "SRVO-004",
+          "Fence open",
+          "安全围栏",
+          "安全门",
+          "EAS双通道"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-09-K3-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-l-knowledge-void",
+      "knowledge_point_id": "K3-HIGH-006",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管；本用例重点：SRVO-230/231双通道安全链失配",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-l-knowledge-void",
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-006",
+          "topic": "SRVO-230/231双通道安全链失配",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-230/231双通道安全链失配",
+          "SRVO-230",
+          "SRVO-231",
+          "安全链失配",
+          "Chain Error Reset",
+          "双通道安全信号"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-CORE-001",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：工业机器人基础安全与急停",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-001",
+          "topic": "工业机器人基础安全与急停",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人基础安全与急停",
+          "机器人安全",
+          "操作前安全",
+          "急停",
+          "E-Stop",
+          "手动限速"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-CORE-002",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：示教器基本操作与运行模式",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-002",
+          "topic": "示教器基本操作与运行模式",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "示教器基本操作与运行模式",
+          "示教器",
+          "Teach Pendant",
+          "FlexPendant",
+          "手动模式",
+          "自动模式",
+          "Deadman"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-CORE-003",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：工业机器人坐标系",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-003",
+          "topic": "工业机器人坐标系",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工业机器人坐标系",
+          "机器人坐标系",
+          "基坐标系",
+          "工具坐标系",
+          "用户坐标系",
+          "工件坐标系",
+          "WORLD"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-HIGH-004",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：工具与工件坐标系标定",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-004",
+          "topic": "工具与工件坐标系标定",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "工具与工件坐标系标定",
+          "TCP标定",
+          "tooldata",
+          "wobjdata",
+          "UTOOL",
+          "UFRAME",
+          "三点法",
+          "六点法"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-CORE-005",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：点位示教与PTP/LIN/CIRC运动",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-CORE-005",
+          "topic": "点位示教与PTP/LIN/CIRC运动",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "点位示教与PTP/LIN/CIRC运动",
+          "点位示教",
+          "PTP",
+          "LIN",
+          "CIRC",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "运动指令"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K1-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K1-HIGH-006",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：搬运上下料与夹具I/O",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K1-HIGH-006",
+          "topic": "搬运上下料与夹具I/O",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "搬运上下料与夹具I/O",
+          "搬运上下料",
+          "取料点",
+          "放料点",
+          "夹爪信号",
+          "SetDO",
+          "RO",
+          "安全点"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-CORE-001",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：RobotStudio工作站与虚拟控制器",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-001",
+          "topic": "RobotStudio工作站与虚拟控制器",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RobotStudio工作站与虚拟控制器",
+          "RobotStudio",
+          "工作站搭建",
+          "虚拟控制器",
+          "机器人模型导入",
+          "Virtual Controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-CORE-002",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：离线路径生成与碰撞检测",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-002",
+          "topic": "离线路径生成与碰撞检测",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "离线路径生成与碰撞检测",
+          "路径生成",
+          "碰撞检测",
+          "碰撞监控",
+          "节拍分析",
+          "无碰撞路径"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-CORE-003",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：RAPID程序结构与运动指令",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-CORE-003",
+          "topic": "RAPID程序结构与运动指令",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "RAPID程序结构与运动指令",
+          "RAPID",
+          "PROC",
+          "robtarget",
+          "MoveJ",
+          "MoveL",
+          "MoveC",
+          "zonedata"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-HIGH-004",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-HIGH-004",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：KUKA KRL离线仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-004",
+          "topic": "KUKA KRL离线仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "KUKA KRL离线仿真",
+          "KUKA",
+          "KRL",
+          "KUKA.Sim",
+          "PTP",
+          "LIN",
+          "CIRC"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-HIGH-005",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-HIGH-005",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：FANUC ROBOGUIDE离线编程",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-005",
+          "topic": "FANUC ROBOGUIDE离线编程",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "FANUC ROBOGUIDE离线编程",
+          "FANUC ROBOGUIDE",
+          "ROBOGUIDE",
+          "虚拟示教器",
+          "TP程序",
+          "Cell Browser"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K2-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K2-HIGH-006",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：ROS2 URDF/Xacro与Gazebo仿真",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K2-HIGH-006",
+          "topic": "ROS2 URDF/Xacro与Gazebo仿真",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "ROS2 URDF/Xacro与Gazebo仿真",
+          "ROS2",
+          "URDF",
+          "Xacro",
+          "Gazebo",
+          "ros2_control",
+          "joint_trajectory_controller"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-CORE-001",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-068数据传输故障诊断",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-001",
+          "topic": "SRVO-068数据传输故障诊断",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-068数据传输故障诊断",
+          "SRVO-068",
+          "DTERR",
+          "脉冲编码器数据传输",
+          "编码器电缆",
+          "伺服放大器"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-CORE-002",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-062 BZAL绝对位置恢复",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-002",
+          "topic": "SRVO-062 BZAL绝对位置恢复",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-062 BZAL绝对位置恢复",
+          "SRVO-062",
+          "BZAL",
+          "备份电池",
+          "绝对位置",
+          "MASTERING",
+          "重新标定"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-HIGH-003",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-HIGH-003",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-038脉冲不匹配处理",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-HIGH-003",
+          "topic": "SRVO-038脉冲不匹配处理",
+          "priority": "high"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-038脉冲不匹配处理",
+          "SRVO-038",
+          "Pulse mismatch",
+          "脉冲不匹配",
+          "轴滑移",
+          "MASTERING"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-CORE-004",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-CORE-004",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-105控制柜门与急停链路",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "lecture"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-004",
+          "topic": "SRVO-105控制柜门与急停链路",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-105控制柜门与急停链路",
+          "SRVO-105",
+          "Door open or E-Stop",
+          "控制柜门",
+          "急停链路",
+          "CRMA92",
+          "CRMA94"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-CORE-005",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-CORE-005",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-004安全围栏报警",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "guide"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
+      },
+      "expected_gaps": [
+        {
+          "knowledge_point_id": "K3-CORE-005",
+          "topic": "SRVO-004安全围栏报警",
+          "priority": "critical"
+        }
+      ],
+      "expected_behavior": {
+        "disposition": "generate_with_authoritative_kb_evidence",
+        "must_cover_any": [
+          "SRVO-004安全围栏报警",
+          "SRVO-004",
+          "Fence open",
+          "安全围栏",
+          "安全门",
+          "EAS双通道"
+        ],
+        "acceptable_evidence_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ],
+        "unsupported_claim_policy": "unverifiable_then_remove"
+      },
+      "truth_provenance": {
+        "profile": "data/evaluation/learner_profiles.json",
+        "coverage": "data/core_knowledge_map.json",
+        "hallucination": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      }
+    },
+    {
+      "id": "P3-10-K3-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-m-self-contradictory",
+      "knowledge_point_id": "K3-HIGH-006",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平；本用例重点：SRVO-230/231双通道安全链失配",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ],
+        "resource_types": [
+          "quiz"
+        ]
+      },
+      "expected_profile": {
+        "source_profile_id": "profile-m-self-contradictory",
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first"
       },
       "expected_gaps": [
         {
