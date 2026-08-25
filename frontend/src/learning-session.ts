@@ -13,6 +13,7 @@ export type QuizQuestion = {
   id: string;
   stem: string;
   options: Array<{ id: string; text: string }>;
+  questionType?: "choice" | "fill";
   answer: string;
   explanation: string;
   knowledgeId?: string;
@@ -46,6 +47,21 @@ export type QuizSubmissionResult = {
   profile_snapshot_id: string;
 };
 
+function formatApiError(detail: unknown): string {
+  if (typeof detail === "string" && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "msg" in item && typeof item.msg === "string") {
+        return item.msg;
+      }
+      return "请求数据不完整";
+    }).filter(Boolean);
+    return messages.length ? messages.join("；") : "请求数据不完整";
+  }
+  return "请求失败，请稍后重试。";
+}
+
 function getLearnerId() {
   const storageKey = "xh-agent-learner-id";
   const existing = window.localStorage.getItem(storageKey);
@@ -74,7 +90,7 @@ export async function submitQuiz(
       resource_id: resourceId,
       questions: quiz.questions.map((question) => ({
         id: question.id,
-        question_type: "choice",
+        question_type: question.questionType || "choice",
         standard_answer: question.answer,
         explanation: question.explanation,
         knowledge_id: question.knowledgeId || topic || "general",
@@ -87,7 +103,7 @@ export async function submitQuiz(
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.detail || `API ${response.status}`);
+    throw new Error(formatApiError(payload.detail) || `API ${response.status}`);
   }
   return payload as QuizSubmissionResult;
 }
@@ -103,6 +119,29 @@ const broadGoalPatterns = [
 ];
 
 export async function assessLearningGoal(goal: string): Promise<GoalAssessment> {
+  {
+    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    try {
+      const response = await fetch(`${apiBase}/api/goals/assess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ learning_goal: goal }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (response.ok && payload.status === "ready" && typeof payload.normalizedGoal === "string") {
+        return { status: "ready", normalizedGoal: payload.normalizedGoal };
+      }
+      if (response.ok && payload.status === "needs_clarification" && Array.isArray(payload.questions)) {
+        return {
+          status: "needs_clarification",
+          reason: typeof payload.reason === "string" ? payload.reason : "Please refine the learning goal.",
+          questions: payload.questions as ClarificationQuestion[],
+        };
+      }
+    } catch {
+      // Keep the existing local fallback available while the API is offline.
+    }
+  }
   // Frontend mock adapter. Replace this function with POST /api/goals/assess later.
   await wait(280);
   const normalizedGoal = goal.replace(/\s+/g, " ").trim();
@@ -176,6 +215,21 @@ export function createDemoQuiz(topic: string): Quiz {
   };
 }
 
+function isTemplateLearningAnswer(answer: string) {
+  const normalized = answer.replace(/\s/g, "");
+  const templateMarkers = [
+    "\u5efa\u8bae\u5148\u56de\u5230",
+    "\u5efa\u8bae\u56de\u5230",
+    "\u5148\u590d\u4e60\u8d44\u6e90",
+    "\u5b66\u4e60\u8ba1\u5212",
+    "\u6838\u5fc3\u6982\u5ff5",
+    "\u5b8c\u6210\u4e00\u4e2a\u6700\u5c0f\u7ec3\u4e60",
+    "\u8f93\u5165\u6761\u4ef6\u548c\u64cd\u4f5c\u987a\u5e8f",
+    "\u4e0d\u8981\u53ea\u8bf4\u7ed3\u8bba",
+  ];
+  return templateMarkers.some((marker) => normalized.includes(marker));
+}
+
 export async function askStudyQuestion(question: string, topic: string, resourceContext = ""): Promise<LearnerQuestionResponse> {
   const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
   const response = await fetch(apiBase + "/api/learning-questions", {
@@ -193,6 +247,13 @@ export async function askStudyQuestion(question: string, topic: string, resource
   }
   if (typeof payload.answer !== "string" || !payload.answer.trim()) {
     throw new Error("The learning-answer service returned no answer.");
+  }
+  const genericAnswerPattern = /建议先回到|不要只记结论|完成一个最小练习|输入条件和操作顺序|核心概念，确认已解决的任务/;
+  if (isTemplateLearningAnswer(payload.answer)) {
+    throw new Error("The answer service returned a learning-plan template instead of an answer. Please retry after the backend restarts.");
+  }
+  if (genericAnswerPattern.test(payload.answer)) {
+    throw new Error("服务返回了泛化建议而非问题答案。请确认后端已重启到最新版本后再试。");
   }
   return {
     answer: payload.answer,

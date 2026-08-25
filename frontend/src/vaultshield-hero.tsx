@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { ArrowRightCircle, ArrowUp, BrainCircuit, Database, Maximize2, Menu, Minimize2, RefreshCw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
+import { ArrowRightCircle, ArrowUp, BrainCircuit, Database, Download, Maximize2, Menu, Minimize2, RefreshCw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
 import { initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
@@ -7,7 +7,7 @@ import { initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeW
 type Variant = "a" | "b";
 
 const navigation = ["系统概览", "学习诊断", "知识生成", "审核修正", "学习工作台"];
-const workflowSteps = ["学情诊断", "知识生成", "内容审核"];
+const workflowSteps = ["目标澄清", "知识检索与生成", "审核修正与答疑"];
 const ease = [0.22, 1, 0.36, 1] as const;
 type Panel = "overview" | "diagnosis" | "generation" | "audit" | "workspace";
 type QualityGate = "evidence" | "difficulty" | "expression";
@@ -21,6 +21,40 @@ const panelDetails: Record<Panel, { eyebrow: string; title: string; description:
   audit: { eyebrow: "审核修正", title: "每份资源都经过质量闸门", description: "审核与保真 Agent 检查事实依据、难度匹配和表达质量，再完成修正。", metric: "3 道质量闸门" },
   workspace: { eyebrow: "学习工作台", title: "把协作过程留在同一个界面", description: "在工作台中查看任务进度、生成记录与每个 Agent 的可追溯输出。", metric: "过程全程可追溯" },
 };
+
+Object.assign(panelDetails, {
+  overview: {
+    eyebrow: "系统能力",
+    title: "从明确目标到可验证学习",
+    description: "追问澄清目标、检索可信知识、生成可学习资源，并支持答题反馈和学习过程中的针对性补充。",
+    metric: "目标到反馈闭环",
+  },
+  diagnosis: {
+    eyebrow: "学习诊断",
+    title: "先澄清目标，再建立画像",
+    description: "当目标过于宽泛时，系统通过追问补全学习范围、预期成果和时间边界，形成可执行的学习方向。",
+    metric: "目标与能力双维画像",
+  },
+  generation: {
+    eyebrow: "知识生成",
+    title: "检索支撑的多类型资源",
+    description: "生成 Agent 结合知识库检索，输出讲义、实操指南与可提交作答的测试题。",
+    metric: "讲义、指南、测试题",
+  },
+  audit: {
+    eyebrow: "审核修正",
+    title: "审核、修正与权威性提示",
+    description: "审核 Agent 检查事实依据、难度和表达；修正流程保留可追溯问题，并对无权威参考内容明确提示。",
+    metric: "审核结果可查看",
+  },
+  workspace: {
+    eyebrow: "学习工作台",
+    title: "实时看见 Agent 如何工作",
+    description: "任务执行时展示诊断、检索、生成、审核与修正的状态；完成后继续答题与获得针对性补充。",
+    metric: "实时状态与学习反馈",
+  },
+});
+
 const resourceOptions = [
   { id: "lecture", label: "讲义" },
   { id: "guide", label: "实操指南" },
@@ -35,7 +69,16 @@ type GeneratedResource = {
   estimated_duration_minutes?: number;
   key_takeaways?: string[];
   quiz?: Quiz;
+  supplements?: Array<{ title: string; content: string }>;
 };
+
+function getResourceSupplements(resource: GeneratedResource) {
+  if (resource.supplements?.length) return resource.supplements;
+  // Older in-memory resources use this existing marker instead of the field.
+  if (!resource.key_takeaways?.includes("已根据你的学习疑问补充说明")) return [];
+  const legacyMatch = (resource.content ?? "").match(/\n\n##\s+([^\n]+)\n\n([\s\S]+)$/);
+  return legacyMatch ? [{ title: legacyMatch[1].trim(), content: legacyMatch[2].trim() }] : [];
+}
 
 type GenerationResult = {
   task_id?: string;
@@ -48,6 +91,257 @@ type GenerationResult = {
 };
 
 const resourceLabel = (type: string) => resourceOptions.find((option) => option.id === type)?.label ?? type;
+
+const documentEntityMap: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+const escapeDocumentHtml = (value: string) => value.replace(/[&<>"']/g, (character) => documentEntityMap[character] ?? character);
+
+const renderDocumentInline = (value: string) => escapeDocumentHtml(value)
+  .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+  .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+const renderDocumentMarkdown = (value: string) => {
+  const lines = value.replace(/\r\n?/g, "\n").split("\n");
+  const output: string[] = [];
+  let listKind: "ol" | "ul" | null = null;
+  let listItems: string[] = [];
+  let codeLines: string[] = [];
+  let inCodeBlock = false;
+  const flushList = () => {
+    if (!listKind) return;
+    output.push(`<${listKind}>${listItems.map((item) => `<li>${renderDocumentInline(item)}</li>`).join("")}</${listKind}>`);
+    listKind = null;
+    listItems = [];
+  };
+  const flushCode = () => {
+    if (!inCodeBlock) return;
+    output.push(`<pre style="background:#172b3a;color:#f7f8fa;border-radius:8pt;line-height:1.55;margin:12pt 0;overflow-wrap:anywhere;padding:12pt"><code>${escapeDocumentHtml(codeLines.join("\n"))}</code></pre>`);
+    codeLines = [];
+  };
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (/^```/.test(line)) {
+      if (inCodeBlock) flushCode(); else flushList();
+      inCodeBlock = !inCodeBlock;
+      return;
+    }
+    if (inCodeBlock) {
+      codeLines.push(rawLine);
+      return;
+    }
+    if (!line) {
+      flushList();
+      return;
+    }
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      flushList();
+      const level = Math.min(heading[1].length + 1, 5);
+      output.push(`<h${level}>${renderDocumentInline(heading[2])}</h${level}>`);
+      return;
+    }
+    const ordered = line.match(/^\d+[.、)]\s+(.+)$/);
+    const unordered = line.match(/^[-*+]\s+(.+)$/);
+    if (ordered || unordered) {
+      const nextKind = ordered ? "ol" : "ul";
+      if (listKind && listKind !== nextKind) flushList();
+      listKind = nextKind;
+      listItems.push((ordered ?? unordered)?.[1] ?? line);
+      return;
+    }
+    flushList();
+    if (line.startsWith(">")) {
+      output.push(`<blockquote style="background:#f2f4f7;border-left:4px solid #7342e2;color:#40505c;margin:12pt 0;padding:9pt 12pt">${renderDocumentInline(line.replace(/^>\s?/, ""))}</blockquote>`);
+      return;
+    }
+    output.push(`<p>${renderDocumentInline(line)}</p>`);
+  });
+  if (inCodeBlock) flushCode();
+  flushList();
+  return output.length ? output.join("") : "<p>\u6682\u65e0\u5185\u5bb9\u3002</p>";
+};
+
+const renderDocumentParagraphs = (value: string) => {
+  const paragraphs = value
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  return paragraphs.length
+    ? paragraphs.map((paragraph) => `<p>${escapeDocumentHtml(paragraph).replace(/\n/g, "<br />")}</p>`).join("")
+    : "<p>暂无正文内容。</p>";
+};
+
+const renderQuizDocument = (quiz: Quiz) => `
+  <section class="quiz">
+    <h3>${escapeDocumentHtml(quiz.title)}</h3>
+    ${quiz.questions.map((question, index) => `
+      <article class="question">
+        <h4>${index + 1}. ${escapeDocumentHtml(question.stem)}</h4>
+        ${question.options.length ? `<ol type="A">${question.options.map((option) => `<li>${escapeDocumentHtml(option.text)}</li>`).join("")}</ol>` : ""}
+        <p><strong>参考答案：</strong>${escapeDocumentHtml(question.answer || "未提供")}</p>
+        <p><strong>解析：</strong>${escapeDocumentHtml(question.explanation || "未提供")}</p>
+      </article>
+    `).join("")}
+  </section>
+`;
+
+const renderQuizDocumentForExport = (quiz: Quiz) => `
+  <section class="quiz">
+    <h3>${escapeDocumentHtml(quiz.title)}</h3>
+    ${quiz.questions.map((question, index) => `
+      <article class="question">
+        <h4>${index + 1}. ${escapeDocumentHtml(question.stem)}</h4>
+        ${question.options.length ? `<ol type="A">${question.options.map((option) => `<li>${escapeDocumentHtml(option.text)}</li>`).join("")}</ol>` : ""}
+        <div style="background:#f5f2ff;border-left:4px solid #7342e2;margin-top:12pt;padding:9pt 12pt">
+          <p><strong>\u53c2\u8003\u7b54\u6848\uff1a</strong>${escapeDocumentHtml(question.answer || "\u672c\u9898\u7b54\u6848\u952e\u672a\u968f\u8d44\u6e90\u8fd4\u56de\uff0c\u8bf7\u91cd\u65b0\u751f\u6210\u8be5\u8d44\u6e90\u3002")}</p>
+          <p><strong>\u7b54\u6848\u89e3\u6790\uff1a</strong>${escapeDocumentHtml(question.explanation || "\u672c\u9898\u89e3\u6790\u672a\u968f\u8d44\u6e90\u8fd4\u56de\uff0c\u8bf7\u91cd\u65b0\u751f\u6210\u8be5\u8d44\u6e90\u3002")}</p>
+        </div>
+      </article>
+    `).join("")}
+  </section>
+`;
+
+const quizSignalPattern = /\b(?:quiz|exam|test|assessment|questionnaire)\b|\u6d4b\u8bd5\u9898|\u9009\u62e9\u9898|\u586b\u7a7a\u9898|\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848\u89e3\u6790|\u89e3\u6790/u;
+const quizOptionPattern = /^\s*(?:[-*]\s*)?([A-D])\s*[.\uFF0E\u3001:\uFF1A)\]]\s*(.+)$/i;
+const quizQuestionPattern = /^\s*(?:#{1,6}\s*)?(?:(?:\u7b2c\s*[0-9\u4e00-\u9fff]+\s*\u9898)|(?:\u9898\u76ee|\u95ee\u9898)\s*\d*|Q(?:uestion)?\s*\d+)\s*[:\uFF1A.]?/i;
+const quizAnswerPattern = /(?:\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848|answer)\s*[:\uFF1A]\s*(.+)/i;
+const quizExplanationPattern = /(?:\u7b54\u6848\u89e3\u6790|\u89e3\u6790|explanation)\s*[:\uFF1A]\s*(.+)/i;
+
+function cleanQuizLine(value: string) {
+  return value.replace(/^\s*(?:[-*]\s*)?/, "").replace(/\*\*/g, "").replace(/^#{1,6}\s*/, "").trim();
+}
+
+function hasQuizSignals(resource: GeneratedResource) {
+  const content = resource.content ?? "";
+  const identity = `${resource.resource_type} ${resource.title} ${content}`.toLowerCase();
+  const optionCount = content.split("\n").filter((line) => quizOptionPattern.test(line)).length;
+  return Boolean(resource.quiz?.questions.length) || optionCount >= 2 || quizSignalPattern.test(identity);
+}
+
+function parseQuizContent(resource: GeneratedResource): Quiz | null {
+  const content = resource.content ?? "";
+  if (!content.trim()) return null;
+
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const starts = lines.reduce<number[]>((indexes, line, index) => {
+    if (quizQuestionPattern.test(line)) indexes.push(index);
+    return indexes;
+  }, []);
+  const questionStarts = starts.length ? starts : [0];
+  const questions: Quiz["questions"] = [];
+
+  questionStarts.forEach((start, index) => {
+    const end = questionStarts[index + 1] ?? lines.length;
+    const block = lines.slice(start, end).map(cleanQuizLine).filter(Boolean);
+    const options = block.map((line) => {
+      const match = line.match(quizOptionPattern);
+      return match ? { id: match[1].toUpperCase(), text: match[2].trim() } : null;
+    }).filter((item): item is { id: string; text: string } => item !== null);
+    const answerLine = block.find((line) => quizAnswerPattern.test(line));
+    const explanationLine = block.find((line) => quizExplanationPattern.test(line));
+    const questionLine = block.find((line) => {
+      const clean = cleanQuizLine(line);
+      return !quizOptionPattern.test(clean)
+        && !quizAnswerPattern.test(clean)
+        && !quizExplanationPattern.test(clean)
+        && (quizQuestionPattern.test(clean) || /[?\uFF1F]$/.test(clean));
+    }) ?? block.find((line) => !quizOptionPattern.test(line) && !quizAnswerPattern.test(line) && !quizExplanationPattern.test(line));
+    if (!questionLine) return;
+
+    const answer = answerLine?.match(quizAnswerPattern)?.[1]?.trim() ?? "";
+    const explanation = explanationLine?.match(quizExplanationPattern)?.[1]?.trim() ?? "";
+    const stem = cleanQuizLine(questionLine).replace(quizQuestionPattern, "").trim() || cleanQuizLine(questionLine);
+    questions.push({
+      id: `parsed-q${index + 1}`,
+      stem,
+      options,
+      answer,
+      explanation,
+      questionType: options.length ? "choice" : "fill",
+    });
+  });
+
+  const normalizedQuestions = questions.flatMap((question) => {
+    // A malformed model response can omit later headings and repeat A-D.
+    // Recover each complete option group as its own question instead of
+    // rendering every option in one oversized question.
+    if (question.options.length <= 4) return [question];
+
+    const optionGroups: Array<typeof question.options> = [];
+    let group: typeof question.options = [];
+    question.options.forEach((option) => {
+      if (option.id === "A" && group.length) {
+        optionGroups.push(group);
+        group = [];
+      }
+      group.push(option);
+    });
+    if (group.length) optionGroups.push(group);
+
+    return optionGroups.map((options, groupIndex) => ({
+      ...question,
+      id: `${question.id}-${groupIndex + 1}`,
+      stem: groupIndex === 0
+        ? question.stem
+        : `\u7b2c ${groupIndex + 1} \u5c0f\u9898\uff1a\u8bf7\u6839\u636e\u4ee5\u4e0b\u9009\u9879\u4f5c\u7b54\u3002`,
+      options,
+      // A trailing answer key cannot be mapped safely to recovered groups.
+      answer: groupIndex === 0 ? question.answer : "",
+      explanation: groupIndex === 0 ? question.explanation : "",
+    }));
+  });
+
+  return normalizedQuestions.length ? { title: resource.title, questions: normalizedQuestions } : null;
+}
+
+function isQuizResource(resource: GeneratedResource) {
+  if (hasQuizSignals(resource)) return true;
+  const identity = `${resource.resource_type} ${resource.title} ${resource.content ?? ""}`.toLowerCase();
+  const optionLineCount = (resource.content ?? "").match(/^\s*[A-D][.:]\s+/gim)?.length ?? 0;
+  if (optionLineCount >= 2) return true;
+  return /\b(quiz|exam|test|assessment)\b|测试题|测验|自测|标准答案|题目\s*\d+|第\s*[一二三四五六七八九十\d]+\s*题/.test(identity);
+}
+
+function quizFromResource(resource: GeneratedResource, topic: string): Quiz {
+  if (resource.quiz?.questions.length) return resource.quiz;
+  const parsedQuiz = parseQuizContent(resource);
+  if (parsedQuiz?.questions.length) return parsedQuiz;
+
+  const content = resource.content ?? "";
+  const blocks = content.split(/(?=^\s*(?:#{1,6}\s*)?(?:第\s*[一二三四五六七八九十\d]+\s*题|题目\s*\d+|Q\s*\d+))/im);
+  const questions: Quiz["questions"] = [];
+  blocks.forEach((block, index) => {
+    const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+    const options = lines.map((line) => {
+      const match = line.match(/^([A-D])[.、:：]\s*(.+)$/i);
+      return match ? { id: match[1].toUpperCase(), text: match[2] } : null;
+    }).filter((item): item is { id: string; text: string } => item !== null);
+    const firstQuestionLine = lines.find((line) => /[？?]$/.test(line) || /^问题[：:]/.test(line)) ?? lines[1] ?? lines[0];
+    const answer = block.match(/(?:标准答案|答案)\s*[：:]\s*([A-D]|[^\n]+)/i)?.[1]?.trim() ?? "";
+    const explanation = block.match(/(?:解析|说明)\s*[：:]\s*([^\n]+(?:\n(?!\s*(?:第\s*[一二三四五六七八九十\d]+\s*题|题目\s*\d+|Q\s*\d+)).*)*)/i)?.[1]?.trim() ?? "";
+    if (!firstQuestionLine || !options.length) return;
+    questions.push({
+      id: `generated-q${index + 1}`,
+      stem: firstQuestionLine.replace(/^问题[：:]\s*/, ""),
+      options,
+      answer,
+      explanation,
+      questionType: "choice" as const,
+    });
+  });
+
+  return questions.length ? { title: resource.title || `${topic} 测试题`, questions } : createDemoQuiz(topic);
+}
+
 const qualityGates: Array<{ id: QualityGate; label: string }> = [
   { id: "evidence", label: "依据校验" },
   { id: "difficulty", label: "难度匹配" },
@@ -268,7 +562,7 @@ function KnowledgeManager({ open, onClose }: { open: boolean; onClose: () => voi
   );
 }
 
-function LearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
+function LegacyLearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<LearnerQuestionResponse | null>(null);
   const [asking, setAsking] = useState(false);
@@ -279,7 +573,7 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
   const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
   const [quizError, setQuizError] = useState<string | null>(null);
-  const quiz = resource.quiz || (resource.resource_type === "quiz" ? createDemoQuiz(topic) : null);
+  const quiz = isQuizResource(resource) ? quizFromResource(resource, topic) : null;
   const correctCount = quizResult?.correct_count ?? 0;
 
   const submitQuestion = async (event: FormEvent<HTMLFormElement>) => {
@@ -344,6 +638,113 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
         {quizError ? <p className="mt-4 rounded-xl bg-red-400/15 px-4 py-3 text-sm text-red-100">{quizError}</p> : null}
         {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {advice}</li>)}</ul> : null}
       </div> : null}
+      {quiz && resource.supplements?.length ? <section className="rounded-2xl border border-[#B99DFF]/30 bg-[#B99DFF]/10 p-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-[#E5DBFF]">针对疑问的补充资源</p>
+        <div className="mt-4 grid gap-5">{resource.supplements.map((supplement, index) => <article className="rounded-xl bg-[#0B1D2A]/80 p-4" key={`${supplement.title}-${index}`}>
+          <h5 className="text-base font-semibold text-white">{supplement.title}</h5>
+          <div className="mt-3"><ResourceMarkdown content={supplement.content} /></div>
+        </article>)}</div>
+      </section> : null}
+    </section>
+  );
+}
+
+function LearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<LearnerQuestionResponse | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+  const [revisionApplied, setRevisionApplied] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
+  const [submittingQuiz, setSubmittingQuiz] = useState(false);
+  const [quizError, setQuizError] = useState<string | null>(null);
+  const quiz = isQuizResource(resource) ? quizFromResource(resource, topic) : null;
+  const allQuestionsAnswered = Boolean(quiz?.questions.every((item) => answers[item.id]?.trim()));
+  const quizHasAnswerKey = Boolean(quiz?.questions.length && quiz.questions.every((item) => item.answer.trim() && item.explanation.trim()));
+  const quizSupplements = quiz ? getResourceSupplements(resource) : [];
+  const detailByQuestion = new Map(quizResult?.details.map((detail) => [detail.question_id, detail]));
+
+  const submitQuestion = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion) return;
+
+    setAsking(true);
+    setQuestionError(null);
+    try {
+      setAnswer(await askStudyQuestion(trimmedQuestion, topic, resource.content ?? ""));
+      setRevisionApplied(false);
+    } catch (error) {
+      setAnswer(null);
+      setQuestionError(error instanceof Error ? error.message : "暂时无法获取回答，请确认本地 API 已启动后重试。");
+    } finally {
+      setAsking(false);
+    }
+  };
+
+  const submitQuizAnswers = async () => {
+    if (!quiz || !allQuestionsAnswered) return;
+    if (!quizHasAnswerKey) {
+      setQuizError("这套测试题缺少标准答案或解析，无法可靠评分。请重新生成资源后再提交。");
+      return;
+    }
+    setSubmittingQuiz(true);
+    setQuizError(null);
+    try {
+      setQuizResult(await submitQuiz(quiz, answers, topic, resource.title));
+      setSubmitted(true);
+    } catch (error) {
+      setQuizError(error instanceof Error ? error.message : "提交失败，请确认本地 API 已启动后重试。");
+    } finally {
+      setSubmittingQuiz(false);
+    }
+  };
+
+  return (
+    <section className="mt-8 grid gap-5 border-t border-white/10 pt-7">
+      <div className="rounded-2xl bg-white/[0.07] p-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-white/55">学习中遇到疑问？</p>
+        <h5 className="mt-2 text-lg font-semibold text-white">提出问题，获得直接解答</h5>
+        <form className="mt-4 grid gap-3" onSubmit={submitQuestion}>
+          <textarea className="min-h-24 resize-y rounded-xl bg-black/20 px-4 py-3 text-sm leading-6 text-white outline-none ring-[#B99DFF] placeholder:text-white/45 focus:ring-2" onChange={(event) => setQuestion(event.target.value)} placeholder="例如：什么是手动限速模式？出现送丝异常时应检查哪些地方？" value={question} />
+          <button className="flex items-center justify-between rounded-full bg-white px-5 py-3 text-sm font-semibold text-[#192837] transition hover:brightness-95 disabled:cursor-wait disabled:opacity-60" disabled={asking} type="submit">{asking ? "正在获取回答..." : "获取学习建议"}<Sparkles size={17} strokeWidth={1.8} /></button>
+        </form>
+        {questionError ? <p className="mt-3 rounded-xl bg-red-400/15 px-4 py-3 text-sm leading-6 text-red-100">{questionError}</p> : null}
+        {answer ? <motion.div className="mt-5 rounded-xl bg-[#0B1D2A] p-4 text-sm leading-7 text-white/85" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <p className="font-semibold text-white">针对你的问题</p>
+          <p className="mt-2 whitespace-pre-wrap">{answer.answer}</p>
+          {answer.suggestions.length ? <ul className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-white/75">{answer.suggestions.map((suggestion) => <li key={suggestion}>- {suggestion}</li>)}</ul> : null}
+          <button className="mt-4 rounded-full bg-[#7342E2] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60" disabled={revisionApplied} onClick={() => { onApplyRevision(resource.resource_type, answer); setRevisionApplied(true); }} type="button">{revisionApplied ? "补充已加入当前资源" : "将补充内容加入当前资源"}</button>
+        </motion.div> : null}
+      </div>
+      {quiz ? <div className="rounded-2xl bg-white/[0.07] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div><p className="text-xs font-semibold tracking-[0.12em] text-white/55">测试题</p><h5 className="mt-2 text-lg font-semibold text-white">{quiz.title}</h5></div>
+          {submitted && quizResult ? <span className="rounded-full bg-[#B99DFF]/20 px-3 py-2 text-xs font-semibold text-[#E5DBFF]">得分 {quizResult.correct_count}/{quizResult.total}</span> : null}
+        </div>
+        <p className="mt-3 text-sm leading-6 text-white/65">请先完成每一题。提交前不会显示标准答案和解析；选择题请输入选项字母，简答题请直接输入答案。</p>
+        <div className="mt-5 grid gap-5">{quiz.questions.map((item, index) => {
+          const detail = detailByQuestion.get(item.id);
+          return <fieldset className="rounded-xl bg-black/15 p-4" key={item.id}>
+            <legend className="px-1 text-sm font-semibold leading-6 text-white">{index + 1}. {item.stem}</legend>
+            {item.options.length ? <div className="mt-3 grid gap-2 text-sm text-white/80">{item.options.map((option) => <p className="rounded-lg bg-white/[0.06] px-3 py-2" key={option.id}><strong>{option.id}.</strong> {option.text}</p>)}</div> : null}
+            <label className="mt-4 grid gap-2 text-xs font-semibold text-white/65">你的答案<textarea className="min-h-20 resize-y rounded-lg bg-white/[0.08] px-3 py-2 text-sm font-normal leading-6 text-white outline-none ring-[#B99DFF] focus:ring-2 disabled:opacity-70" disabled={submitted} onChange={(event) => setAnswers((current) => ({ ...current, [item.id]: event.target.value }))} placeholder={item.options.length ? "请输入选项字母，例如 B" : "请写下你的答案"} value={answers[item.id] || ""} /></label>
+            {submitted && detail ? <div className={`mt-4 rounded-lg p-3 text-sm leading-6 ${detail.correct ? "bg-emerald-400/15 text-emerald-50" : "bg-red-400/15 text-red-50"}`}><p className="font-semibold">{detail.correct ? "回答正确" : "需要复习"}</p><p className="mt-1">标准答案：{detail.standard_answer}</p><p className="mt-1">解析：{detail.explanation}</p></div> : null}
+          </fieldset>;
+        })}</div>
+        {!submitted ? <button className="mt-5 flex w-full items-center justify-between rounded-full bg-[#7342E2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={!allQuestionsAnswered || submittingQuiz} onClick={() => void submitQuizAnswers()} type="button">{submittingQuiz ? "正在提交评分..." : "提交并查看答案解析"}<ArrowRightCircle size={17} /></button> : <button className="mt-5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20" onClick={() => { setAnswers({}); setSubmitted(false); setQuizResult(null); setQuizError(null); }} type="button">重新作答</button>}
+        {quizError ? <p className="mt-4 rounded-xl bg-red-400/15 px-4 py-3 text-sm text-red-100">{quizError}</p> : null}
+        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {advice}</li>)}</ul> : null}
+      </div> : null}
+      {quizSupplements.length ? <section className="rounded-2xl border border-[#B99DFF]/30 bg-[#B99DFF]/10 p-5">
+        <p className="text-xs font-semibold tracking-[0.12em] text-[#E5DBFF]">针对疑问的补充资源</p>
+        <div className="mt-4 grid gap-5">{quizSupplements.map((supplement, index) => <article className="rounded-xl bg-[#0B1D2A]/80 p-4" key={`${supplement.title}-${index}`}>
+          <h5 className="text-base font-semibold text-white">{supplement.title}</h5>
+          <div className="mt-3"><ResourceMarkdown content={supplement.content} /></div>
+        </article>)}</div>
+      </section> : null}
     </section>
   );
 }
@@ -415,6 +816,7 @@ function ExpandedWorkspaceLayout({
   onOpenWorkflow,
   onOpenQualityGate,
   onApplyRevision,
+  onExport,
 }: {
   generationResult: GenerationResult | null;
   topic: string;
@@ -427,6 +829,7 @@ function ExpandedWorkspaceLayout({
   onOpenWorkflow: (index: number) => void;
   onOpenQualityGate: (id: QualityGate) => void;
   onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void;
+  onExport: () => void;
 }) {
   const resource = generationResult?.resources?.find((item) => item.resource_type === selectedResource);
   const resourceIndex = generationResult?.resources?.findIndex((item) => item.resource_type === selectedResource);
@@ -441,6 +844,16 @@ function ExpandedWorkspaceLayout({
             {(generationResult?.resources ?? []).map((item, index) => <button aria-current={selectedResource === item.resource_type ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${selectedResource === item.resource_type ? "bg-[#7342E2] text-white shadow-[0_8px_20px_rgba(115,66,226,0.28)]" : "bg-white/[0.06] text-white/75 hover:bg-white/12 hover:text-white"}`} key={item.resource_type} onClick={() => setSelectedResource(item.resource_type)} type="button"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/15 text-[11px]">0{index + 1}</span><span className="truncate">{resourceLabel(item.resource_type)}</span></button>)}
             {!generationResult?.resources?.length ? <p className="px-3 py-2 text-sm leading-6 text-white/55">生成资源后显示目录</p> : null}
           </div>
+          {generationResult?.resources?.length ? (
+            <button
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.1] px-3 py-3 text-sm font-semibold text-white transition hover:bg-[#7342E2] hover:shadow-[0_8px_20px_rgba(115,66,226,0.28)]"
+              onClick={onExport}
+              type="button"
+            >
+              <Download size={16} strokeWidth={1.8} />
+              导出全部资源
+            </button>
+          ) : null}
         </div>
         <div className="mt-4 rounded-2xl bg-white/[0.07] p-4">
           <p className="text-xs font-semibold tracking-[0.14em] text-white/55">协同工作流</p>
@@ -466,7 +879,14 @@ function ExpandedWorkspaceLayout({
         {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">资源预览</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
-          <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
+                {isQuizResource(resource) ? (
+                  <div className="mt-8 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75">
+                    <p className="font-semibold text-white">答题说明</p>
+                    <p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p>
+                  </div>
+                ) : (
+                  <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
+                )}
           <LearningTools onApplyRevision={onApplyRevision} resource={resource} topic={topic} />
           <footer className="mt-9 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}{audit?.issues?.[0]?.detail ? <span className="ml-2">{audit.issues[0].detail}</span> : null}</footer>
         </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
@@ -509,6 +929,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
   const [selectedQualityGate, setSelectedQualityGate] = useState<QualityGate | null>("evidence");
   const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog | null>(null);
+  const [homeInfoDialog, setHomeInfoDialog] = useState<"workflow" | "overview" | null>(null);
   const [topic, setTopic] = useState("");
   const [resourceTypes, setResourceTypes] = useState<string[]>(["lecture"]);
   const [resourceReady, setResourceReady] = useState(false);
@@ -523,6 +944,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [confirmedGoal, setConfirmedGoal] = useState<string | null>(null);
   const [clarification, setClarification] = useState<{ reason: string; questions: ClarificationQuestion[] } | null>(null);
   const [clarificationAnswers, setClarificationAnswers] = useState<Record<string, string>>({});
+  const goalForGenerationRef = useRef<string | null>(null);
   const [education, setEducation] = useState("本科");
   const [major, setMajor] = useState("");
   const [skills, setSkills] = useState("");
@@ -595,13 +1017,53 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         return {
         ...resource,
         content: (resource.content || "") + "\n\n## " + response.revisionTitle + "\n\n" + response.revisionContent,
+        supplements: [...(resource.supplements ?? []), { title: response.revisionTitle, content: response.revisionContent }],
         key_takeaways: [...(resource.key_takeaways ?? []), "已根据你的学习疑问补充说明"],
         };
       }),
     } : current);
   };
+  const exportGeneratedResources = () => {
+    const resources = generationResult?.resources ?? [];
+    if (!resources.length) return;
+
+    const exportTopic = topic.trim() || "个性化学习";
+    const diagnosis = generationResult?.diagnosis;
+    const skillGaps = (diagnosis?.skill_gaps ?? [])
+      .map((gap) => gap.topic)
+      .filter((gap): gap is string => Boolean(gap))
+      .join("、");
+    const resourceSections = resources.map((resource, index) => {
+      const quiz = resource.quiz ?? (hasQuizSignals(resource) ? parseQuizContent(resource) : null);
+      const takeaways = (resource.key_takeaways ?? []).filter(Boolean);
+      const content = quiz ? renderQuizDocumentForExport(quiz) : renderDocumentMarkdown(resource.content ?? "");
+      const takeawaysMarkup = takeaways.length
+        ? `<section class="takeaways"><h3>学习重点</h3><ul>${takeaways.map((item) => `<li>${escapeDocumentHtml(item)}</li>`).join("")}</ul></section>`
+        : "";
+
+      return `<section class="resource"><h2>${index + 1}. ${escapeDocumentHtml(resourceLabel(resource.resource_type))}</h2><h3>${escapeDocumentHtml(resource.title || resourceLabel(resource.resource_type))}</h3><p class="meta">难度：${escapeDocumentHtml(resource.difficulty_level || "未提供")}　预计时长：${resource.estimated_duration_minutes ? `${resource.estimated_duration_minutes} 分钟` : "未提供"}</p>${takeawaysMarkup}<section class="content">${content}</section></section>`;
+    }).join("");
+    const auditItems = (generationResult?.audit ?? []).map((item) => {
+      const issues = (item.issues ?? []).map((issue) => issue.detail).filter((detail): detail is string => Boolean(detail)).join("；");
+      return `<li><strong>${escapeDocumentHtml(resourceLabel(item.resource_type || "资源"))}：</strong>${escapeDocumentHtml(item.verdict || "未提供")}${issues ? `（${escapeDocumentHtml(issues)}）` : ""}</li>`;
+    }).join("");
+    const documentTitle = `${exportTopic} - 个性化学习资源`;
+    const documentHtml = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><title>${escapeDocumentHtml(documentTitle)}</title><style>@page{size:A4;margin:18mm}body{color:#172b3a;font-family:"Microsoft YaHei",Arial,sans-serif;font-size:11pt;line-height:1.75}h1,h2,h3,h4{color:#172b3a;margin:0}h1{font-size:22pt}h2{font-size:16pt;margin-top:0}h3{font-size:13pt;margin-top:8pt}h4{font-size:11pt;margin-top:12pt}.meta{color:#5d6a75;font-size:9.5pt}.summary,.audit{background:#f2f4f7;border-left:4px solid #7342e2;padding:12pt 16pt;margin:18pt 0}.resource{border-top:1px solid #d7dce1;margin-top:22pt;padding-top:18pt}.takeaways{background:#f8f6ff;padding:10pt 14pt;margin:14pt 0}.content p{margin:9pt 0}.quiz{margin-top:10pt}.question{border-top:1px solid #e3e6e9;margin-top:14pt;padding-top:12pt}ol,ul{padding-left:22pt}li{margin:4pt 0}</style></head><body><h1>${escapeDocumentHtml(documentTitle)}</h1><p class="meta">导出时间：${escapeDocumentHtml(new Date().toLocaleString("zh-CN"))}</p><section class="summary"><h2>学习画像</h2><p><strong>学习目标：</strong>${escapeDocumentHtml(exportTopic)}</p><p><strong>诊断摘要：</strong>${escapeDocumentHtml(diagnosis?.summary || "暂无诊断摘要。")}</p><p><strong>推荐难度：</strong>${escapeDocumentHtml(diagnosis?.recommended_difficulty || "未提供")}</p>${skillGaps ? `<p><strong>待补足方向：</strong>${escapeDocumentHtml(skillGaps)}</p>` : ""}</section>${resourceSections}${auditItems ? `<section class="audit"><h2>审核摘要</h2><ul>${auditItems}</ul></section>` : ""}</body></html>`;
+    const safeFileName = exportTopic.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) || "学习资源";
+    const blob = new Blob(["\ufeff", documentHtml], { type: "application/msword;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeFileName}.doc`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
   const confirmClarification = () => {
     const refined = refineLearningGoal(learningGoal, clarificationAnswers);
+    // React state is asynchronous; retain the exact clarified goal for this request.
+    goalForGenerationRef.current = refined;
     setLearningGoal(refined);
     setTopic(refined);
     setConfirmedGoal(refined);
@@ -682,19 +1144,20 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   };
   const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (confirmedGoal !== learningGoal.trim()) {
-      const assessment = await assessLearningGoal(learningGoal);
+    const goalForGeneration = goalForGenerationRef.current ?? learningGoal.trim();
+    if (confirmedGoal !== goalForGeneration) {
+      const assessment = await assessLearningGoal(goalForGeneration);
       if (assessment.status === "needs_clarification") {
         setClarification({ reason: assessment.reason, questions: assessment.questions });
         setClarificationAnswers({});
         return;
       }
-      setConfirmedGoal(learningGoal.trim());
+      setConfirmedGoal(goalForGeneration);
     }
 
     const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
     const payload = {
-      learning_goal: learningGoal.trim(),
+      learning_goal: goalForGeneration,
       education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
       major: major.trim(),
       work_years: workYears,
@@ -704,6 +1167,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       pretest_results: [],
       resource_types: resourceTypes,
     };
+    goalForGenerationRef.current = null;
 
     setIsGenerating(true);
     stopWorkflowRef.current?.();
@@ -796,31 +1260,30 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       </motion.video>
       <div className="absolute inset-0 z-[1] bg-[#F2F2EE]/[0.14]" />
 
-      <header className="relative z-10 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 sm:px-8 sm:py-5">
+      <header className="relative z-10 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 max-[1023px]:[&>div]:hidden lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
         {!schemeB ? <BrandMark /> : null}
-        <nav className={`hidden items-center gap-7 md:flex ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
-          {navigation.map((item, index) => <button className={`text-sm font-medium transition-opacity hover:opacity-50 ${activePanel === panelIds[index] ? "opacity-100" : "opacity-65"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
+        <nav className={`hidden items-center gap-3 text-sm lg:flex xl:gap-8 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
+          {navigation.map((item, index) => <button className={`font-medium transition-opacity hover:opacity-50 ${activePanel === panelIds[index] ? "opacity-100" : "opacity-65"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
         </nav>
         <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton><ActionButton kind="quiet" onClick={() => setKbOpen(true)}>知识库</ActionButton></div>
         <button aria-expanded={menuOpen} aria-label="打开菜单" className="grid h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={21} strokeWidth={1.8} /></button>
       </header>
 
+      <button aria-expanded={menuOpen} aria-label="打开菜单" className="absolute left-5 top-4 z-20 hidden h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:grid lg:hidden sm:left-8 sm:top-5" onClick={() => setMenuOpen(true)} type="button"><Menu size={21} strokeWidth={1.8} /></button>
       <div className={`relative z-10 mx-auto max-w-[1280px] px-5 sm:px-8 ${schemeB ? "lg:flex lg:items-end lg:justify-start lg:gap-6" : ""}`} style={{ paddingTop: "clamp(40px, 8vw, 72px)" }}>
         <motion.div className={schemeB ? "max-w-[560px] rounded-[2rem] bg-[#F2F2EE]/78 p-7 shadow-[0_18px_60px_rgba(25,40,55,0.10)] backdrop-blur-[3px] sm:p-10" : "max-w-[560px]"} style={reducedMotion ? undefined : { x: mainX, y: mainY }}>
-          <motion.h1 {...fadeUp(0)} className="mb-6 font-[var(--font-heading)] text-[clamp(1.65rem,5vw,3rem)] font-bold leading-[1.05] tracking-[-0.01em]">
-            <BrainCircuit className="relative -top-0.5 mr-1 inline-block align-middle" color="#192837" size={24} strokeWidth={1.9} />
-            从学习画像开始 <Sparkles className="relative -top-0.5 mx-1 inline-block align-middle" color="#192837" size={24} strokeWidth={1.9} /> 生成可信的个性化内容 <ShieldCheck className="relative -top-0.5 ml-1 inline-block align-middle" color="#192837" size={24} strokeWidth={1.9} />
-          </motion.h1>
-          <motion.p {...fadeUp(1)} className="max-w-[560px] text-[clamp(0.9rem,2.5vw,1.1rem)] leading-[1.65] opacity-80">XH-Agent 通过 4 个 Agent、3 道质量闸门和 32 篇知识库文档，完成学情诊断、RAG 约束生成、内容审核与保真修正。</motion.p>
+          <motion.h1 {...fadeUp(0)} className="mb-6 font-[var(--font-heading)] text-[clamp(1.65rem,5vw,3rem)] font-bold leading-[1.05] tracking-[-0.01em]">领域知识个性化生成与多智能体协同决策系统</motion.h1>
+          <motion.p {...fadeUp(1)} className="max-w-[560px] text-[clamp(0.9rem,2.5vw,1.1rem)] leading-[1.65] opacity-80">从目标追问到实时协同：XH-Agent 基于知识库检索生成讲义、实操指南与可作答测试题，并完成质量审核、保真修正与后续答疑。</motion.p>
           <motion.button {...fadeUp(2)} className="mt-8 flex min-w-[210px] max-w-max items-center justify-between gap-8 rounded-[50px] bg-[#7342E2] px-6 py-[17px] text-[clamp(0.9rem,2vw,1rem)] font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)]" onClick={openGenerator} type="button" whileHover={{ scale: 1.04, filter: "brightness(1.1)" }} whileTap={{ scale: 0.96 }}>
-            生成学习资源 <ArrowRightCircle size={20} strokeWidth={1.8} />
+            开始定制学习方案 <ArrowRightCircle size={20} strokeWidth={1.8} />
           </motion.button>
         </motion.div>
         {schemeB ? (
           <motion.aside className="mt-10 hidden w-[270px] shrink-0 rounded-[1.75rem] bg-[#F2F2EE]/82 p-6 text-[#192837] shadow-[0_18px_60px_rgba(25,40,55,0.12)] backdrop-blur-[4px] lg:mt-0 lg:block" style={reducedMotion ? undefined : { x: mainX, y: mainY }} aria-label="XH Agent 工作流">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#192837]/55">协同工作流</p>
-            <h2 className="mt-2 font-[var(--font-heading)] text-2xl leading-tight">每一步都有依据</h2>
-            <ol className="mt-6 grid gap-4">
+            <h2 className="mt-2 font-[var(--font-heading)] text-2xl leading-tight">从目标澄清到学习闭环</h2>
+            <button className="mt-5 flex w-full items-center justify-between rounded-xl bg-[#192837]/[0.08] px-3 py-2 text-left text-xs font-semibold transition hover:bg-[#7342E2] hover:text-white" onClick={() => setHomeInfoDialog("workflow")} type="button"><span>查看流程说明</span><ArrowRightCircle size={16} strokeWidth={1.8} /></button>
+            <ol className="mt-4 grid gap-4">
               {workflowSteps.map((step, index) => (
                 <motion.li className="flex cursor-default items-center gap-3 text-sm" key={step} onHoverEnd={() => setActiveStep(null)} onHoverStart={() => setActiveStep(index)} whileHover={reducedMotion ? undefined : { x: 4, scale: 1.02 }}>
                   <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-semibold transition-colors ${activeStep === index ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08]"}`}>0{index + 1}</span>
@@ -839,12 +1302,43 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
               <h2 className="font-[var(--font-heading)] text-2xl leading-tight">{panelDetails[activePanel].title}</h2>
               <p className="mt-2 max-w-[540px] text-sm leading-6 text-[#192837]/75">{panelDetails[activePanel].description}</p>
             </div>
-            <span className="shrink-0 rounded-full bg-[#192837]/[0.08] px-3 py-2 text-xs font-semibold">{panelDetails[activePanel].metric}</span>
+            {activePanel === "overview" ? <button className="shrink-0 rounded-full bg-[#192837]/[0.08] px-3 py-2 text-xs font-semibold transition hover:bg-[#7342E2] hover:text-white" onClick={() => setHomeInfoDialog("overview")} type="button">查看系统说明</button> : <span className="shrink-0 rounded-full bg-[#192837]/[0.08] px-3 py-2 text-xs font-semibold">{panelDetails[activePanel].metric}</span>}
           </div>
         </div>
       </motion.section>
       <MobileMenu onNavigate={selectPanel} onOpenGenerator={openGenerator} onOpenWorkspace={() => { setMenuOpen(false); setWorkspaceOpen(true); }} onOpenKb={() => { setMenuOpen(false); setKbOpen(true); }} open={menuOpen} onClose={() => setMenuOpen(false)} />
       <KnowledgeManager open={kbOpen} onClose={() => setKbOpen(false)} />
+      <AnimatePresence>
+        {homeInfoDialog ? (
+          <>
+            <motion.button aria-label="关闭说明弹窗" className="fixed inset-0 z-50 bg-[#192837]/40 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHomeInfoDialog(null)} type="button" />
+            <motion.section aria-label={homeInfoDialog === "workflow" ? "协同工作流说明" : "系统概览说明"} className="fixed inset-x-4 top-1/2 z-[55] mx-auto max-h-[calc(100dvh-48px)] w-[min(680px,calc(100vw-32px))] -translate-y-1/2 overflow-y-auto rounded-[2rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_22px_72px_rgba(25,40,55,0.30)] sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 22, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 22, scale: 0.98 }} transition={{ duration: 0.3, ease }} role="dialog" aria-modal="true">
+              <div className="flex items-start justify-between gap-5">
+                <div>
+                  <p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">{homeInfoDialog === "workflow" ? "协同工作流" : "系统概览"}</p>
+                  <h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">{homeInfoDialog === "workflow" ? "每一步都有明确输入与输出" : "把学习目标变成可验证的进步"}</h2>
+                </div>
+                <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition hover:bg-[#192837]/[0.15]" onClick={() => setHomeInfoDialog(null)} type="button"><X size={20} strokeWidth={1.8} /></button>
+              </div>
+              {homeInfoDialog === "workflow" ? (
+                <div className="mt-7 grid gap-3">
+                  <p className="text-sm leading-6 text-[#192837]/75">XH-Agent 会把一次学习请求拆成连续协作的任务。前一阶段的结论会成为后一阶段的依据，避免资源内容与学习目标脱节。</p>
+                  {["目标澄清：补齐学习范围、预期成果与时间边界。", "学情诊断：结合已有技能、专业和工作背景确定起点。", "知识检索与资源生成：从知识库检索相关内容，再生成讲义、实操指南或测试题。", "内容审核与保真修正：检查资源是否有依据、难度是否匹配、表述是否可用。", "学习反馈：根据答题结果和学习疑问，补充解释、建议或下一轮资源。"].map((item, index) => <div className="flex gap-3 rounded-2xl bg-white/65 p-4" key={item}><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#7342E2] text-xs font-semibold text-white">0{index + 1}</span><p className="text-sm font-medium leading-6">{item}</p></div>)}
+                </div>
+              ) : (
+                <div className="mt-7 grid gap-4">
+                  <p className="text-sm leading-6 text-[#192837]/75">系统概览展示项目如何从一个宽泛的学习愿望，逐步形成能学习、能练习、能反馈的个性化路径。</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {["明确目标：先识别过于宽泛的目标，并通过追问确定重点、成果和周期。", "可信生成：检索本地知识库，以检索结果约束讲义、实操指南与测试题。", "可验证练习：测试题支持提交作答，再显示标准答案与解析。", "反馈迭代：学习者可以提出疑问，系统据此生成针对性补充与下一步建议。"].map((item, index) => <div className="rounded-2xl bg-white/65 p-4" key={item}><span className="text-xs font-semibold text-[#7342E2]">0{index + 1}</span><p className="mt-2 text-sm font-medium leading-6">{item}</p></div>)}
+                  </div>
+                  <div className="rounded-2xl bg-[#192837] p-5 text-white"><p className="text-xs font-semibold text-white/55">学习闭环</p><p className="mt-2 text-sm leading-6 text-white/85">目标澄清、学情诊断、知识检索、资源生成、审核修正、作答与反馈构成持续迭代的学习闭环。每次反馈都能成为下一次学习资源生成的输入。</p></div>
+                </div>
+              )}
+              <button className="mt-7 w-full rounded-full bg-[#7342E2] px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(115,66,226,0.25)] transition hover:brightness-110" onClick={() => setHomeInfoDialog(null)} type="button">我知道了</button>
+            </motion.section>
+          </>
+        ) : null}
+      </AnimatePresence>
       <AnimatePresence>
         {generatorOpen ? (
           <>
@@ -891,7 +1385,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onExport={exportGeneratedResources} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
                  <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
@@ -911,6 +1405,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                       ))}
                     </div>
                   </div>
+                  <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={exportGeneratedResources} type="button"><Download size={16} strokeWidth={1.9} />导出全部资源</button>
                   {selectedResource ? (() => {
                     const resource = generationResult.resources?.find((item) => item.resource_type === selectedResource);
                     const resourceIndex = generationResult.resources?.findIndex((entry) => entry.resource_type === selectedResource);
@@ -932,7 +1427,14 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                             </ul>
                           </aside>
                         ) : null}
-                        <div className="mt-6"><ResourceMarkdown content={resource.content || ""} /></div>
+              {isQuizResource(resource) ? (
+                <div className="mt-6 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75">
+                  <p className="font-semibold text-white">答题说明</p>
+                  <p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p>
+                </div>
+              ) : (
+                <div className="mt-6"><ResourceMarkdown content={resource.content || ""} /></div>
+              )}
                         <LearningTools onApplyRevision={applyRevision} resource={resource} topic={topic} />
                         <footer className="mt-8 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80">
                           <span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}

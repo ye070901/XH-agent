@@ -151,8 +151,7 @@
       "expected_domain": "K3",
       "expected_keywords": ["SRVO-068", "脉冲编码器", "数据传输", "DTERR"],
       "expected_doc_ids": [
-        "K3_20260805_001_fanuc_srvo068_error_fix",
-        "K3_20260803_001_fanuc_srvo068_error_fix"
+        "K3_20260805_001_fanuc_srvo068_error_fix"
       ]
     },
     {
@@ -162,8 +161,7 @@
       "expected_domain": "K3",
       "expected_keywords": ["DTERR", "脉冲编码器", "数据传输", "SRVO-068"],
       "expected_doc_ids": [
-        "K3_20260805_001_fanuc_srvo068_error_fix",
-        "K3_20260803_001_fanuc_srvo068_error_fix"
+        "K3_20260805_001_fanuc_srvo068_error_fix"
       ]
     },
     {

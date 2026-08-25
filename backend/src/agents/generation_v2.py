@@ -16,6 +16,7 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
 """
 
 import json
+import re
 import uuid
 
 from .base import BaseAgent
@@ -243,7 +244,59 @@ class GenerationAgent(BaseAgent):
 7. 优先覆盖 critical 和 high 优先级的知识盲区
 8. citations 中至少引用 2 条知识库原文片段"""
 
-        return await self.call_llm_json(prompt)
+        if rtype == "quiz":
+            prompt += """
+
+## STRICT QUIZ CONTRACT
+Create at least 5 distinct questions. Each question must have a unique, clear
+stem and must be numbered in order as `Question 1:` through `Question 5:`.
+For a multiple-choice question, include exactly four options labelled A-D,
+then include `Answer: <letter>` and `Explanation: <reason>` immediately after
+that question. Never place more than one A-D option group under one question
+heading. Include a mix of recall, scenario, and application questions that is
+relevant to the learner profile and the retrieved knowledge.
+"""
+
+        result = await self.call_llm_json(prompt)
+        if rtype != "quiz" or self._has_complete_quiz_key(result):
+            return result
+
+        # A quiz without an answer key cannot be submitted, reviewed, or exported
+        # as a self-study resource. Ask once more before it reaches the UI.
+        repair_prompt = f"""Repair this quiz resource. Keep it grounded in the
+learner profile and knowledge context below, but return a complete JSON object
+with the same fields as the original response.
+
+{kb_context}
+
+Original quiz JSON:
+{result}
+
+Requirements:
+- Create at least 5 numbered questions.
+- Every question must have one answer line written exactly as `Answer: ...`
+  (or `标准答案：...`) and one non-empty explanation line written exactly as
+  `Explanation: ...` (or `解析：...`).
+- Multiple-choice questions must have exactly four A-D options, and the answer
+  must be the matching option letter.
+- Do not omit answers or explanations for any question.
+"""
+        repaired = await self.call_llm_json(repair_prompt)
+        return repaired if self._has_complete_quiz_key(repaired) else result
+
+    @staticmethod
+    def _has_complete_quiz_key(result: dict | None) -> bool:
+        """Return whether every recognizable quiz question includes its key."""
+        if not isinstance(result, dict):
+            return False
+        content = str(result.get("content", ""))
+        question_count = len(re.findall(
+            r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:question\s*\d+|q\s*\d+|第\s*[0-9一二三四五六七八九十]+\s*题)",
+            content,
+        ))
+        answer_count = len(re.findall(r"(?im)^\s*(?:answer|标准答案|参考答案|正确答案|答案)\s*[:：]", content))
+        explanation_count = len(re.findall(r"(?im)^\s*(?:explanation|答案解析|解析)\s*[:：]", content))
+        return question_count >= 5 and answer_count >= question_count and explanation_count >= question_count
 
     def _fmt_gaps(self, gaps: list) -> str:
         """格式化知识盲区列表为可读文本，最多展示前 5 条。
