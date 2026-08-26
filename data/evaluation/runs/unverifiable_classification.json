@@ -1,0 +1,464 @@
+{
+  "threshold": 0.4,
+  "total": 65,
+  "A": 62,
+  "B": 3,
+  "unknown": 0,
+  "rows": [
+    {
+      "case_id": "P3-01-K1-CORE-002",
+      "claim": "FANUC示教器在T1模式下，机器人速度被限制在250mm/s以下",
+      "class": "A",
+      "coverage": 0.2913,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-01-K1-HIGH-004",
+      "claim": "ABB机器人示教器上切换坐标系的路径为：手动操纵→坐标系→选择工具坐标",
+      "class": "A",
+      "coverage": 0.31,
+      "matched_doc": "K2_001_abb_robotstudio_online_course"
+    },
+    {
+      "case_id": "P3-01-K2-CORE-001",
+      "claim": "IRB 120是ABB机器人库中的小型机器人，适合入门",
+      "class": "A",
+      "coverage": 0.3055,
+      "matched_doc": "K2_20260815_011_robodk_multibrand_olp_python_api"
+    },
+    {
+      "case_id": "P3-01-K2-CORE-002",
+      "claim": "RobotStudio中可从基本选项卡的机器人模型下拉菜单选择IRB 1200机器人",
+      "class": "A",
+      "coverage": 0.2434,
+      "matched_doc": "K2_001_abb_robotstudio_online_course"
+    },
+    {
+      "case_id": "P3-01-K2-HIGH-005",
+      "claim": "FANUC ROBOGUIDE 软件需要 V9.1 或更高版本",
+      "class": "A",
+      "coverage": 0.2069,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "更换备份电池时，务必保持控制柜电源在开启状态，否则位置数据可能丢失",
+      "class": "A",
+      "coverage": 0.3394,
+      "matched_doc": "K3_20260805_002_fanuc_srvo062_bzal_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "在T1模式下，机器人的速度将被限制在250mm/s以下",
+      "class": "A",
+      "coverage": 0.2711,
+      "matched_doc": "K1_20260811_机器人示教器基本操作_005"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "零点标定（Mastering）操作通过将每个轴移动到机械零点标记处，重新记录绝对位置",
+      "class": "A",
+      "coverage": 0.1996,
+      "matched_doc": "K2_005_kuka_krl_offline_simulation_guide"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "标定菜单路径为【MENU】->【0 NEXT】->【6 MASTER/CAL】，使用【F3】（RES_PCA）复位脉冲编码器报警",
+      "class": "A",
+      "coverage": 0.2885,
+      "matched_doc": "K3_20260805_002_fanuc_srvo062_bzal_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "标定方法选择【1 MASTERING】，标定类型可选择单轴标定或全部轴标定",
+      "class": "A",
+      "coverage": 0.3259,
+      "matched_doc": "K3_20260805_002_fanuc_srvo062_bzal_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-002",
+      "claim": "关节坐标系下每个轴独立运动，是标定时最常用的模式",
+      "class": "A",
+      "coverage": 0.285,
+      "matched_doc": "K2_005_kuka_krl_offline_simulation_guide"
+    },
+    {
+      "case_id": "P3-01-K3-HIGH-003",
+      "claim": "RobotStudio仿真软件无法模拟真实脉冲编码器的数据丢失或脉冲不匹配状态，SRVO-038报警无法在仿真中真实触发",
+      "class": "A",
+      "coverage": 0.2749,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-004",
+      "claim": "在FANUC示教器上，反复按COORD键可在JOINT、WORLD、TOOL、USER等坐标系之间循环切换",
+      "class": "A",
+      "coverage": 0.2402,
+      "matched_doc": "K1_20260811_机器人坐标系_001"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-005",
+      "claim": "围栏门关闭时安全开关信号为ON（闭合），打开时为OFF（断开）",
+      "class": "B",
+      "coverage": 0.4043,
+      "matched_doc": "K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-CORE-005",
+      "claim": "复位SRVO-004报警需按下示教器上的RESET键",
+      "class": "A",
+      "coverage": 0.3575,
+      "matched_doc": "K3_20260822_015_fanuc_srvo002_tp_estop_error_fix"
+    },
+    {
+      "case_id": "P3-01-K3-HIGH-006",
+      "claim": "SRVO是Servo（伺服）的缩写，因此SRVO系列报警属于伺服报警",
+      "class": "A",
+      "coverage": 0.2248,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-02-K1-CORE-001",
+      "claim": "RobotStudio 2024的'信号模拟'功能可以模拟通信中断",
+      "class": "A",
+      "coverage": 0.2945,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-02-K1-HIGH-004",
+      "claim": "验证标定结果可通过点动验证：在示教器上切换坐标系到标定的UFrame，手动移动机器人沿X、Y、Z轴方向运动，观察TCP是否严格沿工件坐标系轴线移动",
+      "class": "A",
+      "coverage": 0.1947,
+      "matched_doc": "K2_009_fanuc_roboguide_guide"
+    },
+    {
+      "case_id": "P3-02-K1-HIGH-006",
+      "claim": "RobotStudio中，在控制器选项卡的配置I/O系统中新建数字输出和数字输入信号，并与代码中的信号名保持一致",
+      "class": "A",
+      "coverage": 0.2083,
+      "matched_doc": "K2_009_fanuc_roboguide_guide"
+    },
+    {
+      "case_id": "P3-02-K2-CORE-001",
+      "claim": "急停信号采用常闭逻辑，正常运行时信号为1，急停按下时为0",
+      "class": "A",
+      "coverage": 0.1638,
+      "matched_doc": "K1_20260811_工业机器人基础安全常识_009"
+    },
+    {
+      "case_id": "P3-02-K2-CORE-001",
+      "claim": "RobotStudio默认的I/O扫描周期为100ms",
+      "class": "A",
+      "coverage": 0.1739,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-02-K2-HIGH-004",
+      "claim": "KUKA报警代码KSS15100表示安全急停触发，KSS15200表示安全门打开",
+      "class": "A",
+      "coverage": 0.2601,
+      "matched_doc": "K3_20260818_009_fanuc_srvo280_svoff_input_error_fix"
+    },
+    {
+      "case_id": "P3-02-K2-HIGH-006",
+      "claim": "伺服放大器LED状态绿色表示正常，红色表示故障",
+      "class": "A",
+      "coverage": 0.2568,
+      "matched_doc": "K3_20260822_024_fanuc_srvo059_servo_amp_init_error_fix"
+    },
+    {
+      "case_id": "P3-02-K2-HIGH-006",
+      "claim": "伺服放大器LED红色闪烁次数代表不同故障：1次闪烁=过载，2次闪烁=过压，3次闪烁=编码器异常",
+      "class": "A",
+      "coverage": 0.1994,
+      "matched_doc": "K3_20260822_024_fanuc_srvo059_servo_amp_init_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-001",
+      "claim": "安全急停信号是串行通信链路的一部分，急停触发可能导致数据传输中断",
+      "class": "A",
+      "coverage": 0.253,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-001",
+      "claim": "示教器菜单路径为MENU → 状态 → 伺服，可查看相关轴的电流、位置和通信状态",
+      "class": "A",
+      "coverage": 0.3092,
+      "matched_doc": "K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-002",
+      "claim": "在T1模式下，机器人速度被限制在250mm/s以内",
+      "class": "A",
+      "coverage": 0.2896,
+      "matched_doc": "K1_20260811_机器人示教器基本操作_005"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-002",
+      "claim": "更换编码器备份电池时，推荐使用FANUC原厂电池，型号A98L-0031-0025",
+      "class": "A",
+      "coverage": 0.2656,
+      "matched_doc": "K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-HIGH-003",
+      "claim": "位置恢复操作路径为MENU → 系统 → 维护 → 绝对位置，通过按F4(位置恢复)执行",
+      "class": "A",
+      "coverage": 0.3946,
+      "matched_doc": "K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-HIGH-003",
+      "claim": "位置恢复后必须执行冷启动（Cold Start），否则控制器可能仍使用旧数据",
+      "class": "A",
+      "coverage": 0.1638,
+      "matched_doc": "K3_20260805_002_fanuc_srvo062_bzal_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-HIGH-003",
+      "claim": "急停触发时，伺服放大器会立即切断电机动力，但编码器仍在供电（如果电池正常）",
+      "class": "A",
+      "coverage": 0.2803,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-004",
+      "claim": "门开关通常是一个微动开关（或接近开关），门关闭时NC触点应导通，门打开时NC触点应断开",
+      "class": "A",
+      "coverage": 0.2382,
+      "matched_doc": "K3_20260807_004_fanuc_srvo105_door_estop_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-004",
+      "claim": "急停回路是串联的，任何一个急停按钮被按下或损坏都会导致回路断开",
+      "class": "A",
+      "coverage": 0.2045,
+      "matched_doc": "K1_20260811_机器人操作初学者常见误区_008"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-004",
+      "claim": "R-30iB控制器通常有专用的安全继电器模块（如CRMA15/16）",
+      "class": "A",
+      "coverage": 0.274,
+      "matched_doc": "K3_20260818_009_fanuc_srvo280_svoff_input_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-CORE-004",
+      "claim": "正常状态下，急停回路闭合时，安全继电器指示灯应点亮",
+      "class": "A",
+      "coverage": 0.2236,
+      "matched_doc": "K3_20260818_009_fanuc_srvo280_svoff_input_error_fix"
+    },
+    {
+      "case_id": "P3-02-K3-HIGH-006",
+      "claim": "SRVO-230/231通常伴随SRVO-062或SRVO-068出现",
+      "class": "B",
+      "coverage": 0.4286,
+      "matched_doc": "K3_20260822_015_fanuc_srvo002_tp_estop_error_fix"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-001",
+      "claim": "ABB中工具坐标系（tool data）定义在FlexPendant的'手动操纵'→'工具'菜单中",
+      "class": "B",
+      "coverage": 0.4332,
+      "matched_doc": "K2_001_abb_robotstudio_online_course"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-001",
+      "claim": "ABB安全手册（3HAC027098-001）强调操作前必须确认工具数据与实际安装的末端执行器一致",
+      "class": "A",
+      "coverage": 0.3395,
+      "matched_doc": "K1_20260811_机器人操作初学者常见误区_008"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-001",
+      "claim": "KUKA官方文档指出当拥有精确CAD模型时，应直接输入TCP的X/Y/Z坐标及A/B/C姿态角",
+      "class": "A",
+      "coverage": 0.3115,
+      "matched_doc": "K2_005_kuka_krl_offline_simulation_guide"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-001",
+      "claim": "KUKA的XYZ 4点法适用于无CAD模型时的现场估算",
+      "class": "A",
+      "coverage": 0.3403,
+      "matched_doc": "K2_005_kuka_krl_offline_simulation_guide"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-003",
+      "claim": "ABB RobotStudio推荐版本为6.08或更高版本",
+      "class": "A",
+      "coverage": 0.2752,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-03-K1-CORE-003",
+      "claim": "RobotStudio不支持直接导入SolidWorks原生格式",
+      "class": "A",
+      "coverage": 0.3148,
+      "matched_doc": "K2_008_urdf_ros2_gazebo_simulation_tutorial"
+    },
+    {
+      "case_id": "P3-03-K1-HIGH-004",
+      "claim": "在RobotStudio中，采用4点法标定TCP时，软件记录每种姿态下的机器人法兰盘位姿（X、Y、Z、RX、RY、RZ），然后通过最小二乘法求解一个固定点（TCP）",
+      "class": "A",
+      "coverage": 0.2038,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-03-K2-CORE-001",
+      "claim": "RobotStudio的虚拟示教器主要用于微调，而非路径生成的主要手段",
+      "class": "A",
+      "coverage": 0.2768,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-03-K2-CORE-001",
+      "claim": "RobotStudio支持在3D模型中直接拖拽机器人末端创建目标点",
+      "class": "A",
+      "coverage": 0.2543,
+      "matched_doc": "K2_001_abb_robotstudio_online_course"
+    },
+    {
+      "case_id": "P3-03-K2-CORE-001",
+      "claim": "SetDO是异步指令，立即返回，需要等待夹爪到位信号",
+      "class": "A",
+      "coverage": 0.2801,
+      "matched_doc": "K1_20260811_机器人搬运上下料编程_007"
+    },
+    {
+      "case_id": "P3-03-K2-CORE-002",
+      "claim": "ABB IRB 120的负载为3kg，工作半径为0.58m",
+      "class": "A",
+      "coverage": 0.2187,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-03-K2-CORE-003",
+      "claim": "IRB 1200有效载荷7kg",
+      "class": "A",
+      "coverage": 0.3807,
+      "matched_doc": "K1_20260811_机器人坐标系设置_004"
+    },
+    {
+      "case_id": "P3-03-K2-HIGH-004",
+      "claim": "AXIS结构用于描述机器人各轴的角度值",
+      "class": "A",
+      "coverage": 0.2356,
+      "matched_doc": "K1_20260811_机器人坐标系_001"
+    },
+    {
+      "case_id": "P3-03-K2-HIGH-006",
+      "claim": "ROS2 Humble 对应 Ubuntu 22.04",
+      "class": "A",
+      "coverage": 0.2485,
+      "matched_doc": "K2_20260803_001_robotstudio_workstation_setup"
+    },
+    {
+      "case_id": "P3-03-K2-HIGH-006",
+      "claim": "ROS2 Foxy 对应 Ubuntu 20.04",
+      "class": "A",
+      "coverage": 0.3387,
+      "matched_doc": "K2_20260803_001_robotstudio_workstation_setup"
+    },
+    {
+      "case_id": "P3-03-K2-HIGH-006",
+      "claim": "安装Gazebo的命令是 sudo apt install ros-${ROS_DISTRO}-gazebo-ros-pkgs",
+      "class": "A",
+      "coverage": 0.3626,
+      "matched_doc": "K2_002_moveit2_motion_planning_tutorial"
+    },
+    {
+      "case_id": "P3-03-K3-CORE-001",
+      "claim": "ABB RobotStudio的仿真文件（.rswsln等）无法被真实控制器识别",
+      "class": "A",
+      "coverage": 0.2897,
+      "matched_doc": "K2_010_simulation_fault_troubleshooting"
+    },
+    {
+      "case_id": "P3-03-K3-CORE-001",
+      "claim": "KUKA KRC4控制器的驱动总线是SERCOS III或类似实时以太网总线",
+      "class": "A",
+      "coverage": 0.1399,
+      "matched_doc": "K2_005_kuka_krl_offline_simulation_guide"
+    },
+    {
+      "case_id": "P3-03-K3-HIGH-003",
+      "claim": "更换电池后，如果操作足够快且控制器持续供电，编码器数据可能不会丢失，SRVO-038报警不一定出现",
+      "class": "A",
+      "coverage": 0.3124,
+      "matched_doc": "K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix"
+    },
+    {
+      "case_id": "P3-03-K3-CORE-004",
+      "claim": "安全链路中其他串联元件（如外部急停继电器）断开会导致整体安全链路中断，但示教器优先显示门状态",
+      "class": "A",
+      "coverage": 0.2107,
+      "matched_doc": "K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix"
+    },
+    {
+      "case_id": "P3-03-K3-CORE-005",
+      "claim": "ROS2 Humble运行环境为Ubuntu 22.04",
+      "class": "A",
+      "coverage": 0.1555,
+      "matched_doc": "K2_002_moveit2_motion_planning_tutorial"
+    },
+    {
+      "case_id": "P3-NEG-001",
+      "claim": "FANUC机器人报警处理通用流程包括：记录报警信息、查阅手册、断电隔离、硬件检查、更换部件、重新上电验证。",
+      "class": "A",
+      "coverage": 0.3133,
+      "matched_doc": "K3_20260819_013_fanuc_srvo156_ipmal_error_fix"
+    },
+    {
+      "case_id": "P3-NEG-001",
+      "claim": "FANUC参数修改需在安全模式下进行，操作流程包括将模式开关切换至T1，通过【MENU】→【SYSTEM】进入参数菜单。",
+      "class": "A",
+      "coverage": 0.2223,
+      "matched_doc": "K3_20260818_010_fanuc_srvo233_tp_off_t1_t2_error_fix"
+    },
+    {
+      "case_id": "P3-NEG-003",
+      "claim": "安川YRC1000控制器隐藏维护菜单进入需将示教器模式开关置于维护模式，同时按住转换+F1键3秒，输入默认密码7654321",
+      "class": "A",
+      "coverage": 0.1673,
+      "matched_doc": "K3_20260818_010_fanuc_srvo233_tp_off_t1_t2_error_fix"
+    },
+    {
+      "case_id": "P3-NEG-003",
+      "claim": "安川YRC1000隐藏维护菜单可访问伺服参数备份/恢复、编码器原点校准、系统日志导出",
+      "class": "A",
+      "coverage": 0.1285,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    },
+    {
+      "case_id": "P3-NEG-003",
+      "claim": "INFORM是安川机器人的专用编程语言，类似FANUC的TP语言",
+      "class": "A",
+      "coverage": 0.2605,
+      "matched_doc": "K2_004_abb_rapid_programming_tutorial"
+    },
+    {
+      "case_id": "P3-NEG-003",
+      "claim": "CALIB指令用于执行原点校准，INIT指令用于初始化参数到出厂默认值，RESTORE指令用于从备份文件恢复系统",
+      "class": "A",
+      "coverage": 0.1359,
+      "matched_doc": "K2_002_moveit2_motion_planning_tutorial"
+    },
+    {
+      "case_id": "P3-NEG-003",
+      "claim": "根据ISO 10218-1:2025，急停回路是安全关键部件，典型链路包括急停按钮、安全继电器、伺服放大器、电机抱闸",
+      "class": "A",
+      "coverage": 0.3045,
+      "matched_doc": "K3_20260807_004_fanuc_srvo105_door_estop_error_fix"
+    },
+    {
+      "case_id": "P3-NEG-004",
+      "claim": "FANUC R-30iB控制系统中，主控制器通过JBI总线与伺服放大器通信，伺服放大器通过串行协议（如Endat或Hiperface）接收编码器反馈信号",
+      "class": "A",
+      "coverage": 0.3067,
+      "matched_doc": "K3_20260805_001_fanuc_srvo068_error_fix"
+    }
+  ]
+}

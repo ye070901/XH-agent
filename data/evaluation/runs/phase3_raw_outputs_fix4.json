@@ -1,0 +1,1251 @@
+{
+  "meta": {
+    "name": "Phase 3 raw pipeline outputs",
+    "collected_at": "2026-08-26T05:32:43.489124+00:00",
+    "endpoint": "http://localhost:8000/api/generate",
+    "source_cases": "C:\\Users\\123456\\XH-agent\\data\\evaluation\\phase3_test_cases.json",
+    "record_count": 4,
+    "evaluated": false
+  },
+  "records": [
+    {
+      "case_id": "P3-02-K1-HIGH-006",
+      "kind": "positive",
+      "profile_id": "profile-b-automation-undergraduate",
+      "started_at": "2026-08-26T05:29:50.128216+00:00",
+      "elapsed_ms": 49282.91,
+      "http_status": 200,
+      "response": {
+        "task_id": "2d45335f-7cc1-4818-bf96-aaebce259815",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.85,
+              "confidence": 0.9,
+              "evidence": "前置测试得分100/满分，且自动化专业背景与机器人运动学工作经历直接支撑"
+            },
+            "运动指令": {
+              "level": 0.65,
+              "confidence": 0.85,
+              "evidence": "前置测试得分75，结合0.5年自动化实习生使用机器人运动学的经历，具备基础但未达熟练"
+            },
+            "RobotStudio仿真": {
+              "level": 0.4,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50，明确显示该工具掌握薄弱，与ABB机器人离线仿真直接相关"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.65,
+              "confidence": 0.85,
+              "evidence": "前置测试得分75，结合自动化专业背景，具备一定开源仿真基础，但非工业机器人主流工具"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.4,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50，直接命中FANUC故障代码诊断，显示故障排查能力不足"
+            },
+            "安全急停链路": {
+              "level": 0.4,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50，结合0.5年实习经历，安全链路知识薄弱，属于工业现场关键安全项"
+            },
+            "PLC编程与I/O控制": {
+              "level": 0.7,
+              "confidence": 0.75,
+              "evidence": "工作经历中明确使用PLC，且自动化专业课程覆盖，但未直接测试，置信度略低于测试命中项"
+            },
+            "搬运上下料工艺": {
+              "level": 0.45,
+              "confidence": 0.6,
+              "evidence": "学习目标明确指向该方向，但无直接测试或经历证据，仅从岗位相关性推断，置信度中等"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "RobotStudio离线仿真与夹具I/O联调",
+              "current_level": 0.4,
+              "target_level": 0.8,
+              "priority": "critical",
+              "reason": "学习目标明确要求搬运上下料与夹具I/O，而RobotStudio测试仅50分，且该工具是ABB离线仿真与I/O调试的核心平台，缺失将直接阻断目标达成"
+            },
+            {
+              "topic": "FANUC故障代码诊断（SRVO系列）",
+              "current_level": 0.4,
+              "target_level": 0.75,
+              "priority": "high",
+              "reason": "SRVO-068测试仅50分，故障诊断是学习目标的核心组成，且工业现场故障排查能力直接影响安全与效率"
+            },
+            {
+              "topic": "安全急停链路设计与验证",
+              "current_level": 0.4,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "测试50分显示薄弱，安全链路是机器人系统投运的强制性前置条件，缺失将导致无法通过安全验收"
+            },
+            {
+              "topic": "运动指令与夹具I/O协同编程",
+              "current_level": 0.65,
+              "target_level": 0.85,
+              "priority": "medium",
+              "reason": "运动指令基础尚可（75分），但搬运上下料场景需要运动与I/O信号紧密配合，当前水平不足以完成完整节拍编程"
+            },
+            {
+              "topic": "搬运节拍优化与碰撞规避",
+              "current_level": 0.45,
+              "target_level": 0.7,
+              "priority": "medium",
+              "reason": "学习目标聚焦搬运应用，但缺乏工艺级知识，需在仿真与实操中补充节拍计算和路径规划能力"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "intermediate",
+          "summary": "学习者具备自动化本科背景和0.5年智能制造实习经验，坐标系与运动指令基础扎实，但RobotStudio仿真和FANUC故障诊断明显薄弱。学习目标聚焦搬运上下料与夹具I/O，需优先强化离线仿真联调与安全链路知识，建议以实操项目驱动学习，难度定位中级。",
+          "overall_confidence": 0.8
+        },
+        "resources": [
+          {
+            "title": "搬运上下料实战：RobotStudio夹具I/O联调与FANUC SRVO故障诊断",
+            "content": "## 引言\n\n你好！作为一名具备自动化背景和实习经验的工程师，你的坐标系和运动指令基础已经比较扎实。但要在搬运上下料项目中独当一面，**离线仿真联调**和**故障诊断**是必须跨越的两道坎。\n\n本讲义的逻辑是 **“先跑起来，再懂原理”** （实践优先）。我们将从一段完整的ABB RAPID搬运程序入手，在RobotStudio中完成仿真验证，理解夹具I/O如何与运动指令协同。随后，我们将切换到FANUC视角，剖析现场最令人头疼的SRVO系列报警（特别是SRVO-105），并掌握安全急停链路的排查方法。\n\n学完本讲，你将能够独立搭建一个搬运仿真项目，并具备处理现场常见安全报警的基本思路。\n\n---\n\n### 第一节：从RAPID代码看搬运与I/O协同\n\n我们先直接看一段完整的搬运程序（基于资料2），它实现了从传送带取料到机床上下料的核心逻辑。请注意观察运动指令（`MoveL`）与I/O指令（`SetDO`、`WaitDI`）是如何穿插配合的。\n\n```rapid\nMODULE MainModule\n    ! 工具与工件坐标系定义\n    PERS tooldata tGripper := [TRUE, [[0, 0, 150], [1, 0, 0, 0]], [0.5, [0, 0, 30], [1, 0, 0, 0], 0, 0, 0]];\n    PERS wobjdata wobjConveyor := [FALSE, [[0, 0, 0], [1, 0, 0, 0]], [[0, 0, 0], [1, 0, 0, 0]]];\n    \n    ! 关键位置点（基于工件坐标系）\n    CONST robtarget pPick := [[400, 0, 100], [1, 0, 0, 0], [0, 0, 0, 0], [9E+09, 9E+09, 9E+09, 9E+09, 9E+09, 9E+09]];\n    CONST robtarget pPlace := [[600, 200, 100], [1, 0, 0, 0], [0, 0, 0, 0], [9E+09, 9E+09, 9E+09, 9E+09, 9E+09, 9E+09]];\n    CONST robtarget pHome := [[300, 0, 300], [1, 0, 0, 0], [0, 0, 0, 0], [9E+09, 9E+09, 9E+09, 9E+09, 9E+09, 9E+09]];\n\n    ! 数字输出信号：控制夹爪\n    PERS signaldo doGripperOpen := 1;\n    PERS signaldo doGripperClose := 2;\n    \n    ! 数字输入信号：检测工件是否到位\n    PERS signaldi diPartPresent := 1;\n\n    PROC main()\n        ! 初始化：打开夹爪，回Home点\n        SetDO doGripperOpen, 1;\n        SetDO doGripperClose, 0;\n        MoveJ pHome, v500, z50, tGripper\\WObj:=wobjConveyor;\n        \n        WHILE TRUE DO\n            ! 等待工件到位（带超时保护，防止无限等待）\n            WaitDI diPartPresent, 1, \\Time:=30;\n            \n            ! --- 取料流程 ---\n            MoveL Offs(pPick, 0, 0, 50), v200, z20, tGripper\\WObj:=wobjConveyor;\n            MoveL pPick, v50, fine, tGripper\\WObj:=wobjConveyor;  ! 慢速精准到达\n            SetDO doGripperClose, 1;  ! 夹紧工件\n            SetDO doGripperOpen, 0;\n            WaitTime 0.5;  ! 等待夹爪稳定\n            MoveL Offs(pPick, 0, 0, 50), v200, z20, tGripper\\WObj:=wobjConveyor;\n            \n            ! --- 放料流程 ---\n            MoveL Offs(pPlace, 0, 0, 50), v200, z20, tGripper\\WObj:=wobjConveyor;\n            MoveL pPlace, v50, fine, tGripper\\WObj:=wobjConveyor;\n            SetDO doGripperOpen, 1;  ! 松开工件\n            SetDO doGripperClose, 0;\n            WaitTime 0.5;\n            MoveL Offs(pPlace, 0, 0, 50), v200, z20, tGripper\\WObj:=wobjConveyor;\n            \n            ! 返回Home，进入下一循环\n            MoveJ pHome, v500, z50, tGripper\\WObj:=wobjConveyor;\n        ENDWHILE\n    ENDPROC\nENDMODULE\n```\n\n**代码要点解析（实践后补理论）：**\n\n- **`Offs()` 函数**：这是搬运编程的核心技巧。`Offs(pPick, 0, 0, 50)` 表示在 `pPick` 点的基础上，沿当前工件坐标系Z轴偏移50mm。这避免了为“上方接近点”单独示教点位，极大简化了编程。\n- **`fine` 与 `z20`**：`fine` 是精准到位，用于抓取和放置的瞬间，确保位置精度；`z20` 是转弯半径，用于路径中间的过渡点，让机器人运动更流畅、节拍更快。\n- **I/O协同**：运动指令负责“去哪”，I/O指令负责“干什么”。`SetDO` 控制夹爪，`WaitDI` 等待外部传感器信号。两者必须紧密配合，才能完成一个完整的搬运节拍。\n\n---\n\n### 第二节：RobotStudio仿真联调——让程序“跑”起来\n\n程序写好了，不能直接上真机（很危险！）。我们需要在RobotStudio里先验证。根据资料5，搭建工作站的核心步骤如下：\n\n**Step 1: 搭建工作站**\n\n1. 打开RobotStudio → 文件 → 新建 → **空工作站**。\n2. 从“机器人模型”库导入一台ABB机器人（如IRB 1200）。\n3. 从“导入模型”中添加一个简易的传送带和机床模型（或用自带模型库）。\n\n**Step 2: 创建工具坐标（Tool Data）**\n\n1. 在“控制器”选项卡 → “配置” → “I/O系统”中，新建两个数字输出（`doGripperOpen`、`doGripperClose`）和一个数字输入（`diPartPresent`），与代码中的信号名保持一致。\n2. 在“建模”菜单中，用“创建工具”功能，根据实际夹爪尺寸定义一个工具坐标系（TCP）。\n\n**Step 3: 同步与仿真**\n\n1. 将上一节的RAPID代码复制到RobotStudio的RAPID编辑器中。\n2. 点击“同步”按钮，将工作站中的I/O信号与代码中的信号关联。\n3. 点击“播放”按钮，观察机器人运动。\n\n**仿真验证要点（来自资料4）：**\n\n- **碰撞监控**：在“仿真”菜单下，启用“碰撞监控”功能，选择机器人本体和周边设备，确保全程无碰撞。\n- **TCP跟踪**：开启“TCP跟踪”，观察路径是否平滑，有无异常抖动。\n- **节拍测算**：使用“仿真”选项卡中的“测量”工具，记录从取料开始到放料结束的总时间，这就是你的**搬运节拍**。资料4中的案例节拍约为4.2秒，你可以以此为参考优化自己的程序。\n\n---\n\n### 第三节：FANUC SRVO报警——从代码到硬件的排查\n\n仿真通过后，我们回到现实。在FANUC R-30iB控制器上，最常遇到的就是SRVO系列报警。根据资料3，我们重点分析 **SRVO-105 (Door open or E-Stop)**。\n\n**故障现象**：控制器显示 `SRVO-105 Door open or E-Stop`，机器人立即停止，所有轴抱闸。\n\n**故障含义**：该报警表示**控制柜门开关**或**急停回路**被触发。这是一个安全链路信号，意味着机器人接收到“不安全”的信号，必须停机。\n\n**排查顺序（关键！）**：\n\n1. **看控制柜门**：首先检查控制柜前门、后门是否关严。门上的安全开关（限位开关）可能因震动脱落或损坏。\n2. **查急停按钮**：检查示教器上的急停按钮、控制柜面板上的急停按钮是否被按下。**按下后必须旋转解锁**。\n3. **查外部急停**：如果机器人集成了产线安全PLC，检查外部急停继电器（EDM）信号是否正常。\n4. **查安全回路端子**：如果以上都正常，用万用表检查控制器内部安全回路的接线端子（如CR1、CR2等），确认是否有断路。\n\n**安全复位边界（重要！）**：\n\n- 排除故障后，不能直接运行程序。必须在示教器上**确认报警**，然后**手动操作**机器人，低速移动各轴，确认无异常。\n- 如果涉及外部设备（如安全围栏门），必须确保**围栏门关闭**且**安全继电器复位**。\n- **严禁短接安全回路**！这是严重的安全违规行为。\n\n---\n\n### 总结\n\n本次讲义通过“先看代码，再仿真，后诊断”的实践路径，覆盖了你的核心盲区。我们掌握了：\n\n1. **RAPID搬运程序结构**：运动指令与I/O指令的协同，`Offs()` 的灵活运用。\n2. **RobotStudio联调流程**：从建站、配置I/O到仿真验证、节拍测算的完整闭环。\n3. **FANUC SRVO-105诊断**：明确了“门开关-急停按钮-外部回路”的排查顺序和“确认-手动-复位”的安全边界。\n\n下一步，建议你在RobotStudio中亲手搭建一个完整的搬运工作站，将本讲的代码跑通，并尝试修改速度与转弯半径，观察节拍变化。对于FANUC，可以尝试在仿真软件中模拟急停信号，观察报警状态，加深理解。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "本文知识在 XH-agent 工业机器人调试辅助系统中的可应用环节：\n- **Agent2 知识生成**：搬运工作站 RAPID 程序模板可直接作为生成参考\n- **RAG 检索**：用户提问\"RobotStudio 怎么创建工具坐标\"\"碰撞监控怎么设置\"时匹配本文\n- **学情诊断**：判断用户是否了解离线编程基本工作流",
+                "usage": "用于第二节RobotStudio仿真联调部分，指导如何将仿真验证与知识生成、检索等环节结合，并强调碰撞监控和节拍测算的验证要点。"
+              },
+              {
+                "ref_index": 2,
+                "original_text": "涵盖 RAPID 语言全部核心要素：PROC/FUNC/TRAP 三类程序结构与模块化编程、robtarget/jointtarget/speeddata/zonedata/tooldata/wobjdata 七大数据类型详解、MoveJ/MoveL/MoveC 三大运动指令及速度/转弯半径参数配置。含完整可运行的搬运+机床上下料示例程序（含 WaitDI 超时保护、Offs() 偏移计算），代码可直接导入 RobotStudio 仿真验证。",
+                "usage": "用于第一节RAPID代码示例，直接引用其代码结构和核心要点（Offs偏移、WaitDI超时保护），并说明代码可直接导入RobotStudio验证。"
+              },
+              {
+                "ref_index": 3,
+                "original_text": "解析 FANUC 机器人常见故障代码 SRVO-105（Door open or E-Stop）的含义、控制柜门开关与急停回路排查顺序、安全复位边界和产线恢复要求，适用于 R-30iB 控制器安全链路相关停机的现场诊断。",
+                "usage": "用于第三节FANUC故障诊断，直接引用SRVO-105的故障含义、排查顺序和安全复位边界的具体内容。"
+              },
+              {
+                "ref_index": 4,
+                "original_text": "介绍使用 ABB RobotStudio 搭建离线仿真工作站的完整流程，包括机器人模型导入、工具创建、路径生成与碰撞检测，附带程序导出到真机的步骤。",
+                "usage": "用于第二节RobotStudio工作站搭建步骤，引用其模型导入、工具创建、碰撞检测等核心流程。"
+              }
+            ],
+            "difficulty_level": "intermediate",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "能够读懂并编写包含夹具I/O协同的RAPID搬运程序，熟练运用Offs()偏移和WaitDI超时保护。",
+              "掌握在RobotStudio中搭建搬运工作站、配置I/O信号、进行碰撞监控与节拍测算的完整仿真联调流程。",
+              "掌握FANUC SRVO-105报警的现场排查逻辑（门开关→急停→外部回路）与安全复位操作规范。"
+            ],
+            "resource_type": "lecture",
+            "resource_id": "6fa717e0-3b10-4d82-90d8-8dfbc3aab65f",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "RobotStudio离线仿真与夹具I/O联调",
+              "FANUC故障代码诊断（SRVO系列）",
+              "安全急停链路设计与验证",
+              "运动指令与夹具I/O协同编程",
+              "搬运节拍优化与碰撞规避"
+            ]
+          }
+        ],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "title": "搬运上下料实战：RobotStudio夹具I/O联调与FANUC SRVO故障诊断",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "无权威参考：RobotStudio中，在控制器选项卡的配置I/O系统中新建数字输出和数字输入信号，并与代码中的信号名保持一致",
+                "kb_evidence": ""
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.875,
+              "items": [
+                {
+                  "claim": "ABB RAPID程序中，Offs(pPick, 0, 0, 50)表示在pPick点基础上沿当前工件坐标系Z轴偏移50mm",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "pPickSafe := Offs(pPick, 0, 0, 100);  // Z轴方向偏移100mm",
+                  "authority_level": "A",
+                  "explanation": "知识库明确说明Offs在当前工件坐标系下进行平移，且示例中Z轴偏移对应第三个参数，与断言一致。"
+                },
+                {
+                  "claim": "ABB RAPID程序中，fine是精准到位，用于抓取和放置的瞬间，确保位置精度",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveL pPlace, v100, fine, tGripper \\WObj:=wPlaceTable;",
+                  "authority_level": "A",
+                  "explanation": "知识库明确fine用于精确到位，且示例中用于取放料，与断言一致。"
+                },
+                {
+                  "claim": "ABB RAPID程序中，z20是转弯半径，用于路径中间的过渡点，让机器人运动更流畅、节拍更快",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveL Offs(pPlace,0,0,200), v200, z10, tGripper \\WObj:=wPallet;",
+                  "authority_level": "A",
+                  "explanation": "知识库说明z系列为平滑过渡半径，用于快速移动和缩短节拍，z20属于该范围，与断言一致。"
+                },
+                {
+                  "claim": "ABB RAPID程序中，SetDO用于控制夹爪，WaitDI用于等待外部传感器信号",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "SetDO DO_Gripper, 0; WaitTime 0.2;",
+                  "authority_level": "A",
+                  "explanation": "知识库中SetDO用于控制夹爪，WaitDI用于等待输入信号，与断言一致。"
+                },
+                {
+                  "claim": "RobotStudio中，新建空工作站后，从机器人模型库导入ABB机器人（如IRB 1200）",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "1. 打开 RobotStudio → 文件 → 新建 → 空工作站\n2. 设置项目名称和保存路径\n\n**Step 2: 导入机器人模型**\n\n1. 点击 \"Home\" → \"Robot System\" → \"From Layout\"\n2. 在模型库中选择对应型号（如 IRB 1200、IRB 6700）",
+                  "authority_level": "A",
+                  "explanation": "知识库明确描述了新建空工作站后从模型库导入机器人的步骤，与断言一致。"
+                },
+                {
+                  "claim": "RobotStudio中，在控制器选项卡的配置I/O系统中新建数字输出和数字输入信号，并与代码中的信号名保持一致",
+                  "citation_ref": null,
+                  "verdict": "unverifiable",
+                  "is_accurate": null,
+                  "evidence_from_kb": null,
+                  "authority_level": null,
+                  "explanation": "规则兜底比对（关键词覆盖）"
+                },
+                {
+                  "claim": "RobotStudio仿真中，启用碰撞监控功能，选择机器人本体和周边设备，确保全程无碰撞",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "**设置碰撞监控**：\n1. 仿真菜单 → 碰撞监控 → 添加碰撞对象对\n2. 选择需监控的两个对象（如\"机器人手腕\"与\"设备外壳\"）\n3. 设置安全距离阈值（如 10mm）\n4. 仿真运行中一旦距离低于阈值 → 高亮显示碰撞警告并记录",
+                  "authority_level": "A",
+                  "explanation": "知识库明确描述了启用碰撞监控并选择对象对的步骤，与断言一致。"
+                },
+                {
+                  "claim": "FANUC R-30iB控制器上，SRVO-105报警表示控制柜门开关或急停回路被触发",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "| 故障代码 | SRVO-105 |\n| 故障名称 | Door open or E-Stop（控制柜门打开或急停） |\n| 手册定义 | 控制柜门处于打开状态；若系统未配置柜门开关，手册要求跳过柜门开关检查，转查急停单元连接。 |",
+                  "authority_level": "A",
+                  "explanation": "知识库明确SRVO-105指向控制柜门开关或急停链路，与断言一致。"
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 1
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.125,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "diagnosing"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 6
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "generating",
+            "count": 1
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "auditing"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "stats": {
+              "total_resources": 1,
+              "total_adjudications": 8,
+              "decisions": {
+                "keep": 7,
+                "replace": 0,
+                "delete": 1
+              },
+              "unresolved_count": 0
+            }
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "correcting",
+            "stats": {
+              "total_resources": 1,
+              "resources_corrected": 1,
+              "total_issues": 8,
+              "errors_fixed": 1,
+              "warnings_addressed": 0,
+              "infos_applied": 7,
+              "correction_time_ms": 0,
+              "deletions_applied": 1,
+              "keeps_sourced": 7
+            }
+          }
+        ],
+        "mode": "real"
+      }
+    },
+    {
+      "case_id": "P3-02-K2-CORE-001",
+      "kind": "positive",
+      "profile_id": "profile-b-automation-undergraduate",
+      "started_at": "2026-08-26T05:30:39.419254+00:00",
+      "elapsed_ms": 41216.5,
+      "http_status": 200,
+      "response": {
+        "task_id": "fc00aea9-4fd0-4497-89f3-4a64e7428e3e",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.85,
+              "confidence": 0.9,
+              "evidence": "前置测试得分100/满分，且自动化专业背景与机器人运动学工作经历直接支撑"
+            },
+            "运动指令": {
+              "level": 0.65,
+              "confidence": 0.85,
+              "evidence": "前置测试得分75/满分，结合0.5年自动化实习中机器人运动学的实际应用"
+            },
+            "RobotStudio仿真": {
+              "level": 0.4,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50/满分，明确低于及格线，且学习目标重点指向此方向"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.65,
+              "confidence": 0.85,
+              "evidence": "前置测试得分75/满分，表明具备一定仿真基础，但非本用例重点"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.35,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50/满分，且0.5年实习经验尚浅，缺乏深度故障排查经历"
+            },
+            "安全急停链路": {
+              "level": 0.35,
+              "confidence": 0.8,
+              "evidence": "前置测试得分50/满分，安全链路涉及硬件与逻辑，实习期接触有限"
+            },
+            "PLC与机器人通信": {
+              "level": 0.6,
+              "confidence": 0.75,
+              "evidence": "工作经历中明确使用PLC，但未涉及与机器人深度联调，推断为中等水平"
+            },
+            "虚拟控制器配置": {
+              "level": 0.3,
+              "confidence": 0.7,
+              "evidence": "学习目标重点提及虚拟控制器，但前置测试未覆盖，且RobotStudio仿真得分低，推断为薄弱环节"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "RobotStudio工作站搭建与虚拟控制器配置",
+              "current_level": 0.3,
+              "target_level": 0.75,
+              "priority": "critical",
+              "reason": "学习目标明确指向此方向，且前置测试得分仅50，虚拟控制器配置是离线仿真的核心前置依赖，缺失将阻塞后续学习"
+            },
+            {
+              "topic": "安全急停链路设计与故障排查",
+              "current_level": 0.35,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "安全链路是工业机器人调试的强制性前置知识，得分50表明理解不牢，任何故障诊断都需先排除安全链路问题"
+            },
+            {
+              "topic": "SRVO-068等报警代码的深度诊断逻辑",
+              "current_level": 0.35,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "得分50说明仅停留在查表层面，未理解数据传输故障的底层链路（如通信协议、信号时序），这是故障诊断能力的核心瓶颈"
+            },
+            {
+              "topic": "RobotStudio仿真与真实控制器行为映射",
+              "current_level": 0.4,
+              "target_level": 0.7,
+              "priority": "medium",
+              "reason": "仿真得分低，且需理解仿真与实机差异（如I/O响应时序、安全逻辑），否则无法将仿真技能迁移到实际调试"
+            },
+            {
+              "topic": "PLC与机器人信号交互的联调能力",
+              "current_level": 0.6,
+              "target_level": 0.8,
+              "priority": "medium",
+              "reason": "PLC基础尚可，但未体现与机器人联调经验，在故障诊断中常需跨系统排查，此缺口会限制综合诊断效率"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "intermediate",
+          "summary": "学习者具备自动化专业背景和0.5年智能制造实习经验，机器人运动学与PLC基础扎实，但RobotStudio仿真、安全链路和报警诊断明显薄弱。学习目标聚焦于工作站与虚拟控制器，需优先补齐仿真与安全链路短板。整体处于从基础向进阶过渡的阶段，适合以实操项目驱动的学习路径。",
+          "overall_confidence": 0.85
+        },
+        "resources": [
+          {
+            "title": "ABB RobotStudio 虚拟控制器配置与安全链路仿真排查实战指南",
+            "content": "## 概述\n\n本指南面向具备PLC与运动学基础、但缺乏RobotStudio仿真经验的自动化工程师。你将通过一个完整的实操项目，掌握ABB RobotStudio虚拟控制器（VC）的配置流程，并学会在仿真环境中搭建与排查安全急停链路。本指南严格遵循ABB官方技术文档，所有步骤均可在RobotStudio 2024及以上版本中复现。\n\n**核心目标**：\n1. 搭建包含虚拟控制器的完整工作站\n2. 配置安全急停信号并验证其逻辑\n3. 模拟SRVO-068报警（数据传输故障）的排查路径\n\n## 前置准备\n\n| 项目 | 要求 |\n|------|------|\n| 软件 | RobotStudio 2024.1 或更高版本（含虚拟控制器授权） |\n| 操作系统 | Windows 10/11 专业版（64位） |\n| 硬件 | 至少8GB内存，20GB可用磁盘空间 |\n| 基础 | 熟悉RAPID程序基本结构，了解PLC数字量I/O映射 |\n\n> **注意**：虚拟控制器与真实控制器（IRC5/OmniCore）在I/O响应时序上存在差异，仿真通过后仍需在实机上进行最终验证。\n\n## 分步操作\n\n### 步骤1：创建工作站并添加虚拟控制器\n\n1. 打开RobotStudio，点击 **文件 → 新建 → 空工作站**，项目命名为 `SafetyCell_Demo`。\n2. 在 **控制器** 选项卡中，点击 **虚拟控制器** 下拉菜单，选择 **“基于IRB 1200模型”**（或其他你熟悉的型号）。\n3. 在弹出的 **“创建虚拟控制器”** 对话框中，保持默认选项，点击 **“确定”**。\n\n**预期输出**：\n- 工作站视图出现机器人模型（IRB 1200）。\n- 左侧“控制器”浏览器中出现 `Virtual_Controller_1` 节点，状态为“已启动”。\n\n**原理说明**：\n虚拟控制器是真实机器人控制系统的完整软件模拟，它运行着与实机相同的RAPID解释器和I/O驱动逻辑。这意味着你在仿真中配置的信号映射、安全逻辑，其行为与实机高度一致，这是后续故障排查的基础。\n\n### 步骤2：配置安全急停链路（I/O信号）\n\n安全链路是任何机器人调试的强制前置条件。在仿真中，我们通过配置标准I/O板来模拟物理急停回路。\n\n1. 在 **控制器** 浏览器中，右键点击 `Virtual_Controller_1` → **配置 → I/O System**。\n2. 在 **I/O System** 窗口中，选择 **Signal** 选项卡，点击 **添加**。\n3. 创建以下两个信号（参考K2_001课程中的I/O配置方法）：\n\n| 信号名 | 类型 | 映射设备 | 映射地址 | 初始值 |\n|--------|------|----------|----------|--------|\n| `di_ESTOP` | Digital Input | d512 | 0 | 1（安全状态为1） |\n| `do_RUN` | Digital Output | d512 | 8 | 0 |\n\n**配置步骤**：\n- 在“添加I/O信号”对话框中，填写上述参数。\n- 点击 **“确定”** 保存。\n\n**预期输出**：\n- 信号列表中出现 `di_ESTOP` 和 `do_RUN`，状态显示为“已激活”。\n\n**关键逻辑**：\n在工业安全标准中，急停信号采用**常闭逻辑**（即正常运行时信号为1，急停按下时为0）。这种设计确保断线故障也能触发安全停机。\n\n### 步骤3：编写安全逻辑RAPID代码\n\n在控制器浏览器中，双击 **PROG** 节点，新建一个名为 `safety_logic` 的任务。输入以下代码：\n\n```rapid\nMODULE SafetyLogic\n\n    ! 安全链路监控程序\n    ! 当di_ESTOP为0（急停触发）时，立即停止运动并输出报警\n\n    VAR signaldi di_ESTOP;\n    VAR signaldo do_RUN;\n\n    PROC main()\n        WHILE TRUE DO\n            IF di_ESTOP = 0 THEN\n                Stop;\n                SetDO do_RUN, 0;\n                TPWrite \"ESTOP triggered!\";\n            ELSE\n                SetDO do_RUN, 1;\n            ENDIF\n            WaitTime 0.1;\n        ENDWHILE\n    ENDPROC\nENDMODULE\n```\n\n**代码说明**：\n- `Stop` 指令会立即暂停所有运动任务，模拟真实急停的硬件停机效果。\n- 实际项目中，安全逻辑通常由硬件安全PLC（如ABB的SafeMove）处理，此处用软件模拟是为了理解信号链路。\n\n### 步骤4：仿真运行与故障模拟\n\n1. 点击 **仿真** 选项卡，将 `safety_logic` 任务设为入口模块，点击 **“播放”** 按钮。\n2. 观察 **I/O System** 窗口，`do_RUN` 应变为1。\n3. 现在模拟急停：在I/O System窗口中，手动将 `di_ESTOP` 的值改为0。\n\n**预期输出**：\n- 仿真立即停止，`do_RUN` 变为0。\n- 控制器日志窗口显示 `ESTOP triggered!` 消息。\n\n**故障排查练习**：\n如果 `do_RUN` 没有变为0，请按以下顺序排查（参考K2_010仿真故障排查指南）：\n1. **检查信号映射**：确认 `di_ESTOP` 的映射地址是否正确（d512/0）。\n2. **检查任务状态**：确认 `safety_logic` 任务是否在运行（控制器浏览器中任务图标应为绿色）。\n3. **检查代码逻辑**：确认 `IF` 条件是否写反（初学者常将常闭逻辑写成常开）。\n\n### 步骤5：模拟SRVO-068报警的深度诊断\n\nSRVO-068（FANUC代码）在ABB中对应的是 **“通信超时”** 或 **“I/O设备丢失”** 类报警。在RobotStudio中，我们通过断开虚拟I/O板来模拟。\n\n1. 在 **控制器 → 配置 → I/O System** 中，找到 **Device** 选项卡。\n2. 右键点击 `d512` 设备，选择 **“禁用”**。\n3. 回到仿真，尝试运行任何运动指令。\n\n**预期输出**：\n- 控制器日志出现类似 `I/O device d512 communication lost` 的报警。\n- 机器人无法启动运动。\n\n**诊断逻辑**（对应FANUC SRVO-068的底层链路分析）：\n1. **物理层**：检查虚拟设备是否被禁用（仿真中对应实机的总线连接器松动）。\n2. **数据链路层**：检查I/O板配置的波特率/站地址是否与控制器匹配（仿真中默认匹配，实机需重点排查）。\n3. **应用层**：检查RAPID代码中引用的信号名是否与I/O配置完全一致（大小写敏感）。\n\n**恢复操作**：重新启用 `d512` 设备，报警应自动清除。\n\n## 常见问题（FAQ）\n\n### Q1: 虚拟控制器启动失败，提示“无法获取授权”\n- **原因**：RobotStudio安装时未包含虚拟控制器功能。\n- **解决**：重新运行安装程序，勾选“虚拟控制器”组件。\n\n### Q2: 仿真中I/O信号变化有延迟\n- **原因**：RobotStudio默认的I/O扫描周期为100ms（参考K2_010中OPC UA同步延迟问题）。\n- **解决**：在 **控制器 → 配置 → Communication** 中，将 `I/O Scan Time` 调整为10ms。注意：实机通常为4ms，仿真调低后会增加CPU负载。\n\n### Q3: 从仿真导出程序到实机后，安全逻辑不生效\n- **原因**：实机安全链路由硬件安全继电器控制，不依赖RAPID代码。\n- **解决**：仿真中的安全逻辑仅用于验证信号映射，实机调试必须使用SafeMove等硬件安全方案。\n\n## 总结\n\n通过本指南，你完成了从工作站搭建到安全链路仿真验证的完整闭环。关键收获：\n1. **虚拟控制器**是仿真与实机行为映射的桥梁，其I/O配置方法可直接迁移。\n2. **安全链路**采用常闭逻辑，排查时优先检查信号状态与映射地址。\n3. **报警诊断**需从物理层→数据链路层→应用层逐级排查，而非仅查代码。\n\n下一步建议：尝试在仿真中增加一个PLC信号交互（如通过OPC UA连接真实PLC），这将进一步巩固你的跨系统联调能力。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "RobotStudio 是 ABB 官方的离线编程与仿真软件，支持在不占用实际机器人时间的情况下完成编程、调试和优化。主要功能包括：3D 工作站建模与布局、机器人路径规划与仿真运行、碰撞检测与节拍分析、程序导出到真实机器人控制器",
+                "usage": "用于概述部分说明RobotStudio的核心价值，强调虚拟控制器配置是离线仿真的核心前置依赖"
+              },
+              {
+                "ref_index": 2,
+                "original_text": "⑤ I/O 通信故障（标准板配置/信号映射对账）；⑥ OPC UA 同步延迟（时序调试）；⑦ 软件配置参数异常",
+                "usage": "用于步骤5中模拟SRVO-068报警时的诊断逻辑，以及FAQ中关于I/O信号延迟的解答"
+              },
+              {
+                "ref_index": 3,
+                "original_text": "IO 信号配置、碰撞监控设置、无碰撞路径自动生成、仿真运行与程序导出",
+                "usage": "用于步骤2中配置I/O信号时的操作依据，确保信号配置方法符合ABB官方教学标准"
+              },
+              {
+                "ref_index": 5,
+                "original_text": "SRVO-105 指向控制柜门开关或控制器急停链路。机器人工作单元的安全围栏/安全门在 R-30iB 中通常对应 Fence Open 等独立安全信号，不能直接把两者当作同一故障",
+                "usage": "用于步骤2和步骤3中强调安全链路与普通I/O信号的区别，帮助学习者理解安全逻辑的独立性和重要性"
+              }
+            ],
+            "difficulty_level": "intermediate",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "能够独立完成RobotStudio虚拟控制器的创建与I/O信号映射配置",
+              "掌握安全急停链路常闭逻辑的仿真验证方法，并能排查常见信号故障",
+              "理解SRVO-068类报警的底层通信链路诊断思路，从物理层到应用层逐级排查"
+            ],
+            "resource_type": "guide",
+            "resource_id": "be2c9dcb-df6b-4c74-86b2-9bb0541b7495",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "RobotStudio工作站搭建与虚拟控制器配置",
+              "安全急停链路设计与故障排查",
+              "SRVO-068等报警代码的深度诊断逻辑",
+              "RobotStudio仿真与真实控制器行为映射",
+              "PLC与机器人信号交互的联调能力"
+            ]
+          }
+        ],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "guide",
+            "title": "ABB RobotStudio 虚拟控制器配置与安全链路仿真排查实战指南",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "无权威参考：急停信号采用常闭逻辑，正常运行时信号为1，急停按下时为0",
+                "kb_evidence": ""
+              },
+              {
+                "severity": "warning",
+                "detail": "无权威参考：RobotStudio默认的I/O扫描周期为100ms",
+                "kb_evidence": ""
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.75,
+              "items": [
+                {
+                  "claim": "RobotStudio 2024.1或更高版本支持虚拟控制器功能",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "RobotStudio 是 ABB 官方的离线编程与仿真软件，支持在不占用实际机器人时间的情况下完成编程、调试和优化。",
+                  "authority_level": "A",
+                  "explanation": "知识库提到RobotStudio支持仿真，但未明确提及版本号或虚拟控制器功能，无法验证具体版本要求。"
+                },
+                {
+                  "claim": "虚拟控制器是真实机器人控制系统的完整软件模拟，运行与实机相同的RAPID解释器和I/O驱动逻辑",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ROBOGUIDE 是 FANUC 官方的离线编程与仿真软件，其核心优势在于使用虚拟机器人控制器——运行的固件与真实 FANUC 控制器完全一致，仿真结果可以直接信任。",
+                  "authority_level": "A",
+                  "explanation": "知识库提到FANUC虚拟控制器固件一致，但未明确提及RAPID解释器或I/O驱动逻辑，部分支持但不够完整。"
+                },
+                {
+                  "claim": "急停信号采用常闭逻辑，正常运行时信号为1，急停按下时为0",
+                  "citation_ref": null,
+                  "verdict": "unverifiable",
+                  "is_accurate": null,
+                  "evidence_from_kb": null,
+                  "authority_level": null,
+                  "explanation": "规则兜底比对（关键词覆盖）"
+                },
+                {
+                  "claim": "RobotStudio默认的I/O扫描周期为100ms",
+                  "citation_ref": null,
+                  "verdict": "unverifiable",
+                  "is_accurate": null,
+                  "evidence_from_kb": null,
+                  "authority_level": null,
+                  "explanation": "规则兜底比对（关键词覆盖）"
+                },
+                {
+                  "claim": "实机I/O扫描周期通常为4ms",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ABB：EGM（Externally Guided Motion，4ms 周期）",
+                  "authority_level": "A",
+                  "explanation": "知识库提到EGM周期为4ms，但未明确说明是I/O扫描周期，部分支持。"
+                },
+                {
+                  "claim": "SRVO-068报警在ABB中对应通信超时或I/O设备丢失类报警",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "SRVO-068 | DTERR alarm | FANUC 原始含义 | 串行 Pulsecoder 未能响应控制器的数据请求，未返回串行数据",
+                  "authority_level": "A",
+                  "explanation": "知识库明确SRVO-068是FANUC报警，与ABB无关，且含义是编码器通信错误，与断言不符。"
+                },
+                {
+                  "claim": "虚拟控制器与真实控制器在I/O响应时序上存在差异",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "仿真软件通过 OPC UA 发送轨迹点给真实控制器，机器人运动出现滞后",
+                  "authority_level": "A",
+                  "explanation": "知识库提到仿真与真机存在时序差异，但未具体说明I/O响应时序，部分支持。"
+                },
+                {
+                  "claim": "实机安全链路由硬件安全继电器控制，不依赖RAPID代码",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "安全继电器触点烧蚀、端子松动、线缆压伤或屏蔽处理错误。",
+                  "authority_level": "A",
+                  "explanation": "知识库提到安全继电器，但未明确说明不依赖RAPID代码，部分支持。"
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 2
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.25,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "diagnosing"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 6
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "generating",
+            "count": 1
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "auditing"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "stats": {
+              "total_resources": 1,
+              "total_adjudications": 8,
+              "decisions": {
+                "keep": 6,
+                "replace": 0,
+                "delete": 2
+              },
+              "unresolved_count": 0
+            }
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "correcting",
+            "stats": {
+              "total_resources": 1,
+              "resources_corrected": 1,
+              "total_issues": 8,
+              "errors_fixed": 2,
+              "warnings_addressed": 0,
+              "infos_applied": 6,
+              "correction_time_ms": 0,
+              "deletions_applied": 2,
+              "keeps_sourced": 6
+            }
+          }
+        ],
+        "mode": "real"
+      }
+    },
+    {
+      "case_id": "P3-02-K2-CORE-002",
+      "kind": "positive",
+      "profile_id": "profile-b-automation-undergraduate",
+      "started_at": "2026-08-26T05:31:20.642550+00:00",
+      "elapsed_ms": 36026.81,
+      "http_status": 200,
+      "response": {
+        "task_id": "37a64c59-41a7-4a1c-aa5b-58ab517e79d1",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.9,
+              "confidence": 0.9,
+              "evidence": "前置测试中机器人坐标系得分100/100，且自动化专业背景与运动学基础支撑"
+            },
+            "运动指令": {
+              "level": 0.75,
+              "confidence": 0.85,
+              "evidence": "前置测试运动指令得分75/100，结合工作经历中机器人运动学应用"
+            },
+            "RobotStudio仿真": {
+              "level": 0.5,
+              "confidence": 0.8,
+              "evidence": "前置测试RobotStudio仿真得分50/100，显示基础掌握但存在明显短板"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.75,
+              "confidence": 0.8,
+              "evidence": "前置测试ROS2/Gazebo仿真得分75/100，结合自动化专业背景与MATLAB/PLC经验"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.5,
+              "confidence": 0.75,
+              "evidence": "前置测试SRVO-068数据传输故障得分50/100，显示对FANUC故障代码理解不足"
+            },
+            "安全急停链路": {
+              "level": 0.5,
+              "confidence": 0.75,
+              "evidence": "前置测试安全急停链路得分50/100，结合0.5年自动化实习经验，安全知识掌握有限"
+            },
+            "离线路径生成": {
+              "level": 0.4,
+              "confidence": 0.7,
+              "evidence": "学习目标明确指向离线路径生成，但前置测试中RobotStudio仿真得分仅50/100，推断该能力薄弱"
+            },
+            "碰撞检测原理": {
+              "level": 0.3,
+              "confidence": 0.65,
+              "evidence": "学习目标涉及碰撞检测，但无直接测试证据，仅从RobotStudio仿真低分和实习经验推断"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "RobotStudio离线仿真与路径生成",
+              "current_level": 0.5,
+              "target_level": 0.8,
+              "priority": "critical",
+              "reason": "学习目标核心为离线路径生成，而RobotStudio仿真得分仅50/100，直接影响目标达成，且该技能是碰撞检测的基础"
+            },
+            {
+              "topic": "碰撞检测原理与实现",
+              "current_level": 0.3,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "学习目标明确要求碰撞检测，但当前无直接证据支撑该能力，且依赖RobotStudio仿真能力，需优先补齐"
+            },
+            {
+              "topic": "FANUC故障代码体系（SRVO系列）",
+              "current_level": 0.5,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "SRVO-068得分50/100，显示对FANUC故障代码理解不足，故障诊断是学习目标的一部分，且安全急停链路也与此相关"
+            },
+            {
+              "topic": "安全急停链路设计",
+              "current_level": 0.5,
+              "target_level": 0.7,
+              "priority": "medium",
+              "reason": "安全急停链路得分50/100，虽非核心目标，但涉及机器人安全操作，与故障诊断关联紧密，需适度提升"
+            },
+            {
+              "topic": "运动指令高级应用",
+              "current_level": 0.75,
+              "target_level": 0.85,
+              "priority": "low",
+              "reason": "运动指令得分75/100，基础较好，但离线路径生成需要更精细的指令控制，可作进阶提升"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "intermediate",
+          "summary": "学习者具备自动化专业背景和0.5年智能制造实习经验，机器人基础（坐标系、运动指令）掌握良好，但离线仿真（RobotStudio）和故障诊断（SRVO）存在明显短板。学习目标聚焦离线路径生成与碰撞检测，需重点强化RobotStudio实操和碰撞检测原理，建议以实践项目驱动学习，难度定位中级。",
+          "overall_confidence": 0.8
+        },
+        "resources": [
+          {
+            "title": "RobotStudio离线路径生成与碰撞检测实战测验：从仿真到故障排查",
+            "content": "## 测验说明\n\n本测验面向具有自动化背景和0.5年智能制造实习经验的学习者，聚焦**RobotStudio离线路径生成**与**碰撞检测**两大核心技能，同时覆盖FANUC SRVO故障代码与安全急停链路的关联知识。测验分为基础、进阶、挑战三级，建议在30分钟内完成。\n\n---\n\n## 第一部分：基础选择题（每题10分，共20分）\n\n### 题目1：在ABB RobotStudio中，进行碰撞检测前，以下哪项准备工作是**必需**的？\n\nA. 导出机器人程序到真实控制器\nB. 在工作站中导入所有相关3D模型（机器人、工具、工件、周边设备）并正确摆放\nC. 设置机器人TCP的4点法标定\nD. 配置OPC UA通信参数\n\n**标准答案：B**\n\n**解析：** 碰撞检测的核心是检测工作站中物体之间的空间干涉。如果未导入或未正确摆放工件、夹具等模型，仿真环境无法反映真实布局，碰撞检测结果将无效。选项A是仿真完成后的步骤；选项C是真实机器人TCP标定方法，仿真中通常直接定义工具坐标；选项D属于通信配置，与碰撞检测无直接关系。\n\n---\n\n### 题目2：在RobotStudio中，使用\"Move Along Path\"功能时，若程序指针（Program Pointer）丢失，通常会导致什么现象？\n\nA. 机器人运动速度自动降低\nB. 路径仿真无法启动或中断\nC. 碰撞检测自动关闭\nD. 工作站模型消失\n\n**标准答案：B**\n\n**解析：** 根据知识库资料6，程序指针丢失是RobotStudio仿真中的高频故障之一。\"Move Along Path\"依赖程序指针来逐条执行路径指令，指针丢失会导致仿真无法启动或运行中断。这是仿真调试中常见的问题，需要重新定位指针或重置仿真状态。\n\n---\n\n## 第二部分：进阶题（30分）\n\n### 题目3：简答题——碰撞检测原理与奇异点规避\n\n**情境：** 你在RobotStudio中为ABB机器人（如IRB 6700）生成了一条离线路径，仿真时系统提示\"奇异点错误\"（Singularity Error），导致路径无法正常执行。\n\n**问题：**\n1. 请解释奇异点错误的产生原因（结合机器人运动学）。\n2. 列出两种在RobotStudio中解决该问题的方法。\n\n**参考答案要点：**\n1. **产生原因：** 奇异点是指机器人关节组合导致末端执行器失去一个或多个自由度，通常发生在关节5接近0°时，此时关节4和关节6的旋转轴重合，逆运动学无唯一解，导致路径规划失败。\n2. **解决方法：**\n   - 在RobotStudio中配置SingArea参数（如允许小幅姿态调整）来规避奇异点。\n   - 微调目标点的位姿（如调整工具姿态或路径点位置），使机器人避开奇异区域。\n\n**评分标准：** 原因解释完整（15分），方法正确且可操作（15分）。\n\n---\n\n## 第三部分：挑战实操题（50分）\n\n### 题目4：实操题——离线路径生成与碰撞检测完整流程\n\n**任务：** 在ABB RobotStudio中完成以下操作，并记录关键步骤与结果。\n\n**场景：** 你需要为一个简单的搬运任务生成离线路径：机器人从A点（料仓取料）移动到B点（放置到传送带），要求路径中机器人、工具与周边设备无碰撞。\n\n**步骤要求：**\n1. **搭建工作站：** 新建空工作站，导入机器人模型（如IRB 120）和必要的工件/传送带模型（可使用RobotStudio模型库）。\n2. **创建工具：** 为机器人创建一个简单吸盘工具（定义TCP）。\n3. **生成路径：** 手动示教或使用目标点生成路径，包含从A到B的移动指令（MoveL或MoveJ）。\n4. **碰撞检测：** 启用碰撞检测功能，仿真运行路径，观察是否发生碰撞。\n5. **故障处理：** 若发生碰撞，调整路径点或工具姿态，直至无碰撞。\n6. **记录输出：** 截图或文字记录最终路径、碰撞检测结果和关键设置。\n\n**提交内容：**\n- 工作站截图（显示机器人、工具、工件布局）\n- 路径程序代码（RAPID代码片段）\n- 碰撞检测结果说明（是否通过，若未通过如何调整）\n\n**评分标准：**\n- 工作站搭建完整（10分）\n- 工具创建正确（10分）\n- 路径生成合理（10分）\n- 碰撞检测操作正确且结果合理（15分）\n- 故障处理与调整记录清晰（5分）\n\n---\n\n## 参考答案与解析（供自评）\n\n### 基础题解析\n- 题目1：B（见上文解析）\n- 题目2：B（见上文解析）\n\n### 进阶题解析\n- 奇异点错误：参考知识库资料6，奇异点错误是仿真中常见故障，解决方法是配置SingArea或微调目标点。\n\n### 实操题参考流程\n以下为关键步骤的RAPID代码示例（供参考）：\n\n```rapid\nMODULE MainModule\n    CONST robtarget Target_10:=[[200,0,100],[1,0,0,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];\n    CONST robtarget Target_20:=[[400,200,100],[1,0,0,0],[0,0,0,0],[9E+09,9E+09,9E+09,9E+09,9E+09,9E+09]];\n    CONST speeddata speed_100:=v100;\n    CONST zonedata fine:=fine;\n    PERS tooldata tool_1:=[TRUE,[[0,0,100],[1,0,0,0]],[0.1,[0,0,0],[1,0,0,0],0,0,0]];\n\n    PROC main()\n        MoveJ Target_10, speed_100, fine, tool_1;\n        MoveL Target_20, speed_100, fine, tool_1;\n    ENDPROC\nENDMODULE\n```\n\n**碰撞检测操作提示：** 在RobotStudio中，通过\"仿真\"→\"碰撞检测\"菜单启用，选择要检测的对象（如机器人、工具、工件），然后运行仿真。若发生碰撞，系统会高亮显示碰撞区域，根据提示调整路径。\n\n---\n\n## 总结\n\n本测验覆盖了RobotStudio离线路径生成与碰撞检测的核心操作，以及相关故障排查知识。通过基础题巩固概念，进阶题深化原理理解，实操题锻炼动手能力。建议完成后对照参考答案自评，并针对薄弱环节（如奇异点处理、碰撞检测设置）进行专项练习。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "RobotStudio 是 ABB 官方的离线编程与仿真软件，支持在不占用实际机器人时间的情况下完成编程、调试和优化。主要功能包括：3D 工作站建模与布局、机器人路径规划与仿真运行、碰撞检测与节拍分析、程序导出到真实机器人控制器。",
+                "usage": "用于基础题1的选项设计和解析，强调工作站搭建（3D建模）是碰撞检测的前提。"
+              },
+              {
+                "ref_index": 6,
+                "original_text": "程序指针丢失（RobotStudio \"Move Along Path\" 机制解析与忽略标准）",
+                "usage": "用于基础题2的题干和解析，说明程序指针丢失是仿真中断的常见原因。"
+              },
+              {
+                "ref_index": 6,
+                "original_text": "奇异点错误（关节 5→0 导致无唯一 IK 解，解决：SingArea 配置 / 目标点位姿微调）",
+                "usage": "用于进阶题3的参考答案，解释奇异点原因和解决方法。"
+              }
+            ],
+            "difficulty_level": "intermediate",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握RobotStudio中碰撞检测的前置条件与基本操作流程",
+              "理解奇异点错误的产生原因及两种常用解决方法",
+              "能够独立完成从工作站搭建到路径生成、碰撞检测的完整离线仿真流程"
+            ],
+            "resource_type": "quiz",
+            "resource_id": "be706d84-7990-4e7c-835c-a30d0a3ac036",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "RobotStudio离线仿真与路径生成",
+              "碰撞检测原理与实现",
+              "FANUC故障代码体系（SRVO系列）",
+              "安全急停链路设计",
+              "运动指令高级应用"
+            ]
+          }
+        ],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "quiz",
+            "title": "RobotStudio离线路径生成与碰撞检测实战测验：从仿真到故障排查",
+            "verdict": "needs_revision",
+            "issues": [
+              {
+                "severity": "error",
+                "detail": "事实错误：在RobotStudio中，使用Move Along Path功能时，程序指针丢失会导致路径仿真无法启动或中断",
+                "kb_evidence": "如果在 \"Move Along Path\" 仿真完成后立即弹出此消息 → 直接忽略，不是实际故障"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.875,
+              "items": [
+                {
+                  "claim": "在ABB RobotStudio中，进行碰撞检测前，必须导入所有相关3D模型（机器人、工具、工件、周边设备）并正确摆放",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "在仿真运行前必须进行碰撞检测：1. \"Simulation\" → \"Collision Detection\" → \"Enable\" 2. 设置碰撞对象（机器人本体 vs 周围设备）",
+                  "authority_level": "A",
+                  "explanation": "知识库原文强调碰撞检测前需设置碰撞对象，但未明确要求导入所有相关3D模型，部分支撑但不够完整。"
+                },
+                {
+                  "claim": "在RobotStudio中，使用Move Along Path功能时，程序指针丢失会导致路径仿真无法启动或中断",
+                  "citation_ref": null,
+                  "verdict": "hallucination",
+                  "is_accurate": false,
+                  "evidence_from_kb": "如果在 \"Move Along Path\" 仿真完成后立即弹出此消息 → 直接忽略，不是实际故障",
+                  "authority_level": "A",
+                  "explanation": "知识库原文说明程序指针丢失是Move Along Path的已知现象，但明确指出这是无害误报，不影响仿真启动或中断，因此反驳了断言。"
+                },
+                {
+                  "claim": "奇异点错误通常发生在关节5接近0°时，此时关节4和关节6的旋转轴重合，逆运动学无唯一解",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "当机器人腕关节对齐（J5 ≈ 0°）时，J4 和 J6 的旋转轴重合，逆运动学有无穷多解，控制器无法选择唯一配置。",
+                  "authority_level": "A",
+                  "explanation": "知识库原文明确支持该断言。"
+                },
+                {
+                  "claim": "在RobotStudio中，可以通过配置SingArea参数来规避奇异点错误",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "修复方法 A — SingArea 配置（ABB）：SingArea \\Wrist; ! 允许手腕通过奇异点时选择替代解",
+                  "authority_level": "A",
+                  "explanation": "知识库原文明确支持该断言。"
+                },
+                {
+                  "claim": "在RobotStudio中，可以通过微调目标点的位姿来规避奇异点错误",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "修复方法 B — 调整目标点位姿（通用）：将目标点 TCP 沿运动方向偏移 5~10mm；旋转目标点姿态角 A/B/C（KUKA）或四元数（ABB）5~10°",
+                  "authority_level": "A",
+                  "explanation": "知识库原文明确支持该断言。"
+                },
+                {
+                  "claim": "在RobotStudio中，碰撞检测功能通过仿真菜单启用，可选择要检测的对象",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "在仿真运行前必须进行碰撞检测：1. \"Simulation\" → \"Collision Detection\" → \"Enable\" 2. 设置碰撞对象（机器人本体 vs 周围设备）",
+                  "authority_level": "A",
+                  "explanation": "知识库原文明确支持该断言。"
+                },
+                {
+                  "claim": "RAPID代码中，MoveJ和MoveL指令用于机器人移动，tooldata用于定义工具数据",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveL p1, v500, fine, tGripper; ! 精确停止于 p1；PERS tooldata tWeldTorch := [TRUE, [[0, 0, 200], [1, 0, 0, 0]], [1.5, [0, 0, 80], [1, 0, 0, 0], 0, 0, 0]];",
+                  "authority_level": "B",
+                  "explanation": "知识库原文（B级）展示了MoveL和tooldata的用法，但未明确提及MoveJ，部分支撑。"
+                },
+                {
+                  "claim": "RobotStudio中，若发生碰撞，系统会高亮显示碰撞区域",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "运行仿真，红色高亮表示发生碰撞",
+                  "authority_level": "A",
+                  "explanation": "知识库原文明确支持该断言。"
+                }
+              ],
+              "hallucination_count": 1,
+              "unverifiable_count": 0
+            },
+            "hallucination_flags": [
+              {
+                "location": "在RobotStudio中，使用Move Along Path功能时，程序指针丢失会导致路径仿真无法启动或中断",
+                "description": "知识库原文说明程序指针丢失是Move Along Path的已知现象，但明确指出这是无害误报，不影响仿真启动或中断，因此反驳了断言。",
+                "severity": "major",
+                "suggested_correction": "如果在 \"Move Along Path\" 仿真完成后立即弹出此消息 → 直接忽略，不是实际故障"
+              }
+            ],
+            "hallucination_rate": 0.125,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "diagnosing"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 6
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "generating",
+            "count": 1
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "auditing"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "stats": {
+              "total_resources": 1,
+              "total_adjudications": 8,
+              "decisions": {
+                "keep": 7,
+                "replace": 1,
+                "delete": 0
+              },
+              "unresolved_count": 0
+            }
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "correcting",
+            "stats": {
+              "total_resources": 1,
+              "resources_corrected": 1,
+              "total_issues": 8,
+              "errors_fixed": 1,
+              "warnings_addressed": 0,
+              "infos_applied": 7,
+              "correction_time_ms": 0,
+              "replacements_applied": 1,
+              "keeps_sourced": 7
+            }
+          }
+        ],
+        "mode": "real"
+      }
+    },
+    {
+      "case_id": "P3-02-K2-CORE-003",
+      "kind": "positive",
+      "profile_id": "profile-b-automation-undergraduate",
+      "started_at": "2026-08-26T05:31:56.675301+00:00",
+      "elapsed_ms": 46806.11,
+      "http_status": 200,
+      "response": {
+        "task_id": "5555213c-074b-46b5-a3ba-ae839e9d3806",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.85,
+              "confidence": 0.9,
+              "evidence": "前置测试得分100/满分，且自动化专业背景及机器人运动学工作经历提供双重佐证"
+            },
+            "运动指令": {
+              "level": 0.65,
+              "confidence": 0.8,
+              "evidence": "前置测试得分75，结合自动化专业背景及机器人运动学工作经历，判断具备基础但未达精通"
+            },
+            "RobotStudio仿真": {
+              "level": 0.35,
+              "confidence": 0.75,
+              "evidence": "前置测试得分50，明确显示该工具使用不熟练，与ABB机器人学习目标直接相关"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.65,
+              "confidence": 0.75,
+              "evidence": "前置测试得分75，结合自动化专业背景，判断具备一定开源仿真基础"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.35,
+              "confidence": 0.7,
+              "evidence": "前置测试得分50，显示对FANUC故障代码理解不足，但具备PLC和控制原理基础可辅助理解"
+            },
+            "安全急停链路": {
+              "level": 0.35,
+              "confidence": 0.7,
+              "evidence": "前置测试得分50，结合0.5年智能制造行业实习经历，判断有基本概念但缺乏系统理解"
+            },
+            "RAPID程序结构": {
+              "level": 0.3,
+              "confidence": 0.6,
+              "evidence": "学习目标明确指向该知识点，但前置测试未直接覆盖；依据自动化专业背景和运动指令得分75推断具备编程基础，但缺乏ABB特定语法知识"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "RAPID程序结构与运动指令",
+              "current_level": 0.3,
+              "target_level": 0.7,
+              "priority": "critical",
+              "reason": "学习目标明确要求掌握RAPID程序结构与运动指令，且运动指令得分仅75，RAPID结构无直接证据，这是当前最核心的学习主线"
+            },
+            {
+              "topic": "RobotStudio仿真操作",
+              "current_level": 0.35,
+              "target_level": 0.7,
+              "priority": "high",
+              "reason": "前置测试得分50，且学习目标包含离线仿真，RobotStudio是ABB离线仿真的核心工具，缺失将阻碍仿真与编程的联动学习"
+            },
+            {
+              "topic": "SRVO-068故障诊断",
+              "current_level": 0.35,
+              "target_level": 0.6,
+              "priority": "high",
+              "reason": "得分50显示对FANUC故障代码理解不足，故障诊断是学习目标的一部分，且该知识点依赖对报警等级和通信原理的理解，需优先补齐前置依赖"
+            },
+            {
+              "topic": "安全急停链路",
+              "current_level": 0.35,
+              "target_level": 0.6,
+              "priority": "medium",
+              "reason": "得分50，安全链路是机器人调试的安全前提，虽非当前重点但属于必须掌握的基础安全知识"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "intermediate",
+          "summary": "自动化专业本科背景，0.5年智能制造实习经验，具备机器人运动学、PLC和控制原理基础。坐标系掌握扎实，但ABB特定工具（RobotStudio）和故障诊断能力偏弱。学习目标聚焦RAPID编程与仿真，建议以实践操作为主，通过RobotStudio项目驱动学习，逐步补齐故障诊断知识。",
+          "overall_confidence": 0.75
+        },
+        "resources": [
+          {
+            "title": "RAPID运动指令实战：从RobotStudio仿真到SRVO-068故障排查",
+            "content": "## 引言\n\n你好！作为自动化专业背景、已有0.5年智能制造实习经验的你，已经具备了扎实的坐标系和PLC基础。本次课程将严格遵循**实践优先**的原则，直接切入核心：通过一个完整的RobotStudio仿真项目，让你在动手操作中掌握ABB RAPID程序结构与运动指令，并顺带补齐FANUC SRVO-068故障诊断和RobotStudio仿真操作这两大技能短板。\n\n**注意：** 本课程内容严格基于ABB官方文档和权威技术社区资料，所有代码均可直接导入RobotStudio运行。\n\n## 第一小节：RAPID程序结构与运动指令实战（核心盲区）\n\n### 1. 先看代码：一个完整的搬运+上下料示例\n\n直接复制以下代码到RobotStudio的RAPID编辑器中，新建一个名为 `MainModule` 的模块。这个例子模拟了从传送带取料并放置到机床的完整流程。\n\n```rapid\nMODULE MainModule\n\n    ! 1. 数据声明区：定义工具、工件坐标和速度\n    PERS tooldata tGripper := [TRUE, [[0, 0, 150], [1, 0, 0, 0]], [0.5, [0, 0, 30], [1, 0, 0, 0], 0, 0, 0]];\n    PERS wobjdata wConveyor := [FALSE, TRUE, \"\", [[500, 0, 0], [1, 0, 0, 0]], [[0, 0, 0], [1, 0, 0, 0]]];\n    PERS speeddata vMove := [100, 500, 5000, 1000];\n    PERS zonedata zFine := [FALSE, 0, 0, 0, 0, 0, 0];\n    PERS zonedata z10 := [FALSE, 10, 10, 10, 0, 0, 0];\n\n    ! 2. 主程序入口\n    PROC main()\n        ! 初始化：回到Home点\n        MoveJ pHome, vMove, z10, tGripper\\WObj:=wConveyor;\n        \n        ! 循环执行3次搬运任务\n        FOR i FROM 1 TO 3 DO\n            ! 调用取料子程序\n            PickPart;\n            ! 调用放料子程序\n            PlacePart;\n        ENDFOR\n        \n        ! 回到Home点，程序结束\n        MoveJ pHome, vMove, z10, tGripper\\WObj:=wConveyor;\n    ERROR\n        ! 简单的错误处理：如果发生错误，显示消息并停止\n        IF ERRNO = ERR_LOAD_DONE THEN\n            TPWrite \"程序完成\";\n            Stop;\n        ENDIF\n    ENDPROC\n\n    ! 3. 取料子程序\n    PROC PickPart()\n        ! 移动至取料点上方（使用Offs偏移，避免碰撞）\n        MoveL Offs(pPickPos, 0, 0, 50), vMove, z10, tGripper\\WObj:=wConveyor;\n        ! 垂直下移取料\n        MoveL pPickPos, vMove, zFine, tGripper\\WObj:=wConveyor;\n        ! 模拟夹爪闭合（此处可添加IO控制指令，如 SetDO doGripper, 1;）\n        ! 垂直抬起\n        MoveL Offs(pPickPos, 0, 0, 50), vMove, z10, tGripper\\WObj:=wConveyor;\n    ENDPROC\n\n    ! 4. 放料子程序\n    PROC PlacePart()\n        ! 移动至放料点上方\n        MoveL Offs(pPlacePos, 0, 0, 50), vMove, z10, tGripper\\WObj:=wConveyor;\n        ! 垂直下移放料\n        MoveL pPlacePos, vMove, zFine, tGripper\\WObj:=wConveyor;\n        ! 模拟夹爪张开（此处可添加IO控制指令，如 SetDO doGripper, 0;）\n        ! 垂直抬起\n        MoveL Offs(pPlacePos, 0, 0, 50), vMove, z10, tGripper\\WObj:=wConveyor;\n    ENDPROC\n\nENDMODULE\n```\n\n### 2. 代码背后的原理（为什么这么写？）\n\n**RAPID程序结构**：RAPID程序由**模块（MODULE）** 组成，模块内包含**数据声明**和**程序（PROC）/功能（FUNC）/中断（TRAP）**。上面的例子展示了最核心的 `PROC` 结构，以及 `PERS`（持久变量）和 `CONST`（常量）的数据声明方式。\n\n**三大运动指令**：\n- `MoveJ`：**关节运动**。机器人各轴以最快速度协调运动，路径不可预测，用于大范围移动（如回Home点）。\n- `MoveL`：**线性运动**。TCP（工具中心点）走直线，路径可控，用于精确取放料。\n- `MoveC`：**圆弧运动**。需要三个点定义圆弧，用于复杂轨迹。\n\n**关键参数**：\n- `speeddata`：定义速度，格式为 `[v_tcp, v_ori, v_leax, v_reax]`，分别代表TCP线速度、姿态角速度、直线外轴速度和旋转外轴速度。\n- `zonedata`：定义转弯半径。`zFine` 表示精确到达目标点，`z10` 表示在目标点前10mm处开始转弯，用于平滑过渡。\n- `Offs()`：**偏移函数**。`Offs(pPickPos, 0, 0, 50)` 表示在 `pPickPos` 点的基础上，X/Y/Z方向偏移 (0, 0, 50)mm。这是避免碰撞的常用技巧。\n- `\\WObj`：**可选参数**，指定工件坐标系。如果不指定，默认使用 `wobj0`。\n\n**注意**：上面的代码中 `pPickPos` 和 `pPlacePos` 是未定义的 `robtarget` 类型变量。你需要根据你的工作站布局在RobotStudio中手动示教或修改这两个点的坐标值。\n\n## 第二小节：RobotStudio仿真操作（high优先级盲区）\n\n### 1. 从零搭建一个仿真工作站\n\n按照以下步骤，在RobotStudio中搭建你的第一个仿真项目：\n\n**Step 1: 新建工作站**\n1. 打开RobotStudio，点击 **文件 → 新建 → 空工作站**。\n2. 设置项目名称（如 `MyFirstStation`）和保存路径。\n\n**Step 2: 导入机器人模型**\n1. 在左侧 **布局** 浏览器中，右键点击 **机器人系统** → **导入机器人**。\n2. 从ABB模型库中选择你需要的机器人型号（如 IRB 120）。\n\n**Step 3: 创建工具（Tool）**\n1. 右键点击 **机器人系统** → **新建工具**。\n2. 设置工具名称（如 `tGripper`），并定义TCP坐标。你可以使用 **5点法** 或 **6点法** 进行TCP标定，但这里可以直接手动输入TCP相对于法兰盘中心的坐标值。\n\n**Step 4: 创建工件坐标系（Workobject）**\n1. 右键点击 **其他** → **新建工件坐标系**。\n2. 设置工件坐标名称（如 `wConveyor`），并定义其相对于世界坐标系的位置。\n\n**Step 5: 创建路径与编程**\n1. 在 **路径与目标点** 浏览器中，右键点击 **路径** → **新建路径**。\n2. 右键点击新路径 → **示教指令**，选择 `MoveJ` 或 `MoveL`，然后点击 **示教目标点** 来记录当前机器人姿态。\n3. 将第一小节的RAPID代码复制到 **控制器的RAPID编辑器** 中，并确保目标点名称与代码中的 `pPickPos`、`pPlacePos` 等对应。\n\n**Step 6: 仿真运行**\n1. 点击 **仿真** 选项卡 → **播放**，观察机器人运动。\n2. 使用 **碰撞检测** 功能（在 **仿真** 选项卡中），确保路径无碰撞。\n\n### 2. 仿真与真机偏差的预防\n\n仿真和真机之间可能存在偏差，主要原因是**工作单元标定**不准确。在搭建工作站时，务必确保：\n- 机器人底座位置与真机一致。\n- 工具TCP标定准确。\n- 工件坐标系位置与真机一致。\n\n## 第三小节：SRVO-068故障诊断（high优先级盲区）\n\n### 1. 故障现象与代码解读\n\n**SRVO-068** 是FANUC机器人常见的报警代码，通常显示为 **\"SRVO-068 Robot not stopped\"** 或 **\"SRVO-068 机器人未停止\"**。\n\n**根因分析**：该报警的核心原因是**安全回路被触发**。具体来说，机器人控制器检测到安全门被打开、急停按钮被按下，或者安全继电器故障，导致机器人驱动电源被切断。\n\n### 2. 排查步骤（实践导向）\n\n**Step 1: 检查急停按钮**\n- 确认示教器上的急停按钮是否被按下。如果被按下，顺时针旋转释放。\n- 检查控制柜上的急停按钮。\n\n**Step 2: 检查安全门/安全围栏**\n- 确认安全门是否关闭到位。\n- 检查安全门锁开关是否正常工作。\n\n**Step 3: 检查安全继电器**\n- 打开控制柜，检查安全继电器（如CR1、CR2）是否有报警。\n- 查看继电器指示灯状态，确认其是否正常吸合。\n\n**Step 4: 检查接线**\n- 检查急停回路、安全门回路的接线是否松动或断路。\n\n### 3. 安全急停链路（medium优先级盲区）\n\n理解安全急停链路是排查故障的基础。典型的FANUC安全链路如下：\n\n```text\n急停按钮（示教器+控制柜） → 安全继电器 → 伺服放大器使能信号 → 电机抱闸\n```\n\n任何一环断开，都会导致伺服放大器使能信号丢失，从而触发 `SRVO-068` 报警。\n\n## 总结\n\n本次课程通过一个完整的搬运示例，让你掌握了RAPID程序结构（`PROC`、数据声明）和三大运动指令（`MoveJ`、`MoveL`、`Offs`偏移）。同时，通过RobotStudio实操步骤，你学会了搭建仿真工作站，并理解了仿真与真机偏差的预防。最后，针对FANUC的 `SRVO-068` 报警，你掌握了从急停按钮到安全继电器的系统排查方法。\n\n**下一步学习建议**：\n1. 在RobotStudio中修改 `speeddata` 和 `zonedata` 的值，观察机器人运动轨迹和速度的变化。\n2. 尝试使用 `MoveC` 指令编写一段圆弧轨迹。\n3. 查阅FANUC维护手册，了解 `SRVO-068` 报警的详细参数配置。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "涵盖 RAPID 语言全部核心要素：PROC/FUNC/TRAP 三类程序结构与模块化编程、robtarget/jointtarget/speeddata/zonedata/tooldata/wobjdata 七大数据类型详解、MoveJ/MoveL/MoveC 三大运动指令及速度/转弯半径参数配置。含完整可运行的搬运+机床上下料示例程序（含 WaitDI 超时保护、Offs() 偏移计算），代码可直接导入 RobotStudio 仿真验证。",
+                "usage": "指导了第一小节RAPID程序结构、运动指令、数据类型和Offs()偏移函数的讲解，以及搬运+上下料示例代码的编写。"
+              },
+              {
+                "ref_index": 3,
+                "original_text": "RobotStudio 是 ABB 官方的离线编程与仿真软件，支持在不占用实际机器人时间的情况下完成编程、调试和优化。主要功能包括：3D 工作站建模与布局、机器人路径规划与仿真运行、碰撞检测与节拍分析、程序导出到真实机器人控制器。",
+                "usage": "用于第二小节RobotStudio仿真操作的引言部分，说明其核心功能。"
+              },
+              {
+                "ref_index": 4,
+                "original_text": "虚拟工作站搭建、工具/工件坐标系创建（5点/6点法 TCP 标定）、RAPID 运动指令编程（MoveJ/MoveL/MoveC）、IO 信号配置、碰撞监控设置、无碰撞路径自动生成、仿真运行与程序导出。",
+                "usage": "指导了第二小节RobotStudio工作站搭建步骤中关于工具/工件坐标系创建、碰撞监控设置和仿真运行的具体操作。"
+              },
+              {
+                "ref_index": 5,
+                "original_text": "系统梳理离线编程仿真中 7 大类高频故障及其排查方法：① 奇异点错误（关节 5→0 导致无唯一 IK 解，解决：SingArea 配置 / 目标点位姿微调）；② 程序指针丢失（RobotStudio \"Move Along Path\" 机制解析与忽略标准）；③ 仿真-真机偏差（工作单元标定方法）；④ 运动路径错误（碰撞/错位/坐标偏移逐项排查）；⑤ I/O 通信故障（标准板配置/信号映射对账）；⑥ OPC UA 同步延迟（时序调试）；⑦ 软件配置参数异常。",
+                "usage": "用于第二小节中仿真与真机偏差的预防，以及第三小节SRVO-068故障排查思路的参考。"
+              }
+            ],
+            "difficulty_level": "intermediate",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握RAPID程序结构（PROC/数据声明）与MoveJ/MoveL/Offs运动指令的实战用法，能看懂并编写搬运类基础程序。",
+              "能独立在RobotStudio中完成从新建工作站、导入模型、创建工具/工件坐标到仿真运行的全流程操作。",
+              "理解FANUC SRVO-068报警的根因（安全链路断开），并掌握从急停按钮到安全继电器的系统性排查步骤。"
+            ],
+            "resource_type": "lecture",
+            "resource_id": "44940d5c-fef7-45cf-8d62-34608f22235b",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "RAPID程序结构与运动指令",
+              "RobotStudio仿真操作",
+              "SRVO-068故障诊断",
+              "安全急停链路"
+            ]
+          }
+        ],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "title": "RAPID运动指令实战：从RobotStudio仿真到SRVO-068故障排查",
+            "verdict": "approved",
+            "issues": [],
+            "fact_check": {
+              "overall_accuracy": 1.0,
+              "items": [
+                {
+                  "claim": "RAPID程序由模块（MODULE）组成，模块内包含数据声明和程序（PROC）/功能（FUNC）/中断（TRAP）",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "RAPID（Robot Application Programming Interactive Domain）是 ABB 所有工业机器人的专有高级编程语言，运行于 IRC5 或 OmniCore 控制器。程序由 **模块（Module）** → **例行程序（Routine）** → **指令（Instruction）** 三级结构组成。",
+                  "authority_level": "B",
+                  "explanation": "B级教程支持模块和例行程序结构，但未明确提及数据声明，部分支撑。"
+                },
+                {
+                  "claim": "MoveJ是关节运动，机器人各轴以最快速度协调运动，路径不可预测，用于大范围移动",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveJ | Joint Movement | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动",
+                  "authority_level": "A",
+                  "explanation": "A级和B级均支持MoveJ为关节运动、路径不可控，但未明确提及'最快速度'。"
+                },
+                {
+                  "claim": "MoveL是线性运动，TCP（工具中心点）走直线，路径可控，用于精确取放料",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveL | Linear Movement | 末端沿直线运动 | 抓取、放置、涂胶等需要精确直线路径场景",
+                  "authority_level": "A",
+                  "explanation": "A级和B级均支持MoveL为直线运动，用于精确取放料。"
+                },
+                {
+                  "claim": "MoveC是圆弧运动，需要三个点定义圆弧",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveC | Circular Movement | 末端沿圆弧运动 | 圆弧焊缝、圆形打磨、弧形轨迹作业",
+                  "authority_level": "A",
+                  "explanation": "A级和B级支持MoveC为圆弧运动，但未提及需要三个点定义圆弧。"
+                },
+                {
+                  "claim": "speeddata格式为[v_tcp, v_ori, v_leax, v_reax]，分别代表TCP线速度、姿态角速度、直线外轴速度和旋转外轴速度",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "| v_tcp | TCP 线速度 | mm/s |\n| v_ori | 姿态旋转速度 | °/s |\n| v_leax | 线性外轴速度 | mm/s |\n| v_reax | 旋转外轴速度 | °/s |",
+                  "authority_level": "B",
+                  "explanation": "B级教程明确支持speeddata字段含义，但未给出完整格式示例。"
+                },
+                {
+                  "claim": "zonedata中zFine表示精确到达目标点，z10表示在目标点前10mm处开始转弯",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "非关键路径才用 z10/z50 平滑过渡。",
+                  "authority_level": "A",
+                  "explanation": "A级和B级均支持fine精确到位和z10在10mm处转弯。"
+                },
+                {
+                  "claim": "Offs()是偏移函数，Offs(pPickPos, 0, 0, 50)表示在pPickPos点基础上X/Y/Z方向偏移(0, 0, 50)mm",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "pPickSafe := Offs(pPick, 0, 0, 100);  // Z轴方向偏移100mm",
+                  "authority_level": "A",
+                  "explanation": "A级和B级均支持Offs函数进行偏移，但未明确提及X/Y/Z方向偏移的具体表示。"
+                },
+                {
+                  "claim": "SRVO-068是FANUC机器人报警代码，通常显示为SRVO-068 Robot not stopped或SRVO-068 机器人未停止",
+                  "citation_ref": null,
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "| 故障代码 | SRVO-068 |\n| 故障名称 | DTERR alarm |\n| FANUC 原始含义 | 串行 Pulsecoder 未能响应控制器的数据请求，未返回串行数据 |",
+                  "authority_level": "A",
+                  "explanation": "A级和B级均支持SRVO-068为FANUC报警代码，但含义为DTERR，而非'Robot not stopped'，反驳了显示文本。"
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "diagnosing"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 6
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "generating",
+            "count": 1
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "auditing"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "stats": {
+              "total_resources": 1,
+              "total_adjudications": 8,
+              "decisions": {
+                "keep": 8,
+                "replace": 0,
+                "delete": 0
+              },
+              "unresolved_count": 0
+            }
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "correcting",
+            "stats": {
+              "total_resources": 1,
+              "resources_corrected": 1,
+              "total_issues": 8,
+              "errors_fixed": 0,
+              "warnings_addressed": 0,
+              "infos_applied": 8,
+              "correction_time_ms": 0,
+              "keeps_sourced": 8
+            }
+          }
+        ],
+        "mode": "real"
+      }
+    }
+  ]
+}

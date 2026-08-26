@@ -21,8 +21,10 @@ Thumbs.db
 # ChromaDB 向量数据
 data/chroma/
 backend/data/
-# ChromaDB 备份残留
+# ChromaDB 备份残留 / 实验残留
 data/chroma.bak_*/
+data/chroma_test*/
+
 
 # 前端
 frontend/node_modules/
