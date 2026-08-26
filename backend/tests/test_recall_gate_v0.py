@@ -139,3 +139,86 @@ class TestRecallGateFallback:
         assert any("知识库暂无" in v for v in result["violations"]), (
             f"Expected '知识库暂无' in violations, got {result['violations']}"
         )
+
+
+class TestRecallGateDoubleThreshold:
+    """双层相似度阈值防误判：high_pass / low_pass / fallback_external。"""
+
+    def _chunk(self, score: float, doc_id: str = "d") -> dict:
+        return {
+            "doc_id": doc_id,
+            "doc_title": "FANUC 故障排查",
+            "chunk_index": 0,
+            "content": "SRVO-068 检查通信链路",
+            "relevance_score": score,
+        }
+
+    async def test_high_confidence_pass(self):
+        """最高分 0.85 > 0.70 → high_pass，PASS 且无 low_confidence 标记。"""
+        gate = RecallGate()
+        state = _make_state([self._chunk(0.85)])
+        result = await gate.check(state)
+
+        assert result["verdict"] == GateVerdict.PASS.value
+        assert result["details"].get("recall_type") == "high_pass"
+        assert result["details"].get("low_confidence") is not True
+        assert state["gate_results"]["recall"]["final_type"] == "high_pass"
+
+    async def test_low_confidence_pass(self):
+        """最高分 0.50 落入 (0.30, 0.70] → low_pass，PASS 且打 low_confidence 标记。"""
+        gate = RecallGate()
+        state = _make_state([self._chunk(0.50)])
+        result = await gate.check(state)
+
+        assert result["verdict"] == GateVerdict.PASS.value, (
+            "低置信区间应放行，而非 FALLBACK"
+        )
+        assert result["details"].get("recall_type") == "low_pass"
+        assert result["details"].get("low_confidence") is True
+        assert state.get("_low_confidence") is True
+        assert state["gate_results"]["recall"]["final_type"] == "low_pass"
+
+    async def test_low_band_mid_retry_terminates(self):
+        """重试中途召回落入低置信区间 → 立刻放行，不再继续重试至兜底。"""
+        gate = RecallGate()
+        # retry_count=1 表示已重试过一轮，此时召回 0.50 落入低置信区间
+        state = _make_state([self._chunk(0.50)], retry_count=1)
+        result = await gate.check(state)
+
+        assert result["verdict"] == GateVerdict.PASS.value, (
+            "落入低置信区间应立即放行，而不是继续 RETRY/FALLBACK"
+        )
+        assert result["details"].get("recall_type") == "low_pass"
+
+    async def test_all_below_low_retry(self):
+        """全部 ≤ 0.30（含 0.20 召回）且未达上限 → RETRY。"""
+        gate = RecallGate()
+        state = _make_state([self._chunk(0.20)], retry_count=0)
+        result = await gate.check(state)
+
+        assert result["verdict"] == GateVerdict.RETRY.value
+        assert "new_query" in result["details"]
+
+    async def test_all_below_low_fallback_external(self):
+        """全部 ≤ 0.30 且达上限 → FALLBACK，recall final_type=fallback_external。"""
+        gate = RecallGate()
+        state = _make_state([self._chunk(0.10)], retry_count=3)
+        result = await gate.check(state)
+
+        assert result["verdict"] == GateVerdict.FALLBACK.value
+        assert result["details"].get("recall_type") == "fallback_external"
+        assert state["gate_results"]["recall"]["final_type"] == "fallback_external"
+
+    async def test_recall_round_log(self):
+        """recall 日志记录每一轮 query 与相似度分数。"""
+        gate = RecallGate()
+        state = _make_state([self._chunk(0.85), self._chunk(0.5)])
+        await gate.check(state)
+
+        recall = state["gate_results"]["recall"]
+        assert len(recall["rounds"]) == 1
+        round0 = recall["rounds"][0]
+        assert round0["query"] == "FANUC 机器人 SRVO-068 故障处理"
+        assert round0["scores"] == [0.85, 0.5]
+        assert round0["max_score"] == 0.85
+        assert round0["type"] == "high_pass"

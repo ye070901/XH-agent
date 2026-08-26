@@ -128,6 +128,21 @@ class GenerationAgent(BaseAgent):
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
         retrieved_chunks = state.get("retrieved_chunks", [])
 
+        # ── 空 KB 生成关闭：无有效知识库 chunk 时禁止凭空生成（杜绝兜底路径幻觉）──
+        valid_chunks = [
+            c
+            for c in retrieved_chunks
+            if isinstance(c, dict) and str(c.get("content", "")).strip()
+        ]
+        if not valid_chunks:
+            self.log("⚠️ 无有效知识库素材，禁止凭空生成，返回空资源集合")
+            return {
+                "generated_resources": [],
+                "generation_errors": [
+                    {"resource_type": "ALL", "error": "no_knowledge_base_chunks"}
+                ],
+            }
+
         # 安全上限：防止请求过多类型导致 token 爆炸
         resource_types = resource_types[: self.MAX_RESOURCES]
 
@@ -337,7 +352,7 @@ Requirements:
         每条截取前 500 字符防止 prompt 过长。
         """
         if not chunks:
-            return "## 知识库参考资料\n（无可用知识库资料，请基于你的专业知识生成内容）"
+            return "## 知识库参考资料\n（无可用知识库素材——禁止凭空生成内容）"
 
         seen_titles: set[str] = set()
         unique_chunks: list[dict] = []

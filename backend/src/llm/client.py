@@ -97,11 +97,13 @@ class LLMClient:
     """
 
     # ── 演示模式场景关键词 → 内部方法名映射 ──
+    # 注意顺序：「修正」必须排在「审核」之前 —— 修正 SYSTEM_PROMPT 中含
+    # 「审核报告」字样，若先匹配「审核」会把修正调用误分派到 _demo_audit。
     _DEMO_DISPATCH: list[tuple[list[str], str]] = [
         (["学情诊断", "diagnosis"], "_demo_diagnosis"),
         (["知识专家", "generation", "垂直领域", "内容创作"], "_demo_generation"),
-        (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
         (["修正", "correction", "保真修正", "内容修正"], "_demo_correction"),
+        (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
     ]
 
     def __init__(self) -> None:
@@ -620,13 +622,21 @@ class LLMClient:
 
     @staticmethod
     def _infer_difficulty(info: dict) -> str:
-        """按前置测试得分率映射难度（规则，对齐 learner_profiles.json 真值）。"""
+        """按前置测试得分率映射难度（规则，对齐 learner_profiles.json 10 画像真值）。
+
+        前置测试得分是难度判断的直接证据，阈值：
+          - ratio ≥ 0.70 → advanced
+          - ratio ≥ 0.25 → intermediate
+          - 其余         → beginner
+        0.25 下界覆盖两个对抗画像：画像 K（过度自信型，20/120≈0.17）与
+        画像 M（自相矛盾型，25/120≈0.21，技能/岗位证据指向入门）。
+        """
         total, max_score = info["total_score"], info["max_score"]
         if max_score > 0:
             ratio = total / max_score
             if ratio >= 0.7:
                 return "advanced"
-            if ratio >= 0.2:
+            if ratio >= 0.25:
                 return "intermediate"
             return "beginner"
         # 无前置测试时按工作年限粗判
@@ -657,6 +667,20 @@ class LLMClient:
         info = self._parse_learner(user_message)
         difficulty = self._infer_difficulty(info)
         learning_style = self._infer_style(info, difficulty)
+
+        # 复用真实链路的纯规则画像解析（generation_v2.derive_profile_tag），
+        # 不在 demo 层再写一套 (难度, 风格) → 画像标签 的映射。
+        # 延迟导入规避 llm.client ↔ agents.generation_v2 的循环依赖；
+        # positions 在 _parse_learner 中被压平成字符串，这里还原为 list。
+        from ..agents.generation_v2 import derive_profile_tag
+        profile_tag = derive_profile_tag(
+            {
+                "work_years": info["work_years"],
+                "positions": [p.strip() for p in info["positions"].split(",") if p.strip()],
+            },
+            difficulty,
+            learning_style,
+        )
 
         # 掌握度基准随难度提升（beginner/intermediate/advanced）
         mastery = {"beginner": 0.25, "intermediate": 0.55, "advanced": 0.85}[difficulty]
@@ -732,6 +756,7 @@ class LLMClient:
                 "skill_gaps": skill_gaps,
                 "learning_style": learning_style,
                 "recommended_difficulty": difficulty,
+                "profile_tag": profile_tag,
                 "summary": summary,
             },
             ensure_ascii=False,
@@ -899,30 +924,58 @@ class LLMClient:
     def _demo_correction(self, system_prompt: str, user_message: str) -> str:
         """演示修正：解析结构化画像参数，返回机器人领域的修正结果。
 
+        与真实链路（CorrectionAgent）对齐的关键点：
         - 从「结构化画像参数」JSON 块解析 difficulty / learning_style / profile_tag
-        - 保留传入的 difficulty（不再硬编码 beginner）
-        - 修正内容为工业机器人领域（不再出现 LangGraph / Google 旧标准）
+        - 区分「主修正调用」与「画像对齐重写调用」（_enforce_profile_match 的 retry 路径）
+        - **难度不匹配时不无脑返回正确结果**：
+            主修正调用保留原资源难度（交由 _enforce_profile_match 触发重试/兜底），
+            重写调用才对齐为期望难度（模拟重试成功）
         """
         def grab_json(key: str, default: str) -> str:
             m = re.search(r'"' + key + r'"\s*:\s*"([^"]+)"', user_message)
             return m.group(1).strip() if m else default
 
-        difficulty = grab_json("difficulty", "beginner")
-        if difficulty not in ("beginner", "intermediate", "advanced"):
-            difficulty = "beginner"
+        expected_diff = grab_json("difficulty", "beginner")
+        if expected_diff not in ("beginner", "intermediate", "advanced"):
+            expected_diff = "beginner"
         style = grab_json("learning_style", "theory_first")
         profile_tag = grab_json("profile_tag", "custom")
+
+        # 区分「画像对齐重写」调用（真实 _enforce_profile_match 的 retry 路径）
+        is_retry = "## 重写任务" in user_message or "待对齐" in user_message
+
+        # 原始资源难度：主修正 prompt 用「难度标注：」，重写 prompt 用「当前难度标注：」
+        orig_m = re.search(r"(?:难度标注|当前难度标注)[：:]\s*(\w+)", user_message)
+        original_diff = orig_m.group(1).strip() if orig_m else expected_diff
+
+        # 判定本次应返回的难度（模拟真实 LLM 的对齐行为）：
+        #   - 重写调用 → 返回期望难度（模拟对齐成功）
+        #   - 主修正且原难度与期望不一致 → 保留原难度（触发重试/兜底）
+        #   - 其余（一致 / 无标注）→ 透传期望难度（向后兼容）
+        if is_retry:
+            out_diff = expected_diff
+        elif original_diff and original_diff != expected_diff:
+            out_diff = original_diff
+        else:
+            out_diff = expected_diff
 
         # 提取原始标题
         title_match = re.search(r"标题[：:]\s*(.+?)(?:\n|$)", user_message)
         original_title = title_match.group(1).strip() if title_match else "学习资源"
 
-        # 提取原始内容
-        content_match = re.search(
-            r"### 原始内容\s*\n(.+?)(?=\n## (?:审核发现|知识库|修正任务))",
-            user_message,
-            re.DOTALL,
-        )
+        # 提取原始内容：主修正 prompt 与重写 prompt 结构不同，分别解析
+        if is_retry:
+            content_match = re.search(
+                r"- 内容：\s*\n(.+?)(?=\n## 输出 JSON)",
+                user_message,
+                re.DOTALL,
+            )
+        else:
+            content_match = re.search(
+                r"### 原始内容\s*\n(.+?)(?=\n## (?:审核发现|知识库|修正任务))",
+                user_message,
+                re.DOTALL,
+            )
         original_content = content_match.group(1).strip() if content_match else ""
 
         if original_content:
@@ -944,7 +997,7 @@ class LLMClient:
             {
                 "title": f"{original_title}（已修正）",
                 "content": corrected_content,
-                "difficulty_level": difficulty,
+                "difficulty_level": out_diff,
                 "citations": [
                     {
                         "doc_id": "demo_robot_fault_kb.md",
@@ -956,7 +1009,7 @@ class LLMClient:
                     },
                 ],
                 "key_takeaways": [
-                    f"理解 {profile_tag} 画像对应的 {difficulty} 内容要点",
+                    f"理解 {profile_tag} 画像对应的 {expected_diff} 内容要点",
                     "掌握工业机器人故障代码的定位思路",
                     "了解 FANUC / KUKA / ABB 三品牌的现场差异",
                 ],
