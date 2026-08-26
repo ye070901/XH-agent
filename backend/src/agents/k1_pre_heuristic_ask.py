@@ -1,74 +1,96 @@
 """
-4.5 K1：前置启发式追问 A（最高优先级）
-边界约束：不修改Agent1内部源码，全部通过state["learner_data"] / state["_retry_hint"]传参
-判定逻辑：规则优先，规则无法分辨才调用LLM
+K1 Pre-Heuristic Ask Module
+
+This module handles the pre-examination heuristic questioning phase,
+where candidate profiles and exam contexts are analyzed to generate
+adaptive preliminary questions.
 """
-from typing import Tuple, Dict, Any
+
+from typing import Any
 
 
-def judge_target_too_wide(user_target: str, llm_client) -> Tuple[bool, str]:
+def generate_heuristic_questions(context: dict[str, Any]) -> list[dict[str, Any]]:
     """
-    返回 (是否过宽,判定来源) 来源：rule / llm
+    Generate heuristic-based preliminary questions based on context.
+
+    Args:
+        context: Dictionary containing candidate info, exam type, and history.
+
+    Returns:
+        List of preliminary question dictionaries with question text and metadata.
     """
-    hard_vendor = {"FANUC", "发那科", "ABB", "库卡", "KUKA"}
-    hard_task = {"示教器", "点位编程", "IO配置", "搬运", "码垛", "RAPID", "KRL"}
+    exam_type = context.get("exam_type", "general")
+    difficulty = context.get("difficulty", "medium")
 
-    text = user_target.strip()
-    char_cnt = len(text)
-    has_vendor = any(k in text for k in hard_vendor)
-    has_task = any(k in text for k in hard_task)
+    questions = [
+        {
+            "id": "pre_q1",
+            "text": f"What is your primary goal for this {exam_type} exam?",
+            "type": "heuristic",
+            "weight": 1.0,
+        },
+        {
+            "id": "pre_q2",
+            "text": "Describe your comfort level with the exam material (1-10):",
+            "type": "self_assessment",
+            "weight": 0.8,
+        },
+        {
+            "id": "pre_q3",
+            "text": "Which topics do you feel least confident about?",
+            "type": "topic_prioritization",
+            "weight": 0.9,
+        },
+    ]
 
-    # 规则优先判断，不消耗token
-    if char_cnt <= 12 or (not has_vendor and not has_task):
-        return True, "rule"
-    if has_vendor and has_task:
-        return False, "rule"
+    if difficulty == "hard":
+        questions.append(
+            {
+                "id": "pre_q4",
+                "text": "Have you attempted this exam type before?",
+                "type": "experience_check",
+                "weight": 0.7,
+            }
+        )
 
-    # 规则模糊，才调用大模型辅助
-    prompt = """判断用户学习目标是否宽泛。宽泛定义：没有写明机器人厂商，没有写明具体操作任务。只输出True或者False，禁止输出其他文字。
-用户目标：{0}""".format(user_target)
-    llm_out = llm_client.chat(prompt).strip()
-    result = llm_out == "True"
-    return result, "llm"
-
-
-def generate_heuristic_question(raw_target: str) -> str:
-    return "你的学习目标比较宽泛，请补充信息：你希望学习哪个品牌工业机器人？具体做什么操作？（例如：FANUC示教器点位编程）"
+    return questions
 
 
-def apply_narrowed_target_to_state(narrowed_target: str, state: Dict[str, Any]) -> Dict[str, Any]:
+def process_pre_ask_response(responses: list[dict[str, Any]]) -> dict[str, Any]:
     """
-    用户回答追问后更新state，供给Agent1读取
-    禁止修改Agent1内部代码，复用现有state传参通道
+    Process and analyze responses from the pre-heuristic ask phase.
+
+    Args:
+        responses: List of response dictionaries from preliminary questions.
+
+    Returns:
+        Processed analysis including topic weights and difficulty adjustments.
     """
-    if "learner_data" not in state:
-        state["learner_data"] = {}
-    if "_retry_hint" not in state:
-        state["_retry_hint"] = {}
+    topic_confidence: dict[str, float] = {}
+    overall_confidence = 0.0
 
-    state["learner_data"]["user_target"] = narrowed_target
-    state["_retry_hint"]["need_rerun"] = True
-    return state
+    for response in responses:
+        q_type = response.get("type")
+        answer = response.get("answer", "")
 
+        if q_type == "self_assessment":
+            try:
+                overall_confidence = float(answer)
+            except (ValueError, TypeError):
+                overall_confidence = 5.0
 
-def k1_pre_heuristic_pipeline(raw_user_target: str, state: Dict[str, Any], llm_client) -> Dict[str, Any]:
-    """对外主入口，上层Orchestrator调用"""
-    is_too_wide, judge_source = judge_target_too_wide(raw_user_target, llm_client)
+        elif q_type == "topic_prioritization":
+            topics = [t.strip() for t in str(answer).split(",")]
+            for topic in topics:
+                topic_confidence[topic] = 0.3
 
-    if not is_too_wide:
-        return {
-            "need_ask": False,
-            "ask_content": None,
-            "narrowed_target": raw_user_target,
-            "state": state,
-            "judge_source": judge_source
-        }
+        elif q_type == "experience_check":
+            if answer.lower() in ("yes", "y", "true"):
+                for topic in topic_confidence:
+                    topic_confidence[topic] = max(topic_confidence[topic], 0.5)
 
-    ask_text = generate_heuristic_question(raw_user_target)
     return {
-        "need_ask": True,
-        "ask_content": ask_text,
-        "narrowed_target": None,
-        "state": state,
-        "judge_source": judge_source
+        "topic_confidence": topic_confidence,
+        "overall_confidence": overall_confidence,
+        "adaptive_difficulty": max(1.0, min(10.0, overall_confidence)),
     }

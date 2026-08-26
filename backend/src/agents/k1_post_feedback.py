@@ -1,51 +1,112 @@
 """
-任务：后置动态反馈B（加分项）
-答题错误：降维重生成简单解释；答题正确：生成进阶任务
-降级模式：不调用重生成，只返回批改结果、建议、文档url
+K1 Post-Feedback Module
+
+Handles post-examination analysis, feedback generation,
+and recommendation derivation based on exam performance.
 """
-from typing import Dict, Any
+
+from typing import Any
 
 
-def post_feedback_pipeline(exam_result: Dict[str, Any],
-                           orchestrator_client,
-                           enable_full: bool = True) -> Dict[str, Any]:
+def generate_post_feedback(
+    exam_results: dict[str, Any],
+    topic_mastery: dict[str, float],
+) -> dict[str, Any]:
     """
-    :param exam_result: exam_full_pipeline输出结果
-    :param orchestrator_client: Orchestrator调度客户端，提供反馈-重生成入口
-    :param enable_full: True完整模式；False降级模式（资源紧张开启）
-    """
-    is_correct = exam_result["is_correct"]
-    if not enable_full:
-        # ========= 降级模式（资源紧张直接启用） =========
-        return {
-            "mode": "degrade",
-            "exam_result": exam_result,
-            "feedback_content": f"批改完成。{exam_result['suggestion']}，参考文档：{exam_result['ref_doc_url']}",
-            "regenerate_content": None
-        }
+    Generate comprehensive feedback based on exam results.
 
-    # =========完整模式，调用Orchestrator重生成入口 =========
-    if not is_correct:
-        payload = {
-            "trigger": "feedback_regen",
-            "type": "reduce_difficulty",
-            "knowledge_id": exam_result["knowledge_id"],
-            "user_error": exam_result["analysis"]
-        }
-        regen_content = orchestrator_client.call_feedback_regen(payload)
-        feedback_text = "你的作答有误，已为你生成简化讲解。"
-    else:
-        payload = {
-            "trigger": "feedback_regen",
-            "type": "advance_task",
-            "knowledge_id": exam_result["knowledge_id"]
-        }
-        regen_content = orchestrator_client.call_feedback_regen(payload)
-        feedback_text = "作答正确，为你生成进阶练习任务。"
+    Args:
+        exam_results: Results dictionary from k1_exam_pipeline.
+        topic_mastery: Topic mastery scores from calculate_topic_mastery.
+
+    Returns:
+        Complete feedback report with scores, strengths, weaknesses, and recommendations.
+    """
+    normalized_score = exam_results.get("normalized_score", 0.0)
+    total_questions = exam_results.get("total_questions", 0)
+    answered = exam_results.get("answered_questions", 0)
+
+    weak_topics = [
+        (topic, score) for topic, score in topic_mastery.items() if score < 60.0
+    ]
+    strong_topics = [
+        (topic, score) for topic, score in topic_mastery.items() if score >= 80.0
+    ]
+
+    weak_topics.sort(key=lambda x: x[1])
+    strong_topics.sort(key=lambda x: x[1], reverse=True)
+
+    recommendations = _derive_recommendations(weak_topics, normalized_score)
 
     return {
-        "mode": "full",
-        "exam_result": exam_result,
-        "feedback_content": feedback_text,
-        "regenerate_content": regen_content
+        "score": normalized_score,
+        "total_questions": total_questions,
+        "answered": answered,
+        "completion_rate": answered / total_questions if total_questions > 0 else 0.0,
+        "strong_topics": [{"topic": t, "mastery": s} for t, s in strong_topics[:5]],
+        "weak_topics": [{"topic": t, "mastery": s} for t, s in weak_topics[:5]],
+        "recommendations": recommendations,
+        "overall_assessment": _assess_performance(normalized_score),
     }
+
+
+def _derive_recommendations(
+    weak_topics: list[tuple[str, float]],
+    overall_score: float,
+) -> list[str]:
+    """
+    Derive study and improvement recommendations from weak areas.
+
+    Args:
+        weak_topics: Sorted list of (topic, score) tuples (lowest first).
+        overall_score: Normalized overall exam score.
+
+    Returns:
+        List of recommendation strings.
+    """
+    recommendations: list[str] = []
+
+    if overall_score < 50.0:
+        recommendations.append(
+            "Consider a comprehensive review of fundamental concepts before retaking."
+        )
+    elif overall_score < 70.0:
+        recommendations.append(
+            "Focus on targeted practice in weaker areas identified below."
+        )
+
+    if weak_topics:
+        top_weak = weak_topics[:3]
+        recommendations.append(
+            f"Priority topics to review: {', '.join(t for t, _ in top_weak)}"
+        )
+
+    recommendations.append(
+        "Schedule regular practice sessions to improve retention and familiarity."
+    )
+
+    return recommendations
+
+
+def _assess_performance(score: float) -> str:
+    """
+    Provide an overall textual assessment based on the normalized score.
+
+    Args:
+        score: Normalized score value (typically 0-100).
+
+    Returns:
+        Assessment string describing performance level.
+    """
+    if score >= 90.0:
+        return "Excellent - Demonstrates strong mastery of the material."
+    elif score >= 80.0:
+        return "Very Good - Solid understanding with minor areas for improvement."
+    elif score >= 70.0:
+        return "Good - Competent performance, consider reviewing weak topics."
+    elif score >= 60.0:
+        return "Satisfactory - Basic proficiency achieved, further study recommended."
+    elif score >= 50.0:
+        return "Needs Improvement - Significant gaps identified, dedicated review required."
+    else:
+        return "Unsatisfactory - Comprehensive study recommended before continuation."
