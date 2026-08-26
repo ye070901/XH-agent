@@ -209,6 +209,10 @@ class Settings:
     """RecallGate v0.1：RAG 检索重试上限，超限 → FALLBACK"""
     RECALL_QUERY_REWRITE_MODEL: str = os.getenv("RECALL_QUERY_REWRITE_MODEL", "")
     """RecallGate v0.1：Query 改写用的轻量 LLM 模型，为空回退到 GATE_LLM_MODEL → LLM_MODEL"""
+    RECALL_HIGH_CONFIDENCE_SCORE: float = _float_env("RECALL_HIGH_CONFIDENCE_SCORE", 0.70)
+    """RecallGate 防误判：召回最高相似度 > 此值 → 高置信放行（high_pass）"""
+    RECALL_LOW_TOLERATE_SCORE: float = _float_env("RECALL_LOW_TOLERATE_SCORE", 0.30)
+    """RecallGate 防误判：召回最高相似度 ≤ 此值 → 才允许 FALLBACK；区间内低置信放行（low_pass）"""
 
     # -- KB 引擎 --
     HF_ENDPOINT: str = os.getenv("HF_ENDPOINT", "https://hf-mirror.com")

@@ -1,8 +1,8 @@
 {
   "meta": {
     "name": "Phase 3 外部真值学习者画像",
-    "version": "1.0",
-    "profile_count": 3,
+    "version": "3.0",
+    "profile_count": 10,
     "truth_policy": "expected_profile 由测试方案预先定义，评测时禁止从模型诊断输出回填。",
     "provenance": [
       "docs/TESTING_PLAN.md#4.2",
@@ -12,30 +12,32 @@
   },
   "profiles": [
     {
-      "id": "profile-a-transfer-electrician",
-      "label": "A 转岗电工",
+      "id": "profile-d-zero-basis",
+      "label": "D 纯零基础·行业外转行",
       "input": {
-        "name": "画像A",
-        "education_level": "junior_college",
-        "major": "电气自动化",
-        "school": "职业技术学院",
-        "work_years": 6,
-        "industry": "装备制造",
-        "positions": ["维修电工"],
-        "skills_used": ["低压电气", "PLC基础", "电气安全"],
-        "learning_goal": "从零掌握工业机器人安全操作、示教与基础调试",
+        "name": "画像D",
+        "education_level": "high_school",
+        "major": "市场营销",
+        "school": "普通高中",
+        "work_years": 0,
+        "industry": "餐饮服务",
+        "positions": [
+          "门店店员"
+        ],
+        "skills_used": [],
+        "learning_goal": "从零了解工业机器人是什么、能做什么，找到入门方向",
         "pretest_results": [
           {
             "test_name": "工业机器人编程调试前置测试",
-            "total_score": 30,
+            "total_score": 5,
             "max_score": 120,
             "topic_scores": {
-              "机器人坐标系": 25,
-              "运动指令": 25,
+              "机器人坐标系": 5,
+              "运动指令": 5,
               "RobotStudio仿真": 0,
               "ROS2/Gazebo仿真": 0,
-              "SRVO-068数据传输故障": 25,
-              "安全急停链路": 75
+              "SRVO-068数据传输故障": 0,
+              "安全急停链路": 10
             },
             "completed_at": "2026-08-14T09:00:00+08:00"
           }
@@ -43,83 +45,403 @@
       },
       "expected_profile": {
         "expected_difficulty": "beginner",
-        "expected_learning_style": "practice_first",
-        "difficulty_rationale": "有电气与安全基础，但机器人前置测试仅 30/120，需从示教器、坐标系和安全操作起步。",
-        "style_rationale": "维修电工以现场操作经验为主，步骤化实操、风险提示和可复现检查单优先。"
+        "expected_learning_style": "visual",
+        "difficulty_rationale": "无任何工业/电气/机械背景，前置测试仅 5/120，需从最基础的概念与直观认识起步。",
+        "style_rationale": "零基础学习者最需要图像、视频、动画等可视化手段建立直观认识。"
       }
     },
     {
-      "id": "profile-b-automation-undergraduate",
-      "label": "B 自动化本科生",
+      "id": "profile-e-heard-only",
+      "label": "E 有背景·仅听过机器人",
       "input": {
-        "name": "画像B",
-        "education_level": "bachelor",
-        "major": "自动化",
-        "school": "工科院校",
-        "work_years": 0.5,
-        "industry": "智能制造",
-        "positions": ["自动化实习生"],
-        "skills_used": ["机器人运动学", "MATLAB", "PLC", "控制原理"],
-        "learning_goal": "系统理解工业机器人编程、离线仿真与故障诊断原理",
+        "name": "画像E",
+        "education_level": "junior_college",
+        "major": "电气自动化",
+        "school": "职业技术学院",
+        "work_years": 3,
+        "industry": "装备制造",
+        "positions": [
+          "维修电工"
+        ],
+        "skills_used": [
+          "低压电气",
+          "PLC基础",
+          "电气安全"
+        ],
+        "learning_goal": "在已有电气基础上，系统入门工业机器人操作与编程",
         "pretest_results": [
           {
             "test_name": "工业机器人编程调试前置测试",
-            "total_score": 80,
+            "total_score": 15,
             "max_score": 120,
             "topic_scores": {
-              "机器人坐标系": 100,
-              "运动指令": 75,
-              "RobotStudio仿真": 50,
-              "ROS2/Gazebo仿真": 75,
-              "SRVO-068数据传输故障": 50,
-              "安全急停链路": 50
+              "机器人坐标系": 15,
+              "运动指令": 10,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 40
             },
             "completed_at": "2026-08-14T09:10:00+08:00"
           }
         ]
       },
       "expected_profile": {
-        "expected_difficulty": "intermediate",
+        "expected_difficulty": "beginner",
         "expected_learning_style": "theory_first",
-        "difficulty_rationale": "已掌握运动学和控制理论，前置测试 80/120，但缺少真实产线调试经验，适合中级内容。",
-        "style_rationale": "学习目标强调系统理解，应先解释坐标变换、控制与故障机理，再给操作案例验证。"
+        "difficulty_rationale": "有电气基础但机器人领域仅听说过概念，前置测试 15/120，仍需从入门开始。",
+        "style_rationale": "有技术背景的学习者适合先建立概念框架，再进入实操。"
       }
     },
     {
-      "id": "profile-c-senior-technician",
-      "label": "C 老技师",
+      "id": "profile-f-theory-student",
+      "label": "F 理论型·学过没实操",
       "input": {
-        "name": "画像C",
-        "education_level": "junior_college",
-        "major": "机电一体化",
-        "school": "职业技术学院",
-        "work_years": 12,
-        "industry": "汽车零部件制造",
-        "positions": ["机器人调试技师", "产线维护班组长"],
-        "skills_used": ["FANUC示教", "PTP/LIN编程", "现场故障恢复", "安全点检"],
-        "learning_goal": "把现场示教经验扩展到多品牌离线仿真和复杂故障定位",
+        "name": "画像F",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 0,
+        "industry": "智能制造",
+        "positions": [
+          "自动化实习生"
+        ],
+        "skills_used": [
+          "机器人运动学",
+          "MATLAB/Simulink",
+          "控制原理",
+          "Python"
+        ],
+        "learning_goal": "把课堂学到的理论应用到真实机器人编程与调试",
         "pretest_results": [
           {
             "test_name": "工业机器人编程调试前置测试",
-            "total_score": 90,
+            "total_score": 55,
             "max_score": 120,
             "topic_scores": {
-              "机器人坐标系": 100,
-              "运动指令": 100,
-              "RobotStudio仿真": 25,
-              "ROS2/Gazebo仿真": 25,
-              "SRVO-068数据传输故障": 100,
-              "安全急停链路": 100
+              "机器人坐标系": 85,
+              "运动指令": 70,
+              "RobotStudio仿真": 45,
+              "ROS2/Gazebo仿真": 50,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
             },
             "completed_at": "2026-08-14T09:20:00+08:00"
           }
         ]
       },
       "expected_profile": {
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first",
+        "difficulty_rationale": "理论掌握良好但零实操，前置测试 55/120，理论题高分、实操题低分，适合中级内容补实操。",
+        "style_rationale": "理论型学习者应先巩固原理，再引入实操案例验证。"
+      }
+    },
+    {
+      "id": "profile-g-hands-on-operator",
+      "label": "G 实操型·会操作不懂原理",
+      "input": {
+        "name": "画像G",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 4,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "机器人上下料",
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "搞懂天天操作的机器人背后的原理，从会按按钮到懂为什么",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 50,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 35,
+              "RobotStudio仿真": 15,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 60,
+              "安全急停链路": 80
+            },
+            "completed_at": "2026-08-14T09:30:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "practice_first",
+        "difficulty_rationale": "会日常操作但不理解原理，前置测试 50/120，实操题高分、理论题低分，需补理论但不从零开始。",
+        "style_rationale": "已有操作经验，通过实操场景反向补理论最有效。"
+      }
+    },
+    {
+      "id": "profile-h-balanced-junior",
+      "label": "H 均衡中等·初级技术员",
+      "input": {
+        "name": "画像H",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 2,
+        "industry": "装备制造",
+        "positions": [
+          "设备维护员",
+          "初级机器人技术员"
+        ],
+        "skills_used": [
+          "基础示教",
+          "简单故障复位",
+          "设备日常维护",
+          "基础编程"
+        ],
+        "learning_goal": "把零散的现场经验和理论串起来，突破只会照步骤做的瓶颈",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 65,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 50,
+              "运动指令": 55,
+              "RobotStudio仿真": 40,
+              "ROS2/Gazebo仿真": 40,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T09:40:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first",
+        "difficulty_rationale": "理论和实操都有基础但都不深入，前置测试 65/120，全面中等无短板，适合中级系统化提升。",
+        "style_rationale": "实操已有积累、理论不系统，先梳理理论框架再带动实操。"
+      }
+    },
+    {
+      "id": "profile-i-skilled-engineer",
+      "label": "I 熟练工程师·日常使用",
+      "input": {
+        "name": "画像I",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 6,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人调试工程师"
+        ],
+        "skills_used": [
+          "FANUC/KUKA编程",
+          "示教调试",
+          "常见故障处理",
+          "离线仿真"
+        ],
+        "learning_goal": "深化多品牌离线仿真与复杂故障定位能力",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 88,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 85,
+              "运动指令": 90,
+              "RobotStudio仿真": 70,
+              "ROS2/Gazebo仿真": 60,
+              "SRVO-068数据传输故障": 85,
+              "安全急停链路": 90
+            },
+            "completed_at": "2026-08-14T09:50:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
         "expected_difficulty": "advanced",
         "expected_learning_style": "practice_first",
-        "difficulty_rationale": "具备 12 年现场示教与故障恢复经验，基础点已高掌握，目标是跨品牌仿真与复杂诊断。",
-        "style_rationale": "资深技师更适合以真实工作站任务、排故路径和可执行检查表承载进阶概念。"
+        "difficulty_rationale": "日常编程调试排故熟练，前置测试 88/120，全面均衡偏高，适合进阶内容。",
+        "style_rationale": "熟练工程师以真实任务和排故路径承载进阶概念。"
+      }
+    },
+    {
+      "id": "profile-j-authority-expert",
+      "label": "J 权威型·技术大能",
+      "input": {
+        "name": "画像J",
+        "education_level": "master",
+        "major": "机电一体化",
+        "school": "工科院校",
+        "work_years": 12,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人技术专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC/KUKA/ABB 多品牌",
+          "产线方案设计",
+          "疑难故障诊断",
+          "团队培训"
+        ],
+        "learning_goal": "跨品牌方案设计与疑难故障的系统化方法论沉淀",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 115,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 98,
+              "运动指令": 100,
+              "RobotStudio仿真": 95,
+              "ROS2/Gazebo仿真": 95,
+              "SRVO-068数据传输故障": 100,
+              "安全急停链路": 100
+            },
+            "completed_at": "2026-08-14T10:00:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "advanced",
+        "expected_learning_style": "project_based",
+        "difficulty_rationale": "12 年多品牌精通，前置测试 115/120，全面顶级，需权威级内容。",
+        "style_rationale": "权威专家以任务/项目驱动，用真实项目沉淀方法论。"
+      }
+    },
+    {
+      "id": "profile-k-over-confident",
+      "label": "K 过度自信型·自称专家实则零基础",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first",
+        "difficulty_rationale": "前置测试仅 20/120 是直接证据，压倒自述的十年经历与专家头衔，应从入门起步。",
+        "style_rationale": "自称实操专家，若按其实操导向应给步骤化内容，但难度必须对齐真实水平。"
+      }
+    },
+    {
+      "id": "profile-l-knowledge-void",
+      "label": "L 知识空白型·有基础但目标死盯零分域",
+      "input": {
+        "name": "画像L",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 3,
+        "industry": "智能制造",
+        "positions": [
+          "PLC工程师"
+        ],
+        "skills_used": [
+          "PLC编程",
+          "电气设计",
+          "SCADA"
+        ],
+        "learning_goal": "我要立刻精通 ABB RobotStudio 离线仿真和碰撞检测，别的都不用管",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 60,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 70,
+              "运动指令": 60,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 10,
+              "SRVO-068数据传输故障": 50,
+              "安全急停链路": 55
+            },
+            "completed_at": "2026-08-14T10:20:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "intermediate",
+        "expected_learning_style": "theory_first",
+        "difficulty_rationale": "PLC工程师有工程基础，但目标域（RobotStudio仿真）前置 0 分，整体中级、该域从零，不能因目标激进判高级。",
+        "style_rationale": "工程背景学习者适合先建立仿真原理框架再进入实操。"
+      }
+    },
+    {
+      "id": "profile-m-self-contradictory",
+      "label": "M 自相矛盾型·年限十年但技能实习生级",
+      "input": {
+        "name": "画像M",
+        "education_level": "high_school",
+        "major": "无相关专业背景",
+        "school": "普通高中",
+        "work_years": 10,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人上下料操作工"
+        ],
+        "skills_used": [
+          "示教器基础操作",
+          "急停复位"
+        ],
+        "learning_goal": "系统学习工业机器人编程调试，提升技术水平",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 25,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 25,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 15,
+              "安全急停链路": 30
+            },
+            "completed_at": "2026-08-14T10:30:00+08:00"
+          }
+        ]
+      },
+      "expected_profile": {
+        "expected_difficulty": "beginner",
+        "expected_learning_style": "practice_first",
+        "difficulty_rationale": "技能列表实习生级 + 前置测试 25/120 双重证据指向入门，work_years=10 与岗位/技能矛盾，应取技能与测试证据侧。",
+        "style_rationale": "操作工出身，步骤化实操最匹配。"
       }
     }
   ]

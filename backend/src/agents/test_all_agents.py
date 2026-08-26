@@ -634,8 +634,10 @@ class TestCorrectionAgent:
         """正常输入：prompt 携带学习者难度 / 学习风格 / KB 素材与 issue 明细。"""
         result, m = self._run(deepcopy(CORRECTION_STATE), {"return_value": dict(CORRECTED_OK)})
         prompt = m.await_args.args[0]
-        assert "推荐难度：beginner" in prompt
-        assert "学习风格：practice_first" in prompt
+        # 结构化画像参数块（取代旧的「推荐难度/学习风格」自然语言行）
+        assert '"difficulty": "beginner"' in prompt
+        assert '"learning_style": "practice_first"' in prompt
+        assert '"profile_tag": "custom"' in prompt
         assert "LangGraph is a library built by the LangChain team" in prompt
         assert "必须修正（error）" in prompt
         assert "尽量修正（warning）" in prompt

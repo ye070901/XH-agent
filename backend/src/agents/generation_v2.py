@@ -15,9 +15,45 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
   - 新增: 循环容错（部分成功）、float() 类型保护、OPTIONAL_STATE_KEYS 补全
 """
 
+import json
+import re
 import uuid
 
 from .base import BaseAgent
+
+# (难度, 学习风格) → 画像标签 的主映射（与 data/evaluation/learner_profiles.json 的 7 画像对齐）
+_PROFILE_TAG_BY_DIFF_STYLE: dict[tuple[str, str], str] = {
+    ("beginner", "visual"): "zero_basis",          # D 纯零基础·行业外转行
+    ("beginner", "theory_first"): "heard_only",    # E 有背景·仅听过机器人
+    ("intermediate", "practice_first"): "hands_on_operator",  # G 实操型·会操作不懂原理
+    ("advanced", "practice_first"): "skilled_engineer",       # I 熟练工程师·日常使用
+    ("advanced", "project_based"): "authority_expert",        # J 权威型·技术大能
+}
+
+
+def derive_profile_tag(learner_data: dict, difficulty: str, style: str) -> str:
+    """按 (难度, 风格) + 背景纯规则推导画像标签（7 画像之一，无 LLM 脑补）。
+
+    intermediate + theory_first 需细分：
+      - F 理论型（0 工作年限 / 实习生）→ theory_student
+      - H 均衡初级（有工作年限）        → balanced_junior
+    其余 (难度, 风格) 组合若未命中 7 画像，返回中性兜底 "custom"。
+
+    供生成 / 修正 Agent 共享，避免画像规则散落多处（CLAUDE.md §6.4 多文件归并）。
+    """
+    tag = _PROFILE_TAG_BY_DIFF_STYLE.get((difficulty, style))
+    if tag:
+        return tag
+    if (difficulty, style) == ("intermediate", "theory_first"):
+        try:
+            work_years = float(learner_data.get("work_years") or 0)
+        except (ValueError, TypeError):
+            work_years = 0.0
+        positions = " ".join(learner_data.get("positions") or [])
+        if work_years <= 0 or "实习" in positions:
+            return "theory_student"
+        return "balanced_junior"
+    return "custom"
 
 SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作者。你的任务是：
 1. 根据学习者的知识盲区（skill_gaps）和推荐难度，用你的专业知识生成个性化学习资源
@@ -29,10 +65,22 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
 - guide（实操指南）：分步操作手册，含真实命令行和完整代码
 - quiz（分阶测试题）：选择题/填空题/实操题，分基础/进阶/挑战三级
 
+## 难度矩阵（唯一有效标准，禁止使用其他旧标准）
+- beginner：零基础入门。多用生活类比与比喻，术语首次出现必须给白话解释，每行代码加注释。
+- intermediate：有基础进阶。专业术语可直接使用，仅对关键步骤加注释，引入进阶概念。
+- advanced：熟练/专家级。直接用行业术语，精简解释，聚焦架构权衡与高质量代码。
+
+## 学习风格（4 种，唯一有效标准）
+- theory_first：先讲清原理（为什么），再给代码/操作。
+- practice_first：先给可执行步骤/代码，再解释原理。
+- visual：偏好图片、示意图、动画演示，少大段文字，多用步骤拆解，适合零基础入门。
+- project_based：以真实案例、项目任务驱动讲解，结合实际场景做练习，适合有基础的学习者。
+
 重要规则：
 - 学情盲区标注了 critical 的知识点 → 这是本次生成必须覆盖的核心内容
-- 难度匹配学习者水平：beginner 多用比喻和注释，advanced 减少解释直接给代码
-- learning_style 为 practice_first 时多给实操示例，theory_first 时先讲原理
+- 严格遵循系统传入的结构化画像参数（difficulty / learning_style / profile_tag）
+- **禁止自行脑补或改写难度与学习风格**：输出 difficulty_level 必须与传入 difficulty 完全一致，
+  表达方式必须与传入 learning_style 一致，不得混用其他风格
 
 输出必须为严格的 JSON 格式。
 
@@ -76,8 +124,24 @@ class GenerationAgent(BaseAgent):
         单个资源生成失败时记录错误但不阻断其他资源的生成（部分成功）。
         """
         diagnosis = state.get("diagnosis_result", {})
+        learner_data = state.get("learner_data", {})
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
         retrieved_chunks = state.get("retrieved_chunks", [])
+
+        # ── 空 KB 生成关闭：无有效知识库 chunk 时禁止凭空生成（杜绝兜底路径幻觉）──
+        valid_chunks = [
+            c
+            for c in retrieved_chunks
+            if isinstance(c, dict) and str(c.get("content", "")).strip()
+        ]
+        if not valid_chunks:
+            self.log("⚠️ 无有效知识库素材，禁止凭空生成，返回空资源集合")
+            return {
+                "generated_resources": [],
+                "generation_errors": [
+                    {"resource_type": "ALL", "error": "no_knowledge_base_chunks"}
+                ],
+            }
 
         # 安全上限：防止请求过多类型导致 token 爆炸
         resource_types = resource_types[: self.MAX_RESOURCES]
@@ -91,7 +155,7 @@ class GenerationAgent(BaseAgent):
         ]
         for rtype in resource_types:
             try:
-                result = await self._generate_one(diagnosis, rtype, retrieved_chunks)
+                result = await self._generate_one(diagnosis, rtype, retrieved_chunks, learner_data)
                 # 解析失败（_parse_error）或空内容同样按失败处理，不当作资源
                 if not result or result.get("_parse_error"):
                     self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
@@ -119,15 +183,20 @@ class GenerationAgent(BaseAgent):
         }
 
     async def _generate_one(
-        self, diagnosis: dict, rtype: str, retrieved_chunks: list | None = None
+        self,
+        diagnosis: dict,
+        rtype: str,
+        retrieved_chunks: list | None = None,
+        learner_data: dict | None = None,
     ) -> dict:
         """为单一资源类型生成内容。
 
         Args:
             diagnosis:        诊断结果 dict，含 skill_gaps / recommended_difficulty
-                              / learning_style / summary
+                              / learning_style / summary / profile_tag(可选)
             rtype:            资源类型字符串（lecture / guide / quiz）
             retrieved_chunks: RAG 知识库检索结果列表
+            learner_data:     学习者原始画像（用于纯规则推导 profile_tag，可选）
 
         Returns:
             LLM 返回的 dict；LLM 解析失败时返回 {}（由调用方过滤）。
@@ -136,15 +205,27 @@ class GenerationAgent(BaseAgent):
         difficulty = diagnosis.get("recommended_difficulty", "beginner")
         learning_style = diagnosis.get("learning_style", "unknown")
         learning_goal = diagnosis.get("summary", "")
+        # 画像标签：优先取诊断显式字段，否则按 (难度, 风格, 背景) 纯规则推导
+        profile_tag = diagnosis.get("profile_tag") or derive_profile_tag(
+            learner_data or {}, difficulty, learning_style
+        )
+
+        # ── 结构化画像参数（权威，模型不可改写）──
+        profile_params = {
+            "difficulty": difficulty,
+            "learning_style": learning_style,
+            "profile_tag": profile_tag,
+        }
 
         # ── 构建知识库上下文（RAG 约束生成）──
         kb_context = self._fmt_knowledge_base(retrieved_chunks or [])
 
-        prompt = f"""## 学习者画像
+        prompt = f"""## 结构化画像参数（权威，禁止改写）
+{json.dumps(profile_params, ensure_ascii=False)}
+
+## 学习者画像
 - 学习目标总结：{learning_goal}
 - 知识盲区（按优先级）：{self._fmt_gaps(gaps)}
-- 推荐难度：{difficulty}
-- 学习风格：{learning_style}
 
 {kb_context}
 
@@ -167,13 +248,10 @@ class GenerationAgent(BaseAgent):
 1. 内容必须准确——这是教育场景，教错了比不教更糟
 2. **内容必须基于上方知识库参考资料**，不得编造知识库中没有的技术细节
 3. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
-4. 难度匹配 {difficulty} 水平：
-   - beginner: 多用生活类比，每行代码加注释
-   - intermediate: 适当减少注释，引入进阶概念
-   - advanced: 精简解释，给高质量代码和架构思考
-5. 学习风格为 {learning_style}：
-   - practice_first: 先给代码再解释原理
-   - theory_first: 先讲清楚为什么再给代码
+4. **难度锁定**：difficulty_level 必须严格等于结构化画像参数中的 difficulty（{difficulty}），
+   禁止自行调整难度档位
+5. **风格锁定**：内容表达方式必须与结构化画像参数中的 learning_style（{learning_style}）
+   一致，禁止混用其他风格或自行脑补新风格
 6. 三种资源固定内容结构：
    - lecture: 引言 → 3~4小节（概念+可运行代码）→ 总结
    - guide: 概述 → 前置准备 → 分步操作（命令+代码+预期输出）→ 常见问题
@@ -181,7 +259,59 @@ class GenerationAgent(BaseAgent):
 7. 优先覆盖 critical 和 high 优先级的知识盲区
 8. citations 中至少引用 2 条知识库原文片段"""
 
-        return await self.call_llm_json(prompt)
+        if rtype == "quiz":
+            prompt += """
+
+## STRICT QUIZ CONTRACT
+Create at least 5 distinct questions. Each question must have a unique, clear
+stem and must be numbered in order as `Question 1:` through `Question 5:`.
+For a multiple-choice question, include exactly four options labelled A-D,
+then include `Answer: <letter>` and `Explanation: <reason>` immediately after
+that question. Never place more than one A-D option group under one question
+heading. Include a mix of recall, scenario, and application questions that is
+relevant to the learner profile and the retrieved knowledge.
+"""
+
+        result = await self.call_llm_json(prompt)
+        if rtype != "quiz" or self._has_complete_quiz_key(result):
+            return result
+
+        # A quiz without an answer key cannot be submitted, reviewed, or exported
+        # as a self-study resource. Ask once more before it reaches the UI.
+        repair_prompt = f"""Repair this quiz resource. Keep it grounded in the
+learner profile and knowledge context below, but return a complete JSON object
+with the same fields as the original response.
+
+{kb_context}
+
+Original quiz JSON:
+{result}
+
+Requirements:
+- Create at least 5 numbered questions.
+- Every question must have one answer line written exactly as `Answer: ...`
+  (or `标准答案：...`) and one non-empty explanation line written exactly as
+  `Explanation: ...` (or `解析：...`).
+- Multiple-choice questions must have exactly four A-D options, and the answer
+  must be the matching option letter.
+- Do not omit answers or explanations for any question.
+"""
+        repaired = await self.call_llm_json(repair_prompt)
+        return repaired if self._has_complete_quiz_key(repaired) else result
+
+    @staticmethod
+    def _has_complete_quiz_key(result: dict | None) -> bool:
+        """Return whether every recognizable quiz question includes its key."""
+        if not isinstance(result, dict):
+            return False
+        content = str(result.get("content", ""))
+        question_count = len(re.findall(
+            r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:question\s*\d+|q\s*\d+|第\s*[0-9一二三四五六七八九十]+\s*题)",
+            content,
+        ))
+        answer_count = len(re.findall(r"(?im)^\s*(?:answer|标准答案|参考答案|正确答案|答案)\s*[:：]", content))
+        explanation_count = len(re.findall(r"(?im)^\s*(?:explanation|答案解析|解析)\s*[:：]", content))
+        return question_count >= 5 and answer_count >= question_count and explanation_count >= question_count
 
     def _fmt_gaps(self, gaps: list) -> str:
         """格式化知识盲区列表为可读文本，最多展示前 5 条。
@@ -222,7 +352,7 @@ class GenerationAgent(BaseAgent):
         每条截取前 500 字符防止 prompt 过长。
         """
         if not chunks:
-            return "## 知识库参考资料\n（无可用知识库资料，请基于你的专业知识生成内容）"
+            return "## 知识库参考资料\n（无可用知识库素材——禁止凭空生成内容）"
 
         seen_titles: set[str] = set()
         unique_chunks: list[dict] = []

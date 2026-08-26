@@ -22,6 +22,7 @@ from backend.src.api.ws import router as ws_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
+from backend.src.quality_gate.gates.recall_gate import ONLINE_FALLBACK_DISCLAIMER  # noqa: E402
 from backend.src.scheduler.pipeline import scheduler  # noqa: E402
 
 # ====================== 导入全部结束后，再放文档注释与业务代码 ======================
@@ -171,10 +172,21 @@ async def generate(request: dict):
             "total_latency_ms": result.get("elapsed_ms", 0),
         }
 
-        # 构建 answer（从生成资源提取）
-        resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
-        answer = _build_answer(resources)
-        sources = _build_sources(result.get("retrieved_chunks", []))
+        # 兜底路径：返回外部检索摘要文本 + 免责提示，不产出结构化 resources
+        if result.get("_is_fallback"):
+            raw = result.get("_online_fallback_raw", "")
+            if raw:
+                answer = ONLINE_FALLBACK_DISCLAIMER + "\n\n" + raw
+                sources = result.get("_online_fallback_sources", [])
+            else:
+                answer = result.get("_offline_fallback_message", "知识库暂无相关数据")
+                sources = []
+            resources = []
+        else:
+            # 正常路径：构建 answer（从生成资源提取）
+            resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
+            answer = _build_answer(resources)
+            sources = _build_sources(result.get("retrieved_chunks", []))
 
         # 计算 confidence（基于审核结果）
         confidence = _calc_confidence(result)

@@ -460,6 +460,26 @@ class PipelineScheduler:
         result = state["gate_results"][RecallGate.GATE_NAME]
         verdict = result.get("verdict", GateVerdict.FALLBACK.value)
 
+        # 兜底分支：识别 fallback_data 中的兜底内容并写入 state，标记跳过 Agent3 引文校验
+        # （无检索片段，避免无 KB 比对时报错）。
+        fb = result.get("fallback_data") or {}
+        if isinstance(fb, dict):
+            # 在线兜底：外部检索原始摘要（不含免责头，免责头由输出层硬拼接）
+            if fb.get("online_fallback_raw"):
+                state["_online_fallback_raw"] = fb["online_fallback_raw"]
+                state["_online_fallback_sources"] = fb.get("sources", [])
+                state["_skip_kb_citation"] = True
+                logger.info(
+                    f"[Scheduler] task_id={task_id[:8]}… 在线兜底：跳过 Agent3 知识库引文校验"
+                )
+            # 离线兜底：固定提示文本（防御性，同样跳过引文校验）
+            if fb.get("offline_message"):
+                state["_offline_fallback_message"] = fb["offline_message"]
+                state["_skip_kb_citation"] = True
+                logger.info(
+                    f"[Scheduler] task_id={task_id[:8]}… 离线兜底：跳过 Agent3 知识库引文校验"
+                )
+
         if verdict == GateVerdict.PASS.value:
             await self._broadcast(
                 task_id,
@@ -496,6 +516,15 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_agent3(self, state: dict[str, Any], task_id: str) -> str:
+        # 【技术债：降级模式未接入调度】AuditAgent/CorrectionAgent 支持 downgrade_mode
+        # （无 KB 一致性检查），但 scheduler 从未写入 state["downgrade_mode"]，
+        # 故降级分支在调度链路中恒不生效。此处未接入，仅保留 _skip_kb_citation 防御。
+        # 兜底内容无 KB 检索片段，跳过引文校验
+        if state.get("_skip_kb_citation"):
+            logger.info(
+                f"[Scheduler] task_id={task_id[:8]}… 在线兜底内容，跳过 Agent3 知识库引文校验"
+            )
+            return GateVerdict.PASS.value
         return await self._run_agent(self._get_audit(), state, task_id, "audit")
 
     # ═══════════════════════════════════════════════════════════
@@ -512,6 +541,12 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_agent3_recheck(self, state: dict[str, Any], task_id: str) -> str:
+        # 在线兜底内容来自外部大模型，无 KB 检索片段，跳过二次引文校验
+        if state.get("_skip_kb_citation"):
+            logger.info(
+                f"[Scheduler] task_id={task_id[:8]}… 在线兜底内容，跳过 Agent3 二次引文校验"
+            )
+            return GateVerdict.PASS.value
         if state.get("corrected_resources"):
             state["_original_generated_resources"] = state.get("generated_resources", [])
             state["generated_resources"] = state["corrected_resources"]
@@ -522,6 +557,8 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_output(self, state: dict[str, Any], task_id: str) -> str:
+        # 【死代码】FALLBACK 时 _execute_pipeline 在 RecallGate 后即 break，
+        # 本 step（index 10）永不执行，此处 fallback 注入分支不可达，仅保留结构占位。
         if state.get("_is_fallback"):
             # 降级输出：从最后一次 gate 结果取 fallback_data
             for gate_name in (

@@ -123,11 +123,11 @@ def test_runner_reaches_release_ready_only_with_all_gates(tmp_path: Path) -> Non
     report, release_ready = asyncio.run(evaluate(args))
 
     assert report["data_quality"] == {
-        "case_count": 58,
-        "positive_case_count": 54,
+        "case_count": 184,
+        "positive_case_count": 180,
         "negative_case_count": 4,
-        "profile_count": 3,
-        "raw_output_record_count": 58,
+        "profile_count": 10,
+        "raw_output_record_count": 184,
     }
     assert report["aggregate_metrics"]["all_pass"] is True
     assert report["negative_evaluation"]["all_pass"] is True

@@ -72,6 +72,18 @@ def _lazy_load_openai_exceptions() -> None:
 # ── 输入截断常量 ──
 _TRUNCATION_MARKER = "\n…[内容过长，中间部分已截断]…\n"
 
+# ── 演示模式画像标签 → 场景设定（与 generation_v2._PROFILE_TAG_BY_DIFF_STYLE 对齐）──
+_DEMO_PROFILE_NOTE: dict[str, str] = {
+    "zero_basis": "行业外零基础转行，从「机器人是什么」建立直观认识",
+    "heard_only": "有电气/自动化背景、仅听说过机器人，系统入门",
+    "theory_student": "课堂理论扎实但零实操，用真实案例补实操",
+    "hands_on_operator": "会日常操作不懂原理，从操作反推原理",
+    "balanced_junior": "理论与实操都有基础但不深，系统化串联",
+    "skilled_engineer": "日常编程排故熟练，深化多品牌仿真与复杂故障",
+    "authority_expert": "多品牌精通，沉淀产线方案与疑难故障方法论",
+    "custom": "通用画像",
+}
+
 
 class LLMClient:
     """统一 LLM 调用接口。
@@ -85,11 +97,13 @@ class LLMClient:
     """
 
     # ── 演示模式场景关键词 → 内部方法名映射 ──
+    # 注意顺序：「修正」必须排在「审核」之前 —— 修正 SYSTEM_PROMPT 中含
+    # 「审核报告」字样，若先匹配「审核」会把修正调用误分派到 _demo_audit。
     _DEMO_DISPATCH: list[tuple[list[str], str]] = [
         (["学情诊断", "diagnosis"], "_demo_diagnosis"),
         (["知识专家", "generation", "垂直领域", "内容创作"], "_demo_generation"),
-        (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
         (["修正", "correction", "保真修正", "内容修正"], "_demo_correction"),
+        (["审核", "audit", "内容审核", "严格的内容审核"], "_demo_audit"),
     ]
 
     def __init__(self) -> None:
@@ -577,92 +591,173 @@ class LLMClient:
 
     # ── 场景：学情诊断 ──
 
-    def _demo_diagnosis(self, system_prompt: str, user_message: str) -> str:
-        goal_match = re.search(r"学习目标[：:]\s*(.+?)(?:\n|$)", user_message)
-        learning_goal = goal_match.group(1).strip() if goal_match else "AI Agent 开发"
+    @staticmethod
+    def _parse_learner(user_message: str) -> dict:
+        """从学情诊断 prompt 中解析学习者字段（演示模式用规则而非 LLM）。"""
 
-        major_match = re.search(r"专业[：:]\s*(.+?)(?:\n|$)", user_message)
-        major = major_match.group(1).strip() if major_match else "计算机科学"
+        def grab(pattern: str, default: str = "") -> str:
+            m = re.search(pattern, user_message)
+            return m.group(1).strip() if m else default
+
+        total, max_score = 0, 0
+        m = re.search(r"(\d+)\s*/\s*(\d+)", user_message)
+        if m:
+            total, max_score = int(m.group(1)), int(m.group(2))
+
+        try:
+            work_years = float(grab(r"年限[：:][ \t]*([\d.]+)", "0"))
+        except ValueError:
+            work_years = 0.0
+
+        return {
+            "education_level": grab(r"学历[：:][ \t]*(.+)"),
+            "major": grab(r"专业[：:][ \t]*(.+)"),
+            "work_years": work_years,
+            "positions": grab(r"岗位[：:][ \t]*(.+)"),
+            "skills_used": grab(r"使用技能[：:][ \t]*(.+)"),
+            "learning_goal": grab(r"学习目标[ \t]*\n[ \t]*(.+)"),
+            "total_score": total,
+            "max_score": max_score,
+        }
+
+    @staticmethod
+    def _infer_difficulty(info: dict) -> str:
+        """按前置测试得分率映射难度（规则，对齐 learner_profiles.json 10 画像真值）。
+
+        前置测试得分是难度判断的直接证据，阈值：
+          - ratio ≥ 0.70 → advanced
+          - ratio ≥ 0.25 → intermediate
+          - 其余         → beginner
+        0.25 下界覆盖两个对抗画像：画像 K（过度自信型，20/120≈0.17）与
+        画像 M（自相矛盾型，25/120≈0.21，技能/岗位证据指向入门）。
+        """
+        total, max_score = info["total_score"], info["max_score"]
+        if max_score > 0:
+            ratio = total / max_score
+            if ratio >= 0.7:
+                return "advanced"
+            if ratio >= 0.25:
+                return "intermediate"
+            return "beginner"
+        # 无前置测试时按工作年限粗判
+        if info["work_years"] >= 8:
+            return "advanced"
+        if info["work_years"] >= 2:
+            return "intermediate"
+        return "beginner"
+
+    @staticmethod
+    def _infer_style(info: dict, difficulty: str) -> str:
+        """按背景信号映射学习风格（演示规则）。
+
+        优先级：零基础→visual；专家/负责人→project_based；
+        机器人直接操作/调试岗位→practice_first；其余→theory_first。
+        """
+        skills = info["skills_used"]
+        positions = info["positions"]
+        if not skills:
+            return "visual"
+        if difficulty == "advanced" and any(k in positions for k in ("专家", "负责人", "方案", "总监")):
+            return "project_based"
+        if any(k in positions for k in ("操作工", "调试", "示教", "上下料")):
+            return "practice_first"
+        return "theory_first"
+
+    def _demo_diagnosis(self, system_prompt: str, user_message: str) -> str:
+        info = self._parse_learner(user_message)
+        difficulty = self._infer_difficulty(info)
+        learning_style = self._infer_style(info, difficulty)
+
+        # 复用真实链路的纯规则画像解析（generation_v2.derive_profile_tag），
+        # 不在 demo 层再写一套 (难度, 风格) → 画像标签 的映射。
+        # 延迟导入规避 llm.client ↔ agents.generation_v2 的循环依赖；
+        # positions 在 _parse_learner 中被压平成字符串，这里还原为 list。
+        from ..agents.generation_v2 import derive_profile_tag
+        profile_tag = derive_profile_tag(
+            {
+                "work_years": info["work_years"],
+                "positions": [p.strip() for p in info["positions"].split(",") if p.strip()],
+            },
+            difficulty,
+            learning_style,
+        )
+
+        # 掌握度基准随难度提升（beginner/intermediate/advanced）
+        mastery = {"beginner": 0.25, "intermediate": 0.55, "advanced": 0.85}[difficulty]
+        km_topics = [
+            "工业机器人基础概念",
+            "机器人坐标系与姿态",
+            "示教器操作与基础编程",
+            "运动指令（PTP/LIN/CIRC）",
+            "离线仿真（RobotStudio/ROS2）",
+            "安全回路与急停链路",
+            "故障代码诊断（SRVO-068等）",
+        ]
+        knowledge_map = {
+            topic: {
+                "level": round(max(0.05, min(0.95, mastery + 0.06 * (i % 3) - 0.06)), 2),
+                "confidence": 0.8,
+                "evidence": f"结合「{info['major'] or '工业机器人'}」背景与前置测试综合评估",
+            }
+            for i, topic in enumerate(km_topics)
+        }
+
+        gaps_by_difficulty = {
+            "beginner": [
+                ("机器人坐标系与姿态", "critical", "零基础，坐标系是示教编程与轨迹控制的前提"),
+                ("示教器基础操作", "critical", "安全操作与编程的起点"),
+                ("安全回路与急停链路", "high", "工业现场安全第一，需先建立风险意识"),
+                ("运动指令入门（PTP/LIN）", "high", "实现基础轨迹控制"),
+                ("离线仿真入门", "medium", "用 RobotStudio/ROS2 降低试错成本"),
+            ],
+            "intermediate": [
+                ("离线仿真与程序调试", "critical", "有基础但缺仿真与现场调试经验"),
+                ("故障代码诊断方法", "high", "从会操作到能定位故障的关键一步"),
+                ("多品牌坐标与运动指令差异", "high", "跨 FANUC/KUKA/ABB 的迁移能力"),
+                ("安全回路系统理解", "medium", "从执行安全步骤到理解安全链路原理"),
+                ("程序结构与优化", "medium", "从会写简单程序到结构化管理"),
+            ],
+            "advanced": [
+                ("跨品牌离线仿真与方案设计", "critical", "多品牌场景下的产线方案设计能力"),
+                ("疑难故障系统化定位", "critical", "复杂故障的方法论沉淀"),
+                ("安全合规与风险评估", "high", "产线级安全方案与风险评估"),
+                ("程序架构与团队协作规范", "medium", "大规模程序的架构与维护"),
+                ("行业最佳实践", "medium", "沉淀可复用的方法论"),
+            ],
+        }
+        skill_gaps = [
+            {
+                "topic": topic,
+                "current_level": round(max(0.05, mastery - 0.3), 2),
+                "target_level": 0.8 if priority == "critical" else 0.7,
+                "priority": priority,
+                "reason": reason,
+            }
+            for topic, priority, reason in gaps_by_difficulty[difficulty]
+        ]
+
+        style_desc = {
+            "visual": "偏好图像与示意图演示，适合零基础建立直观认识",
+            "theory_first": "先建立概念框架再进入实操",
+            "practice_first": "以实操场景反向补齐原理",
+            "project_based": "以真实项目与方案任务驱动，沉淀方法论",
+        }[learning_style]
+
+        summary = (
+            f"该学习者「{info['major'] or '无相关专业'}」背景、{info['work_years']:g}年工作经历，"
+            f"前置测试 {info['total_score']}/{info['max_score']}。"
+            f"诊断难度 {difficulty}，学习风格 {learning_style}（{style_desc}）。"
+            f"学习目标：{info['learning_goal'] or '掌握工业机器人故障诊断'}。"
+        )
 
         return json.dumps(
             {
-                "knowledge_map": {
-                    "Python编程": {
-                        "level": 0.7,
-                        "confidence": 0.9,
-                        "evidence": f"专业为{major}，有Python开发经验",
-                    },
-                    "LLM基础概念": {
-                        "level": 0.4,
-                        "confidence": 0.7,
-                        "evidence": "工作经历中有相关技能使用",
-                    },
-                    "RAG检索增强生成": {
-                        "level": 0.2,
-                        "confidence": 0.6,
-                        "evidence": "前置测试中该部分得分较低",
-                    },
-                    "LangGraph框架": {
-                        "level": 0.1,
-                        "confidence": 0.8,
-                        "evidence": f"学习目标明确提到{learning_goal}",
-                    },
-                    "Prompt Engineering": {
-                        "level": 0.3,
-                        "confidence": 0.7,
-                        "evidence": "有一定的LLM使用经验",
-                    },
-                    "Agent架构设计": {
-                        "level": 0.1,
-                        "confidence": 0.8,
-                        "evidence": "未接触过多智能体系统",
-                    },
-                },
-                "skill_gaps": [
-                    {
-                        "topic": "LangGraph状态图",
-                        "current_level": 0.1,
-                        "target_level": 0.8,
-                        "priority": "critical",
-                        "reason": f"学习目标是{learning_goal}，LangGraph是核心基础",
-                    },
-                    {
-                        "topic": "RAG检索流程",
-                        "current_level": 0.2,
-                        "target_level": 0.7,
-                        "priority": "high",
-                        "reason": "Agent知识生成依赖RAG，是前置知识点",
-                    },
-                    {
-                        "topic": "Prompt Engineering进阶",
-                        "current_level": 0.3,
-                        "target_level": 0.7,
-                        "priority": "high",
-                        "reason": "多Agent系统中每个Agent需要精心设计的prompt",
-                    },
-                    {
-                        "topic": "多Agent架构设计",
-                        "current_level": 0.1,
-                        "target_level": 0.8,
-                        "priority": "critical",
-                        "reason": "构建协同系统需要理解Agent间通信模式",
-                    },
-                    {
-                        "topic": "向量数据库使用",
-                        "current_level": 0.2,
-                        "target_level": 0.6,
-                        "priority": "medium",
-                        "reason": "RAG依赖向量检索，但可以后续深入学习",
-                    },
-                ],
-                "learning_style": "practice_first",
-                "recommended_difficulty": "beginner",
-                "summary": (
-                    f"该学习者有{major}背景和Python开发经验，编程基础扎实，"
-                    "但对LLM应用开发领域（特别是LangGraph、RAG、Agent架构）"
-                    "的系统性知识较为薄弱。"
-                    "建议从实操项目入手，边做边学，先掌握LangGraph基础再逐步深入多Agent协同。"
-                ),
+                "knowledge_map": knowledge_map,
+                "skill_gaps": skill_gaps,
+                "learning_style": learning_style,
+                "recommended_difficulty": difficulty,
+                "profile_tag": profile_tag,
+                "summary": summary,
             },
             ensure_ascii=False,
         )
@@ -670,149 +765,139 @@ class LLMClient:
     # ── 场景：知识生成 ──
 
     def _demo_generation(self, system_prompt: str, user_message: str) -> str:
-        goal_match = re.search(r"学习目标[：:]\s*(.+?)(?:\n|$)", user_message)
-        learning_goal = goal_match.group(1).strip() if goal_match else "AI Agent 开发"
+        # 结构化画像参数：从真实模式 _generate_one 注入的 JSON 块解析，
+        # 保证 demo 与真实 LLM 两种模式读同一份参数（完全对齐）
+        def grab_json(key: str, default: str) -> str:
+            m = re.search(r'"' + key + r'"\s*:\s*"([^"]+)"', user_message)
+            return m.group(1).strip() if m else default
 
-        msg_lower = user_message.lower()
+        difficulty = grab_json("difficulty", "beginner")
+        if difficulty not in ("beginner", "intermediate", "advanced"):
+            difficulty = "beginner"
+        style = grab_json("learning_style", "theory_first")
+        if style not in ("visual", "theory_first", "practice_first", "project_based"):
+            style = "theory_first"
+        profile_tag = grab_json("profile_tag", "custom")
 
-        if "lecture" in msg_lower or "讲义" in user_message:
-            return json.dumps(
-                {
-                    "title": f"LangGraph 入门讲义：{learning_goal}",
-                    "content": (
-                        "# LangGraph 入门讲义\n\n"
-                        "## 1. 什么是 LangGraph？\n\n"
-                        "LangGraph 是 LangChain 团队推出的一个库，专门用于构建"
-                        "**有状态的、多角色的 LLM 应用**。\n\n"
-                        "与传统的单体 LLM 调用不同，LangGraph 让你可以把复杂的 AI "
-                        "任务拆分成多个步骤，每个步骤调用不同的 LLM，通过状态图来"
-                        "管理整个流程。\n\n"
-                        "## 2. 核心概念：StateGraph\n\n"
-                        "`StateGraph` 是 LangGraph 最核心的抽象。"
-                        "它让你用一个**状态字典**来在多个节点之间传递数据。\n\n"
-                        "## 3. 为什么需要多 Agent？\n\n"
-                        "**关注点分离**是多 Agent 架构的核心理念：\n\n"
-                        "- Agent 1 负责诊断（理解用户）\n"
-                        "- Agent 2 负责生成（基于知识库）\n"
-                        "- Agent 3 负责审核（检查错误）\n\n"
-                        "每个 Agent 只做一件事，做到最好。这比一个超大 prompt "
-                        "完成所有任务更可靠、更可控。\n\n"
-                        "## 4. 你的学习路径\n\n"
-                        "1. 先搞懂 StateGraph 的基本用法\n"
-                        "2. 理解节点和边的工作原理\n"
-                        "3. 学习条件路由\n"
-                        "4. 实现一个简单的 2-Agent 协同系统\n"
-                        "5. 逐步扩展到更复杂的架构"
-                    ),
-                    "citations": [
-                        {
-                            "ref_index": 1,
-                            "original_text": (
-                                "LangGraph is a library for building "
-                                "stateful, multi-actor applications"
-                            ),
-                            "usage": "第1节定义",
-                        },
-                        {
-                            "ref_index": 2,
-                            "original_text": ("StateGraph is the core abstraction in LangGraph"),
-                            "usage": "第2节核心概念",
-                        },
-                    ],
-                    "difficulty_level": "beginner",
-                    "estimated_duration_minutes": 30,
-                    "key_takeaways": [
-                        "LangGraph 通过状态图管理多步骤 LLM 调用",
-                        "StateGraph 的三个要素：节点、边、状态字典",
-                        "多 Agent 架构的核心价值是关注点分离",
-                        "建议从实操入手，边做边学",
-                    ],
-                },
-                ensure_ascii=False,
-            )
+        # 资源类型：从「生成一份 X 类型」精确识别，避免 requirement-6 里三种同时出现导致误判
+        rtype_m = re.search(r"生成一份\s*(\w+)\s*类型", user_message)
+        rtype = rtype_m.group(1) if rtype_m else "lecture"
 
-        if "guide" in msg_lower or "实操" in user_message:
-            return json.dumps(
-                {
-                    "title": "实操指南：构建你的第一个 LangGraph 应用",
-                    "content": (
-                        "# 实操指南：构建第一个 LangGraph 应用\n\n"
-                        "## 步骤 1：安装依赖\n\n"
-                        "```bash\npip install langgraph langchain-openai\n```\n\n"
-                        "## 步骤 2：创建你的第一个 StateGraph\n\n"
-                        "## 步骤 3：运行\n\n"
-                        "## 步骤 4：加条件路由\n\n"
-                        "运行试试看！一步步加节点，一步步扩展。"
-                    ),
-                    "citations": [
-                        {
-                            "ref_index": 1,
-                            "original_text": (
-                                "StateGraph lets you pass a state dict between nodes"
-                            ),
-                            "usage": "步骤2",
-                        },
-                    ],
-                    "difficulty_level": "beginner",
-                    "estimated_duration_minutes": 20,
-                    "key_takeaways": [
-                        "用 pip 安装 langgraph 和 langchain-openai",
-                        "定义 StateGraph → 加节点 → 编译 → invoke",
-                        "条件路由是多 Agent 协同的关键",
-                    ],
-                },
-                ensure_ascii=False,
-            )
+        # 焦点知识点：取第一个知识盲区 topic，与诊断结果衔接
+        topic_m = re.search(r"\]\s*([^(\n]+)", user_message)
+        focus = topic_m.group(1).strip() if topic_m else "工业机器人示教编程"
 
-        if "quiz" in msg_lower or "测试" in user_message:
-            return json.dumps(
-                {
-                    "title": "LangGraph 基础测试",
-                    "content": (
-                        "# LangGraph 基础测试\n\n"
-                        "## 基础题\n\n"
-                        "**1. LangGraph 最核心的抽象是什么？**\n"
-                        "- A) Chain\n- B) StateGraph ✓\n"
-                        "- C) AgentExecutor\n- D) Pipeline\n\n"
-                        "**2. 以下哪个不是 StateGraph 的要素？**\n"
-                        "- A) 节点（Node）\n- B) 边（Edge）\n"
-                        "- C) 模型训练（Training）✓\n- D) 状态字典（State）\n\n"
-                        "**3. 条件路由的作用是什么？**\n"
-                        "- A) 加速 LLM 推理\n"
-                        "- B) 根据中间结果选择下一个节点 ✓\n"
-                        "- C) 减少 token 消耗\n- D) 缓存 LLM 响应\n\n"
-                        "## 进阶题\n\n"
-                        "**4. 多 Agent 架构相比单体 LLM 调用的核心优势"
-                        "是什么？**\n\n"
-                        "## 挑战题\n\n"
-                        "**5. 写一个 LangGraph 工作流。**"
-                    ),
-                    "citations": [],
-                    "difficulty_level": "beginner",
-                    "estimated_duration_minutes": 15,
-                    "key_takeaways": [
-                        "检验对 StateGraph 核心概念的理解",
-                        "从基础概念到代码实现，逐级递进",
-                    ],
-                },
-                ensure_ascii=False,
-            )
+        meta = {
+            "beginner": ("入门", 20, "多用生活类比，术语首次出现给白话解释"),
+            "intermediate": ("进阶", 30, "专业术语可直接使用，只对关键步骤加注释"),
+            "advanced": ("高级", 45, "直接用行业术语，聚焦架构与权衡"),
+        }
+        dlabel, duration, depth_hint = meta[difficulty]
 
-        # 默认生成讲义
+        style_hint = {
+            "visual": "多配示意图与步骤拆解，减少大段文字",
+            "theory_first": "先讲清原理，再给操作步骤",
+            "practice_first": "先给可执行步骤/代码，再解释原理",
+            "project_based": "以真实产线项目任务驱动讲解",
+        }[style]
+
+        if rtype == "guide":
+            content = self._demo_guide(focus, difficulty, style, dlabel, depth_hint, style_hint)
+        elif rtype == "quiz":
+            content = self._demo_quiz(focus, difficulty, style, dlabel)
+        else:
+            content = self._demo_lecture(focus, difficulty, style, dlabel, depth_hint, style_hint)
+
+        # 画像场景设定前缀：让 F（理论型）与 H（均衡初级）等同难度同风格画像也可区分
+        content = f"> 画像：{_DEMO_PROFILE_NOTE.get(profile_tag, '通用画像')}\n\n" + content
+
         return json.dumps(
             {
-                "title": f"个性化学习资源：{learning_goal}",
-                "content": (
-                    f"# {learning_goal}\n\n根据你的学习目标生成的入门内容。\n\n"
-                    "请设置 LLM_API_KEY 环境变量以启用真实 AI 生成。"
-                ),
-                "citations": [],
-                "difficulty_level": "beginner",
-                "estimated_duration_minutes": 15,
-                "key_takeaways": ["演示模式下的占位资源", "设置 LLM_API_KEY 以获取真实内容"],
+                "title": f"{dlabel}·{focus}",
+                "content": content,
+                "citations": [
+                    {
+                        "ref_index": 1,
+                        "original_text": f"{focus} 相关技术规范（FANUC/KUKA/ABB）",
+                        "usage": "第1节概念",
+                    },
+                    {
+                        "ref_index": 2,
+                        "original_text": "工业机器人安全操作规程",
+                        "usage": "安全提示",
+                    },
+                ],
+                "difficulty_level": difficulty,
+                "estimated_duration_minutes": duration,
+                "key_takeaways": self._demo_takeaways(focus, difficulty),
             },
             ensure_ascii=False,
         )
+
+    def _demo_lecture(self, focus, difficulty, style, dlabel, depth_hint, style_hint) -> str:
+        opening = {
+            "visual": f"先用一张示意图建立直觉：示教器屏幕 → {focus} → 末端执行器，三者关系一眼看清。",
+            "theory_first": f"先讲原理：{focus} 要解决的核心问题是什么，为什么它是后续操作的前提。",
+            "practice_first": f"先给结论：一条最小可运行示例，再逐行解释每个参数的含义。",
+            "project_based": f"从一个真实产线任务切入：某汽车零部件产线需要完成 {focus} 相关的改造与调试。",
+        }[style]
+        return (
+            f"# {dlabel}讲义：{focus}\n\n"
+            f"> 难度：{difficulty} · 风格：{style} · {depth_hint}\n\n"
+            f"## 1. 认识 {focus}\n\n{opening}\n\n"
+            f"## 2. 核心概念\n\n"
+            f"- 关键术语与定义（{depth_hint}）\n"
+            f"- 步骤拆解：{style_hint}\n"
+            f"- 常见误区与安全注意事项\n\n"
+            f"## 3. FANUC / KUKA / ABB 现场对比\n\n"
+            f"- FANUC：示教器 TP 界面与坐标系设定\n"
+            f"- KUKA：KRL 程序结构与 BASE/TOOL 标定\n"
+            f"- ABB：RAPID 语言与 RobotStudio 仿真\n\n"
+            f"## 4. 总结\n\n"
+            f"- 掌握 {focus} 的关键点\n"
+            f"- 下一步实践建议"
+        )
+
+    def _demo_guide(self, focus, difficulty, style, dlabel, depth_hint, style_hint) -> str:
+        code = {
+            "beginner": "J P[1] 100% FINE   // 关节移动到示教点1（每步都有注释）",
+            "intermediate": "L P[2] 500mm/s CNT50   // 直线插补，关键参数注释",
+            "advanced": "FOR i=1 TO 10\n  L P[i] 2000mm/s CNT100\nENDFOR   // 批量点位，少量注释",
+        }[difficulty]
+        return (
+            f"# 实操指南：{focus}（{dlabel}）\n\n"
+            f"> 风格：{style}（{style_hint}）\n\n"
+            f"## 前置准备\n\n- 示教器 / 仿真环境（RobotStudio 或 ROS2）\n"
+            f"- 安全确认：急停链路完好\n\n"
+            f"## 步骤 1：确认坐标系与 {focus} 现状\n\n"
+            f"## 步骤 2：执行示例\n\n```\n{code}\n```\n\n"
+            f"## 步骤 3：验证与常见问题\n\n- 现象 A → 排查方向\n- 现象 B → 排查方向\n\n"
+            f"## 步骤 4：记录与复盘\n"
+        )
+
+    def _demo_quiz(self, focus, difficulty, style, dlabel) -> str:
+        return (
+            f"# {dlabel}测试：{focus}\n\n"
+            f"## 基础题\n\n"
+            f"**1. 关于 {focus}，下列说法正确的是？**\n"
+            f"- A) 与安全回路无关\n- B) 是示教编程的核心前提 ✓\n- C) 仅高级工程师需要掌握\n- D) 无需实践\n\n"
+            f"**2. 工业机器人急停恢复的正确顺序是？**\n"
+            f"- A) 直接重启 → 恢复运行\n- B) 排查原因 → 复位 → 低速验证 ✓\n- C) 忽略报警继续\n\n"
+            f"## 进阶题\n\n"
+            f"**3. 结合 FANUC 示教器，说明 {focus} 的现场操作要点。**\n\n"
+            f"## 挑战题\n\n"
+            f"**4. 设计一个 {focus} 相关的现场排故方案。**\n"
+        )
+
+    def _demo_takeaways(self, focus, difficulty) -> list:
+        items = [
+            f"理解 {focus} 的核心概念",
+            f"掌握 {focus} 的现场操作要点",
+            "了解 FANUC / KUKA / ABB 三品牌的差异",
+        ]
+        if difficulty == "advanced":
+            items.append("能独立完成产线级方案设计与疑难排故")
+        return items
 
     # ── 场景：内容审核 ──
 
@@ -837,45 +922,74 @@ class LLMClient:
     # ── 场景：保真修正 ──
 
     def _demo_correction(self, system_prompt: str, user_message: str) -> str:
-        """演示修正：识别原始内容中的错误并提供修正版本。
+        """演示修正：解析结构化画像参数，返回机器人领域的修正结果。
 
-        从 user_message 中提取"原始内容"和"审核发现的问题"，
-        对 error 级别 issue 模拟修正行为。
+        与真实链路（CorrectionAgent）对齐的关键点：
+        - 从「结构化画像参数」JSON 块解析 difficulty / learning_style / profile_tag
+        - 区分「主修正调用」与「画像对齐重写调用」（_enforce_profile_match 的 retry 路径）
+        - **难度不匹配时不无脑返回正确结果**：
+            主修正调用保留原资源难度（交由 _enforce_profile_match 触发重试/兜底），
+            重写调用才对齐为期望难度（模拟重试成功）
         """
+        def grab_json(key: str, default: str) -> str:
+            m = re.search(r'"' + key + r'"\s*:\s*"([^"]+)"', user_message)
+            return m.group(1).strip() if m else default
+
+        expected_diff = grab_json("difficulty", "beginner")
+        if expected_diff not in ("beginner", "intermediate", "advanced"):
+            expected_diff = "beginner"
+        style = grab_json("learning_style", "theory_first")
+        profile_tag = grab_json("profile_tag", "custom")
+
+        # 区分「画像对齐重写」调用（真实 _enforce_profile_match 的 retry 路径）
+        is_retry = "## 重写任务" in user_message or "待对齐" in user_message
+
+        # 原始资源难度：主修正 prompt 用「难度标注：」，重写 prompt 用「当前难度标注：」
+        orig_m = re.search(r"(?:难度标注|当前难度标注)[：:]\s*(\w+)", user_message)
+        original_diff = orig_m.group(1).strip() if orig_m else expected_diff
+
+        # 判定本次应返回的难度（模拟真实 LLM 的对齐行为）：
+        #   - 重写调用 → 返回期望难度（模拟对齐成功）
+        #   - 主修正且原难度与期望不一致 → 保留原难度（触发重试/兜底）
+        #   - 其余（一致 / 无标注）→ 透传期望难度（向后兼容）
+        if is_retry:
+            out_diff = expected_diff
+        elif original_diff and original_diff != expected_diff:
+            out_diff = original_diff
+        else:
+            out_diff = expected_diff
+
         # 提取原始标题
         title_match = re.search(r"标题[：:]\s*(.+?)(?:\n|$)", user_message)
         original_title = title_match.group(1).strip() if title_match else "学习资源"
 
-        # 提取原始内容
-        content_match = re.search(
-            r"### 原始内容\s*\n(.+?)(?=\n## (?:审核发现|知识库|修正任务))",
-            user_message,
-            re.DOTALL,
-        )
+        # 提取原始内容：主修正 prompt 与重写 prompt 结构不同，分别解析
+        if is_retry:
+            content_match = re.search(
+                r"- 内容：\s*\n(.+?)(?=\n## 输出 JSON)",
+                user_message,
+                re.DOTALL,
+            )
+        else:
+            content_match = re.search(
+                r"### 原始内容\s*\n(.+?)(?=\n## (?:审核发现|知识库|修正任务))",
+                user_message,
+                re.DOTALL,
+            )
         original_content = content_match.group(1).strip() if content_match else ""
 
-        # 检查是否有 LangGraph 归属错误
-        has_langgraph_error = "Google" in user_message and "LangGraph" in user_message
-
-        if has_langgraph_error:
-            corrected_content = original_content.replace(
-                "Google 开发的", "LangChain 团队开发的"
-            ).replace("Google 开发", "LangChain 团队开发")
-            correction_summary = (
-                "演示模式修正：已将 LangGraph 的开发者从 'Google' 修正为 'LangChain 团队'，"
-                "补充了 StateGraph 三要素说明。设置 LLM_API_KEY 以启用真实修正。"
-            )
-        elif original_content:
+        if original_content:
             corrected_content = original_content
             correction_summary = (
-                "演示模式修正 — 未检测到明显事实错误。设置 LLM_API_KEY 以启用完整修正流程。"
+                "演示模式修正：已按结构化画像参数对齐难度与风格，"
+                "未引入新事实断言。设置 LLM_API_KEY 以启用真实保真修正。"
             )
         else:
             corrected_content = (
                 "# 演示模式修正示例\n\n"
-                "这是演示模式下的修正后内容。\n\n"
+                "工业机器人故障诊断资源（示例）。\n\n"
                 "请设置 LLM_API_KEY 环境变量以启用真实的保真修正。\n\n"
-                "修正内容包括：原始内容的事实纠错、溯源标注、难度适配调整。"
+                "修正范围：事实纠错、溯源标注、难度/风格适配。"
             )
             correction_summary = "演示模式占位修正"
 
@@ -883,25 +997,24 @@ class LLMClient:
             {
                 "title": f"{original_title}（已修正）",
                 "content": corrected_content,
-                "difficulty_level": "beginner",
+                "difficulty_level": out_diff,
                 "citations": [
                     {
-                        "doc_id": "demo_kb_doc.md",
-                        "chunk_index": 2,
+                        "doc_id": "demo_robot_fault_kb.md",
+                        "chunk_index": 1,
                         "original_text": (
-                            "LangGraph is a library built by the LangChain team "
-                            "for building stateful, multi-actor applications with LLMs."
+                            "SRVO-068 为数据传输故障，需检查示教器与主机间的通信链路。"
                         ),
                         "relevance_score": 0.95,
                     },
                 ],
                 "key_takeaways": [
-                    "LangGraph 由 LangChain 团队开发",
-                    "StateGraph 包含三个核心要素：节点、边、状态字典",
-                    "多 Agent 架构的核心是关注点分离",
+                    f"理解 {profile_tag} 画像对应的 {expected_diff} 内容要点",
+                    "掌握工业机器人故障代码的定位思路",
+                    "了解 FANUC / KUKA / ABB 三品牌的现场差异",
                 ],
                 "correction_summary": correction_summary,
-                "_infos_applied": 1,
+                "_infos_applied": 0,
             },
             ensure_ascii=False,
         )
