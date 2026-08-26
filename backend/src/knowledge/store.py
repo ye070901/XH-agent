@@ -6,6 +6,7 @@ Opt‑2 KB 引擎核心模块。只做存储检索，不包含 Agent / LLM 逻�
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 import time
 from pathlib import Path
@@ -31,6 +32,9 @@ class KnowledgeBase:
         self._docs: list[dict] = []
         self._fallback_dir: Optional[Path] = None
         self._persist_snapshot: Optional[dict] = None
+        # BM25 索引惰性缓存（语料变化时按签名重建）
+        self._bm25_index: Optional[tuple] = None
+        self._bm25_sig: Optional[tuple] = None
 
     # ════ Embedding / 初始化 ════
 
@@ -382,29 +386,31 @@ class KnowledgeBase:
     # ════ 检索 + CRUD ════
 
     async def search(self, query: str, top_k: int = 10) -> list[dict]:
-        """语义检索：ChromaDB向量 / 文件关键词匹配。relevance_score ∈ [0,1]。"""
+        """语义检索：ChromaDB 向量 + 文件关键词匹配合并。relevance_score ∈ [0,1]。"""
         t_start = time.perf_counter()
         if not query.strip():
             return []
 
+        # 1. 向量检索（ChromaDB 可用时）
+        vector_results: list[dict] = []
         if self._collection is not None:
             try:
                 collection_count = self._collection.count()
-                if collection_count == 0:
-                    result = []
-                else:
+                if collection_count > 0:
                     n = min(top_k, collection_count)
                     results = self._collection.query(query_texts=[query], n_results=n)
-                    result = self._format_search_results(results)
+                    vector_results = self._format_search_results(results)
             except Exception as e:
                 logger.warning(f"[知识库] ChromaDB检索异常 ({e})，降级到关键词匹配")
-                result = self._keyword_search(query, top_k)
-        else:
-            result = self._keyword_search(query, top_k)
+                vector_results = []
 
-        # ChromaDB 空结果（collection 为空或 embedding 不可用）时，回退关键词检索兜底
-        if not result and self._docs:
-            result = self._keyword_search(query, top_k)
+        # 2. 关键词检索（始终计算，作为向量检索的兜底与补充）
+        keyword_results = self._keyword_search(query, top_k) if self._docs else []
+
+        # 3. 合并去重：向量 + 关键词并集按分数降序取 top_k。
+        #    原逻辑只在"向量结果为空"时回退关键词，导致 ChromaDB 返回少量
+        #    无关结果时中文查询仍拿不到任何有效文档，故改为始终合并。
+        result = self._merge_search_results(vector_results, keyword_results, top_k)
 
         elapsed_ms = round((time.perf_counter() - t_start) * 1000, 2)
         logger.info(
@@ -414,6 +420,25 @@ class KnowledgeBase:
         if elapsed_ms >= 200:
             logger.warning(f"[知识库] ⚠️ 检索耗时超标: {elapsed_ms}ms ≥ 200ms基线")
         return result
+
+    @staticmethod
+    def _merge_search_results(
+        vector_results: list[dict], keyword_results: list[dict], top_k: int
+    ) -> list[dict]:
+        """合并向量与关键词结果，按 (doc_id, chunk_index) 去重，取最高分降序取 top_k。"""
+        merged: dict[tuple[str, int], dict] = {}
+        for result in vector_results + keyword_results:
+            key = (str(result.get("doc_id") or ""), int(result.get("chunk_index") or 0))
+            if key not in merged or (result.get("relevance_score") or 0.0) > (
+                merged[key].get("relevance_score") or 0.0
+            ):
+                merged[key] = result
+        ranked = sorted(
+            merged.values(),
+            key=lambda r: (r.get("relevance_score") or 0.0),
+            reverse=True,
+        )
+        return ranked[:top_k]
 
     def _format_search_results(self, results: dict) -> list[dict]:
         """ChromaDB原始结果 → 统一格式。score = max(0, min(1, 1-distance/2))，保留4位小数。"""
@@ -438,21 +463,98 @@ class KnowledgeBase:
             )
         return formatted
 
+    # BM25 参数（OKAPI BM25 标准取值）
+    _BM25_K1 = 1.5
+    _BM25_B = 0.75
+
+    @staticmethod
+    def _tokenize_for_bm25(text: str) -> list[str]:
+        """BM25 分词：英文/数字 token（保留原词）+ 中文相邻双字 bigram（保留重复项）。
+
+        中文无空格分词，纯 ``split()`` 会把整句中文当成一个词，导致
+        "机器人坐标系" 这类查询几乎匹配不到文档；改用相邻双字 bigram 覆盖
+        中文、``[a-z0-9]{2,}`` 覆盖英文/型号（如 SRVO-068 → srvo + 068）。
+        与旧 ``_extract_keywords`` 的区别：不去重，保留词频供 BM25 计算 TF。
+        """
+        lowered = str(text).lower()
+        tokens: list[str] = list(re.findall(r"[a-z0-9]{2,}", lowered))
+        for run in re.findall(r"[一-鿿]+", lowered):
+            tokens.extend(run[i : i + 2] for i in range(len(run) - 1))
+        return tokens
+
+    def _get_bm25_index(self) -> tuple[list[int], float, dict[str, dict[int, int]]]:
+        """惰性构建 BM25 索引，返回 (doc_len, avgdl, postings[term][doc_idx]=tf)。
+
+        以 ``(len(_docs), id(_docs))`` 为签名缓存；语料 append（长度变）或
+        整体重赋值（对象身份变）时自动失效。本模块对 _docs 只做 append 或
+        整表重赋值，不存在原地改内容且长度/身份不变的情况。
+        """
+        sig = (len(self._docs), id(self._docs))
+        if self._bm25_sig == sig and self._bm25_index is not None:
+            return self._bm25_index
+
+        doc_len: list[int] = []
+        postings: dict[str, dict[int, int]] = {}
+        for idx, doc in enumerate(self._docs):
+            terms = self._tokenize_for_bm25(str(doc.get("content") or ""))
+            doc_len.append(len(terms))
+            tf: dict[str, int] = {}
+            for term in terms:
+                tf[term] = tf.get(term, 0) + 1
+            for term, cnt in tf.items():
+                postings.setdefault(term, {})[idx] = cnt
+        avgdl = (sum(doc_len) / len(doc_len)) if doc_len else 0.0
+        self._bm25_index = (doc_len, avgdl, postings)
+        self._bm25_sig = sig
+        return self._bm25_index
+
     def _keyword_search(self, query: str, top_k: int) -> list[dict]:
-        """关键词匹配检索（文件降级模式）。"""
-        keywords = query.lower().split()
-        scored: list[tuple[int, dict]] = []
-        for doc in self._docs:
-            hits = sum(1 for kw in keywords if kw in doc["content"].lower())
-            if hits > 0:
-                d = doc.copy()
-                d["_score"] = hits
-                scored.append((hits, d))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        results = [d for _, d in scored[:top_k]]
-        max_kw = max(1, len(keywords))
-        for r in results:
-            r["relevance_score"] = round(min(1.0, r.get("_score", 0) / max_kw), 4)
+        """BM25 关键词检索（英文 token + 中文 bigram，无外部依赖）。
+
+        相较旧 hit-count 打分：IDF 给稀有技术术语（SRVO-068/PTP/脉冲编码器）
+        更高权重，词频饱和 + 文档长度归一，对「KB 存在但向量召不回」的中文
+        技术事实召回更准。relevance_score 用最高分归一化到 [0,1]，便于与
+        向量分数合并排序。
+        """
+        query_terms = self._tokenize_for_bm25(query)
+        if not query_terms or not self._docs:
+            return []
+        doc_len, avgdl, postings = self._get_bm25_index()
+        n = len(doc_len)
+
+        q_unique = list(dict.fromkeys(query_terms))
+        idf: dict[str, float] = {}
+        for term in q_unique:
+            df = len(postings.get(term, {}))
+            idf[term] = math.log(1.0 + (n - df + 0.5) / (df + 0.5))
+
+        scores: list[tuple[float, dict]] = []
+        for idx, doc in enumerate(self._docs):
+            dl = doc_len[idx]
+            norm = (
+                1.0 - self._BM25_B + self._BM25_B * (dl / avgdl)
+                if avgdl > 0
+                else 1.0
+            )
+            score = 0.0
+            for term in q_unique:
+                tf = postings.get(term, {}).get(idx, 0)
+                if tf:
+                    score += idf[term] * (
+                        tf * (self._BM25_K1 + 1.0) / (tf + self._BM25_K1 * norm)
+                    )
+            if score > 0.0:
+                scores.append((score, doc))
+
+        if not scores:
+            return []
+        scores.sort(key=lambda x: x[0], reverse=True)
+        max_score = scores[0][0]
+        results: list[dict] = []
+        for score, doc in scores[:top_k]:
+            d = doc.copy()
+            d["relevance_score"] = round(score / max_score, 4) if max_score > 0 else 0.0
+            results.append(d)
         return results
 
     async def delete_document(self, doc_id: str) -> bool:

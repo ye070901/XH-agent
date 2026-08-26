@@ -51,10 +51,12 @@ _B_LEVEL_KEYWORDS = (
 
 # 每条资源最多提取的断言数（对应 D4 终止边界，控制 LLM 调用与延迟）
 MAX_CLAIMS_PER_RESOURCE = 8
-# 每条断言最多检索的 KB 原文条数
-KB_TOP_K_PER_CLAIM = 3
+# 每条断言最多检索的 KB 原文条数（召回失败→unverifiable 的主因，适当调大）
+KB_TOP_K_PER_CLAIM = 5
 # 逐条比对时，是否复用流水线已检索的 retrieved_chunks（默认复用）
 REUSE_RETRIEVED_CHUNKS = True
+# 调试日志中检索片段内容的打印长度上限（便于观察召回，又不刷爆日志）
+_LOG_CONTENT_CHARS = 200
 
 # 规则兜底比对：claim 关键词在 KB 原文中的覆盖率阈值（≥ 此值判"支持"）
 _RULE_SUPPORT_THRESHOLD = 0.5
@@ -280,12 +282,30 @@ class AuditAgent(BaseAgent):
         except Exception:
             per_claim_results = []
 
+        # 调试日志：逐 claim 打印本次检索命中的 KB 片段，诊断「召回失败→unverifiable」
+        self._log_retrieval(claims, per_claim_results)
+
         for result in per_claim_results:
             if isinstance(result, list):
                 for chunk in result:
                     _add(chunk)
 
         return list(pool.values())
+
+    def _log_retrieval(self, claims: list[str], per_claim_results: list) -> None:
+        """打印每条断言本次检索拿到的 KB 片段（doc_id/title/score/content 摘要）。"""
+        for i, claim in enumerate(claims):
+            results = per_claim_results[i] if i < len(per_claim_results) else None
+            if not isinstance(results, list) or not results:
+                self.log(f"[检索] claim[{i}]={claim[:60]!r} → 命中 0 片段")
+                continue
+            self.log(f"[检索] claim[{i}]={claim[:60]!r} → 命中 {len(results)} 片段")
+            for r in results:
+                self.log(
+                    f"    [检索] {r.get('doc_id','?')}#{r.get('chunk_index','?')} "
+                    f"score={r.get('relevance_score')} title={str(r.get('doc_title',''))[:30]!r} "
+                    f"content={str(r.get('content',''))[:_LOG_CONTENT_CHARS]!r}"
+                )
 
     # ═══════════════════════════════════════════════════════════
     # 3. 逐条比对（LLM 语义判断 → 代码权威裁决）
@@ -310,7 +330,12 @@ class AuditAgent(BaseAgent):
                 raw = self._fallback_classify(claim, evidence_pool)
 
             verdict = self._resolve_verdict(raw)
-            resolved.append(self._build_item(claim, verdict, raw))
+            item = self._build_item(claim, verdict, raw)
+            resolved.append(item)
+            self.log(
+                f"[裁决] claim[{i}]={claim[:60]!r} → {verdict} "
+                f"evidence={str(item.get('evidence_from_kb') or '')[:80]!r}"
+            )
 
         return resolved
 

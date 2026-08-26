@@ -62,3 +62,29 @@ K3 领域共采集 **8 篇**文档，全部为 A 级（FANUC 官方维护手册 
 - [ ] 执行 `python scripts/k3_eval.py`，产出 `docs/eval/` 评测报告。
 - [ ] 根据评测结果反馈 K2 切片参数（如需第二轮评测）。
 - ⚠️ 已知隐患：`CHROMA_PERSIST_DIR=./data/chroma` 为相对路径，从根目录启动会读到旧库（5 篇）；完整库在 `backend/data/chroma`。建议后续统一为绝对路径或固定从 `backend/` 启动。
+
+---
+
+## 五、Phase 3 Agent3 检索优化评测结论（2026-08-26）
+
+针对「知识库已有事实但检索召不回 → 误判 unverifiable」的 B 类问题，做了三轮低风险优化（不扩库、不换 embedding）：
+
+| 改动 | 位置 | 说明 |
+|------|------|------|
+| P0 调大 top_k | `audit.py` `KB_TOP_K_PER_CLAIM` 3→5 | 每条断言多召回 2 条证据 |
+| P2 关键词检索升级 BM25 | `store.py` `_keyword_search` | 手写 OKAPI BM25，IDF 给稀有技术术语（SRVO-068/PTP/MoveC）高权重，替换原 hit-count |
+| Step0 调试日志 | `audit.py` `_log_retrieval` | 逐 claim 打印检索命中片段 + verdict |
+| Step1 A/B 判定脚本 | `classify_unverifiable.py` | 离线把 unverifiable 拆成 A 类（KB 缺失）/ B 类（检索未召回） |
+
+**58 case 全量评测（真实模式，DeepSeek）对比基线：**
+
+| 指标 | 基线 | 优化后 | 变化 |
+|------|------|--------|------|
+| hallucination | 23 | 23 | 持平（符合「检索不动幻觉」预期）|
+| unverifiable | 65 | 64 | -1 |
+| A 类（KB 缺失，允许保留）| 58 | 61 | +3 |
+| **B 类（检索未召回）** | **7** | **3** | **-4，减半 ✅** |
+
+三条评估标准全部达标：真正幻觉不上涨、B 类下降、A 类允许保留。
+
+**备注**：评测中 4 个 P3-02 case（K1-HIGH-006 / K2-CORE-001/002/003）首次跑因 DeepSeek 瞬时故障（`XHLLMRetryExhaustedError`，诊断 Agent 重试 3 次失败）整段空输出，已用 `--case-id` 重跑补全并合并，非检索改动所致。若 B 类仍需进一步压缩，再上 P1（chunk_size/overlap，需处理 re-embed 陷阱）或 P3（换中文 embedding）。
