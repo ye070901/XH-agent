@@ -455,13 +455,13 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_recall_gate(self, state: dict[str, Any], task_id: str) -> str:
-        gate = RecallGate()
+        gate = RecallGate(is_offline=settings.OFFLINE_MODE)
         state = await gate.validate(state)
         result = state["gate_results"][RecallGate.GATE_NAME]
         verdict = result.get("verdict", GateVerdict.FALLBACK.value)
 
         # 兜底分支：识别 fallback_data 中的兜底内容并写入 state，标记跳过 Agent3 引文校验
-        # （无检索片段，避免无 KB 比对时报错）。
+        # （无检索片段，避免无 KB 比对时报错）；同时写 downgrade_mode=True 作显式降级留痕（B1）。
         fb = result.get("fallback_data") or {}
         if isinstance(fb, dict):
             # 在线兜底：外部检索原始摘要（不含免责头，免责头由输出层硬拼接）
@@ -469,6 +469,7 @@ class PipelineScheduler:
                 state["_online_fallback_raw"] = fb["online_fallback_raw"]
                 state["_online_fallback_sources"] = fb.get("sources", [])
                 state["_skip_kb_citation"] = True
+                state["downgrade_mode"] = True
                 logger.info(
                     f"[Scheduler] task_id={task_id[:8]}… 在线兜底：跳过 Agent3 知识库引文校验"
                 )
@@ -476,6 +477,7 @@ class PipelineScheduler:
             if fb.get("offline_message"):
                 state["_offline_fallback_message"] = fb["offline_message"]
                 state["_skip_kb_citation"] = True
+                state["downgrade_mode"] = True
                 logger.info(
                     f"[Scheduler] task_id={task_id[:8]}… 离线兜底：跳过 Agent3 知识库引文校验"
                 )
@@ -516,10 +518,10 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_agent3(self, state: dict[str, Any], task_id: str) -> str:
-        # 【技术债：降级模式未接入调度】AuditAgent/CorrectionAgent 支持 downgrade_mode
-        # （无 KB 一致性检查），但 scheduler 从未写入 state["downgrade_mode"]，
-        # 故降级分支在调度链路中恒不生效。此处未接入，仅保留 _skip_kb_citation 防御。
-        # 兜底内容无 KB 检索片段，跳过引文校验
+        # 【B1：降级标记显式化】_step_recall_gate 在 FALLBACK 写入 state["downgrade_mode"]=True，
+        # 但 FALLBACK 会 break 终止流水线（见 run_pipeline），Agent3/4 不会被调度到，
+        # 故 downgrade_mode 当前仅作留痕，此处保留 _skip_kb_citation 防御。
+        # 若未来 FALLBACK 不再 break（方案 B2），需让 Agent3 读 downgrade_mode 走无 KB 检查。
         if state.get("_skip_kb_citation"):
             logger.info(
                 f"[Scheduler] task_id={task_id[:8]}… 在线兜底内容，跳过 Agent3 知识库引文校验"

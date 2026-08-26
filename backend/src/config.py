@@ -213,6 +213,8 @@ class Settings:
     """RecallGate 防误判：召回最高相似度 > 此值 → 高置信放行（high_pass）"""
     RECALL_LOW_TOLERATE_SCORE: float = _float_env("RECALL_LOW_TOLERATE_SCORE", 0.30)
     """RecallGate 防误判：召回最高相似度 ≤ 此值 → 才允许 FALLBACK；区间内低置信放行（low_pass）"""
+    OFFLINE_MODE: bool = _bool_env("OFFLINE_MODE", True)
+    """RecallGate 兜底：True=离线（禁止外部API）；False=在线外部检索（需接入 external_search）"""
 
     # -- KB 引擎 --
     HF_ENDPOINT: str = os.getenv("HF_ENDPOINT", "https://hf-mirror.com")

@@ -29,12 +29,11 @@ from backend.src.quality_gate.base import (
 )
 from backend.src.schemas import GateVerdict
 
-
 # 离线模式兜底提示：命中 FALLBACK 时禁止调用外部 LLM，直接返回该标准化字符串
-OFFLINE_FALLBACK_MESSAGE = "【离线模式‑知识库暂无该主题素材，无法生成对应学习资料，请更换提问主题或者补充知识库素材】"
+OFFLINE_FALLBACK_MESSAGE = "【离线模式‑知识库暂无该主题素材，无法生成对应学习资料，请更换提问主题或者补充知识库素材】"  # noqa: E501
 
 # 在线模式兜底：免责声明头部（代码层面硬拼接，禁止 LLM 改写润色）
-ONLINE_FALLBACK_DISCLAIMER = "【提示：以下内容来自外部网络检索，不属于项目本地知识库，仅供学习参考，不保证工业实操准确性】"
+ONLINE_FALLBACK_DISCLAIMER = "【提示：以下内容来自外部网络检索，不属于项目本地知识库，仅供学习参考，不保证工业实操准确性】"  # noqa: E501
 
 # 外部检索工具未接入时的确定性占位（非 LLM 生成，杜绝兜底路径幻觉）
 EXTERNAL_RETRIEVAL_UNAVAILABLE = "（外部网络检索暂不可用，未获取到相关资料摘要）"
@@ -307,38 +306,23 @@ class RecallGate(BaseGate):
     # ═══════════════════════════════════════════════════════════
 
     async def _external_retrieve(self, query: str) -> tuple[str, list[str]]:
-        """调用外部检索工具，拿到外部资料摘要，仅做简单拼接整理。
+        """在线兜底：调用外部检索工具返回原文摘要（仅拼接整理，禁止 LLM 改写润色）。
 
         严禁调用 LLM 改写/润色/生成内容。外部检索工具未接入或检索失败时，
         返回确定性空摘要（非 LLM 生成），杜绝兜底路径凭空生成幻觉。
 
+        【预留扩展点】外部检索工具（backend/src/llm/external_search.py）尚未实现，
+        本方法暂为确定性占位，直接返回空摘要。接入时实现 external_search(query)
+        返回 [{"title", "snippet"/"content", "url"}]，再在此处拼接成摘要与来源标签。
+        仅当 is_offline=False（OFFLINE_MODE=false）时才走到本方法。
+
         Returns:
             (摘要文本, 来源标签列表[str])
         """
-        sources: list[dict] = []
-        try:
-            # 可选：真实外部检索工具（如搜索引擎 / 文档抓取）。未接入时 ImportError 降级。
-            from backend.src.llm.external_search import external_search  # noqa: F401
-
-            if external_search is not None:
-                sources = (await external_search(query)) or []
-        except Exception as exc:  # ImportError / 工具未接入 / 网络失败
-            self._log(f"外部检索工具不可用 ({exc})，返回空摘要")
-
-        if not sources:
-            return EXTERNAL_RETRIEVAL_UNAVAILABLE, []
-
-        parts: list[str] = []
-        labels: list[str] = []
-        for i, s in enumerate(sources, 1):
-            if not isinstance(s, dict):
-                continue
-            title = str(s.get("title") or "未知来源")
-            snippet = str(s.get("snippet") or s.get("content") or "")
-            url = str(s.get("url") or "")
-            parts.append(f"[{i}] {title}\n{snippet}")
-            labels.append(title + (f"（{url}）" if url else ""))
-        return "\n\n".join(parts), labels
+        # TODO(接入 external_search)：实现 external_search(query) -> list[dict] 后，
+        #   调用它拿到 sources，再拼接出 (摘要, 来源标签)。当前未接入，直接返回
+        #   确定性空摘要，避免兜底路径凭空生成幻觉。query 参数供未来检索使用。
+        return EXTERNAL_RETRIEVAL_UNAVAILABLE, []
 
     # ═══════════════════════════════════════════════════════════
     # 私有：提取原始 Query
