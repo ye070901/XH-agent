@@ -24,29 +24,53 @@ from __future__ import annotations
 
 import asyncio
 import re
-from typing import Any
 
-from .base import BaseAgent
 from ..config import settings
 from ..knowledge.store import knowledge_base
+from .base import BaseAgent
 
 # ═══════════════════════════════════════════════════════════
 # 权威等级常量 + 关键词推断
 # ═══════════════════════════════════════════════════════════
 
-AUTHORITY_A = "A"          # 一手原文（官方）
-AUTHORITY_B = "B"          # 二手资料
+AUTHORITY_A = "A"  # 一手原文（官方）
+AUTHORITY_B = "B"  # 二手资料
 AUTHORITY_UNKNOWN = "unknown"
 
 # A 级（一手原文）关键词：官方手册 / 说明书 / 规格书等
 _A_LEVEL_KEYWORDS = (
-    "官方", "手册", "说明书", "操作手册", "参考手册", "用户指南", "规格", "规格书",
-    "技术参数", "datasheet", "manual", "specification", "official",
+    "官方",
+    "手册",
+    "说明书",
+    "操作手册",
+    "参考手册",
+    "用户指南",
+    "规格",
+    "规格书",
+    "技术参数",
+    "datasheet",
+    "manual",
+    "specification",
+    "official",
 )
 # B 级（二手资料）关键词：教程 / 课程 / 指南 / 社区整理等
 _B_LEVEL_KEYWORDS = (
-    "课程", "教程", "指南", "入门", "概述", "简介", "在线", "社区", "博客",
-    "tutorial", "course", "guide", "blog", "community", "intro", "overview",
+    "课程",
+    "教程",
+    "指南",
+    "入门",
+    "概述",
+    "简介",
+    "在线",
+    "社区",
+    "博客",
+    "tutorial",
+    "course",
+    "guide",
+    "blog",
+    "community",
+    "intro",
+    "overview",
 )
 
 # 每条资源最多提取的断言数（对应 D4 终止边界，控制 LLM 调用与延迟）
@@ -62,14 +86,27 @@ _LOG_CONTENT_CHARS = 200
 _RULE_SUPPORT_THRESHOLD = 0.5
 # 规则兜底反驳：命中否定词的最小集合
 _NEGATION_MARKERS = (
-    "不", "不是", "并非", "错误", "不正确", "无", "没有", "禁止", "避免",
-    "不可", "不能", "应避免", "不推荐",
+    "不",
+    "不是",
+    "并非",
+    "错误",
+    "不正确",
+    "无",
+    "没有",
+    "禁止",
+    "避免",
+    "不可",
+    "不能",
+    "应避免",
+    "不推荐",
 )
 
-SYSTEM_PROMPT = """你是一个严格的内容审核专家，负责把学习资源拆解为"事实断言"并逐条与知识库原文比对，只审不修。
+SYSTEM_PROMPT = """你是一个严格的内容审核专家，负责把学习资源拆解为"事实断言"并逐条
+与知识库原文比对，只审不修。
 
 你的任务分两步：
-1. 提取事实断言：从资源内容中识别所有可验证的事实性断言（技术名词、参数、型号、步骤、因果、配置关系等），忽略纯过渡性/修辞性语句。
+1. 提取事实断言：从资源内容中识别所有可验证的事实性断言
+（技术名词、参数、型号、步骤、因果、配置关系等），忽略纯过渡性/修辞性语句。
 2. 逐条比对知识库原文：对每条断言，从给定的知识库原文片段中寻找"支撑"或"反驳"的证据。
 
 裁决三态（最终由代码按权威等级裁决，你只需填证据）：
@@ -77,7 +114,9 @@ SYSTEM_PROMPT = """你是一个严格的内容审核专家，负责把学习资�
 - hallucination   知识库原文明确反驳该断言（事实错误）
 - unverifiable    知识库原文没有覆盖该断言，无法验证
 
-权威等级 A>B 加权：每条知识库原文已标注权威等级（A=一手原文/官方，B=二手/教程）。你输出时必须把"支撑证据"和"反驳证据"分别归入 A 级、B 级四类字段（无则填 null），代码会按 A>B 规则做最终裁决。切勿把 A 级证据错填到 B 级字段。
+权威等级 A>B 加权：每条知识库原文已标注权威等级（A=一手原文/官方，B=二手/教程）。
+你输出时必须把"支撑证据"和"反驳证据"分别归入 A 级、B 级四类字段（无则填 null），
+代码会按 A>B 规则做最终裁决。切勿把 A 级证据错填到 B 级字段。
 
 输出必须为严格的 JSON 格式。"""
 
@@ -254,7 +293,11 @@ class AuditAgent(BaseAgent):
             content = str(chunk.get("content") or "").strip()
             if not content:
                 return
-            key = (str(chunk.get("doc_id") or ""), str(chunk.get("chunk_index") or ""), content[:60])
+            key = (
+                str(chunk.get("doc_id") or ""),
+                str(chunk.get("chunk_index") or ""),
+                content[:60],
+            )
             if key not in pool:
                 pool[key] = {
                     "doc_id": chunk.get("doc_id", ""),
@@ -311,9 +354,7 @@ class AuditAgent(BaseAgent):
     # 3. 逐条比对（LLM 语义判断 → 代码权威裁决）
     # ═══════════════════════════════════════════════════════════
 
-    async def _classify_claims(
-        self, claims: list[str], evidence_pool: list[dict]
-    ) -> list[dict]:
+    async def _classify_claims(self, claims: list[str], evidence_pool: list[dict]) -> list[dict]:
         """逐条比对 KB：LLM 填支撑/反驳证据，代码按 A>B 裁决三态。"""
         if not claims:
             return []
@@ -339,9 +380,7 @@ class AuditAgent(BaseAgent):
 
         return resolved
 
-    async def _llm_classify(
-        self, claims: list[str], evidence_pool: list[dict]
-    ) -> list[dict]:
+    async def _llm_classify(self, claims: list[str], evidence_pool: list[dict]) -> list[dict]:
         """LLM 逐条比对（一次调用批量完成），返回未裁决的原始证据分类。"""
         if not evidence_pool:
             return []
@@ -404,15 +443,15 @@ class AuditAgent(BaseAgent):
         contradict_a = item.get("contradict_a")
         contradict_b = item.get("contradict_b")
 
-        if contradict_a:           # A 级一手原文反驳 → 最高权威，直接判幻觉
+        if contradict_a:  # A 级一手原文反驳 → 最高权威，直接判幻觉
             return "hallucination"
-        if support_a:              # A 级一手原文支持
+        if support_a:  # A 级一手原文支持
             return "accurate"
-        if contradict_b:           # B 级反驳（无 A 级覆盖）
+        if contradict_b:  # B 级反驳（无 A 级覆盖）
             return "hallucination"
-        if support_b:              # B 级支持
+        if support_b:  # B 级支持
             return "accurate"
-        return "unverifiable"      # 无任何覆盖
+        return "unverifiable"  # 无任何覆盖
 
     def _build_item(self, claim: str, verdict: str, raw: dict) -> dict:
         """构建单条断言的三态比对结果。"""
@@ -431,7 +470,9 @@ class AuditAgent(BaseAgent):
             "claim": claim,
             "citation_ref": raw.get("citation_ref"),
             "verdict": verdict,
-            "is_accurate": True if verdict == "accurate" else (False if verdict == "hallucination" else None),
+            "is_accurate": True
+            if verdict == "accurate"
+            else (False if verdict == "hallucination" else None),
             "evidence_from_kb": evidence or None,
             "authority_level": authority,
             "explanation": str(raw.get("explanation") or ""),
@@ -506,31 +547,38 @@ class AuditAgent(BaseAgent):
         # 前后矛盾：同一技术名词同时出现"必须/禁止"或数值冲突
         terms = set(re.findall(r"[A-Za-z][A-Za-z0-9_\-]{2,}", content))
         for term in terms:
-            if re.search(rf"{re.escape(term)}[^\n]{{0,30}}(禁止|不可|不能|不要)", content) and \
-               re.search(rf"{re.escape(term)}[^\n]{{0,30}}(必须|务必|应当|需要)", content):
-                issues.append({
-                    "severity": "warning",
-                    "detail": f"术语「{term}」前后表述可能矛盾（既要求又禁止）",
-                    "kb_evidence": "",
-                })
+            if re.search(
+                rf"{re.escape(term)}[^\n]{{0,30}}(禁止|不可|不能|不要)", content
+            ) and re.search(rf"{re.escape(term)}[^\n]{{0,30}}(必须|务必|应当|需要)", content):
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "detail": f"术语「{term}」前后表述可能矛盾（既要求又禁止）",
+                        "kb_evidence": "",
+                    }
+                )
 
         # 步骤跳跃：出现"步骤 1 → 步骤 3"却缺步骤 2（启发式）
         step_nums = [int(m) for m in re.findall(r"步骤\s*(\d+)", content)]
         if step_nums and max(step_nums) > 1:
             missing = [n for n in range(1, max(step_nums) + 1) if n not in step_nums]
             if missing:
-                issues.append({
-                    "severity": "warning",
-                    "detail": f"操作步骤可能跳跃，缺少步骤 {missing}",
-                    "kb_evidence": "",
-                })
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "detail": f"操作步骤可能跳跃，缺少步骤 {missing}",
+                        "kb_evidence": "",
+                    }
+                )
 
         if not issues and content.strip():
-            issues.append({
-                "severity": "info",
-                "detail": "无 KB 模式：已做一致性检查，未发现明显矛盾",
-                "kb_evidence": "",
-            })
+            issues.append(
+                {
+                    "severity": "info",
+                    "detail": "无 KB 模式：已做一致性检查，未发现明显矛盾",
+                    "kb_evidence": "",
+                }
+            )
         return issues
 
     # ═══════════════════════════════════════════════════════════
@@ -559,23 +607,30 @@ class AuditAgent(BaseAgent):
             for it in items:
                 v = it.get("verdict")
                 if v == "hallucination":
-                    issues.append({
-                        "severity": "error",
-                        "detail": f"事实错误：{it.get('claim', '')}",
-                        "kb_evidence": it.get("evidence_from_kb") or "",
-                    })
-                    flags.append({
-                        "location": it.get("claim", "")[:80],
-                        "description": it.get("explanation", "") or "与知识库原文相悖",
-                        "severity": "major",
-                        "suggested_correction": (it.get("evidence_from_kb") or "")[:300] or None,
-                    })
+                    issues.append(
+                        {
+                            "severity": "error",
+                            "detail": f"事实错误：{it.get('claim', '')}",
+                            "kb_evidence": it.get("evidence_from_kb") or "",
+                        }
+                    )
+                    flags.append(
+                        {
+                            "location": it.get("claim", "")[:80],
+                            "description": it.get("explanation", "") or "与知识库原文相悖",
+                            "severity": "major",
+                            "suggested_correction": (it.get("evidence_from_kb") or "")[:300]
+                            or None,
+                        }
+                    )
                 elif v == "unverifiable":
-                    issues.append({
-                        "severity": "warning",
-                        "detail": f"无权威参考：{it.get('claim', '')}",
-                        "kb_evidence": "",
-                    })
+                    issues.append(
+                        {
+                            "severity": "warning",
+                            "detail": f"无权威参考：{it.get('claim', '')}",
+                            "kb_evidence": "",
+                        }
+                    )
             hallucination_flags = flags
         else:
             hallucination_flags = []
@@ -584,7 +639,9 @@ class AuditAgent(BaseAgent):
         hallucination_count = sum(1 for it in items if it.get("verdict") == "hallucination")
         unverifiable_count = sum(1 for it in items if it.get("verdict") == "unverifiable")
         accurate_count = total - hallucination_count - unverifiable_count
-        hallucination_rate = round((hallucination_count + unverifiable_count) / total, 4) if total else 0.0
+        hallucination_rate = (
+            round((hallucination_count + unverifiable_count) / total, 4) if total else 0.0
+        )
         overall_accuracy = round(accurate_count / total, 4) if total else 1.0
 
         has_error = any(i.get("severity") == "error" for i in issues)
@@ -623,10 +680,7 @@ class AuditAgent(BaseAgent):
         # 2. 读嵌套 metadata（旧数据 / 外部来源兼容）
         meta = chunk.get("metadata") if isinstance(chunk.get("metadata"), dict) else {}
         raw = str(
-            meta.get("source_level")
-            or meta.get("authority")
-            or meta.get("authority_level")
-            or ""
+            meta.get("source_level") or meta.get("authority") or meta.get("authority_level") or ""
         ).lower()
         if raw in ("official", "a", "primary", "一手", "一级", "官方"):
             return AUTHORITY_A
@@ -634,11 +688,7 @@ class AuditAgent(BaseAgent):
             return AUTHORITY_B
 
         # 3. 标题关键词兜底
-        text = (
-            str(chunk.get("doc_title") or "")
-            + " "
-            + str(chunk.get("doc_id") or "")
-        ).lower()
+        text = (str(chunk.get("doc_title") or "") + " " + str(chunk.get("doc_id") or "")).lower()
         if any(k in text for k in _A_LEVEL_KEYWORDS):
             return AUTHORITY_A
         if any(k in text for k in _B_LEVEL_KEYWORDS):

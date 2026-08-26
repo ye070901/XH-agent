@@ -124,7 +124,7 @@ def _module_to_files(mod_name: str) -> list[Path]:
     """
     if not mod_name.startswith("backend.src"):
         return []
-    rel = mod_name[len("backend.src"):].strip(".")
+    rel = mod_name[len("backend.src") :].strip(".")
     parts = rel.split(".") if rel else []
     base = BACKEND_SRC
     for p in parts[:-1]:

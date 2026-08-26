@@ -37,10 +37,7 @@ from src.quality_gate.gates.recall_gate import (
 from src.schemas import GateVerdict
 
 _PROFILES_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "data"
-    / "evaluation"
-    / "learner_profiles.json"
+    Path(__file__).resolve().parent.parent.parent / "data" / "evaluation" / "learner_profiles.json"
 )
 
 
@@ -89,9 +86,7 @@ def test_demo_diagnosis_adversarial_profiles() -> None:
         assert result["learning_style"] == style, (
             f"{pid}: 期望风格 {style}，实际 {result['learning_style']}"
         )
-        assert result["profile_tag"] == tag, (
-            f"{pid}: 期望画像 {tag}，实际 {result['profile_tag']}"
-        )
+        assert result["profile_tag"] == tag, f"{pid}: 期望画像 {tag}，实际 {result['profile_tag']}"
         # demo 层的 profile_tag 必须与真实 derive_profile_tag 完全一致（复用而非另写）
         assert result["profile_tag"] == derive_profile_tag(learner, diff, style), (
             f"{pid}: demo 的 profile_tag 与 derive_profile_tag 不一致"
@@ -413,12 +408,8 @@ async def test_case_real_beginner_direct_match_no_retry() -> None:
     assert diag["recommended_difficulty"] == "beginner", (
         f"真实新手应直接判 beginner，实际 {diag['recommended_difficulty']}"
     )
-    assert diag["learning_style"] == "visual", (
-        f"零基础应判 visual，实际 {diag['learning_style']}"
-    )
-    assert diag["profile_tag"] == "zero_basis", (
-        f"应落为 zero_basis，实际 {diag['profile_tag']}"
-    )
+    assert diag["learning_style"] == "visual", f"零基础应判 visual，实际 {diag['learning_style']}"
+    assert diag["profile_tag"] == "zero_basis", f"应落为 zero_basis，实际 {diag['profile_tag']}"
 
     # ② 修正端：资源难度与诊断一致（beginner）→ 即便有 error 也只修正内容，不触发重试
     agent = CorrectionAgent()
@@ -516,11 +507,7 @@ def test_case_uneven_skill_local_ability_validation() -> None:
     )
 
     # ③ 知识图谱呈现分化掌握度（局部能力：并非所有知识点同一水平）
-    levels = [
-        v.get("level")
-        for v in diag.get("knowledge_map", {}).values()
-        if isinstance(v, dict)
-    ]
+    levels = [v.get("level") for v in diag.get("knowledge_map", {}).values() if isinstance(v, dict)]
     assert len(set(levels)) >= 2, f"知识图谱应体现分化掌握度，实际 {levels}"
 
     print("  [PASS] 强弱分化 → intermediate + 离线仿真 critical + 知识图谱分化")
@@ -620,13 +607,9 @@ async def test_online_mode_fallback_external_retrieval_no_llm() -> None:
     assert fb.get("online_fallback_raw") == fixed_summary, (
         f"应返回外部检索原始摘要，实际 {fb.get('online_fallback_raw')}"
     )
-    assert fb.get("sources") == fixed_sources, (
-        f"应保存检索来源信息，实际 {fb.get('sources')}"
-    )
+    assert fb.get("sources") == fixed_sources, f"应保存检索来源信息，实际 {fb.get('sources')}"
     # ③ 未调用 LLM（改写/生成均被禁止）
-    assert llm_called["count"] == 0, (
-        f"在线兜底不应调用 LLM，实际调用 {llm_called['count']} 次"
-    )
+    assert llm_called["count"] == 0, f"在线兜底不应调用 LLM，实际调用 {llm_called['count']} 次"
     # ④ 免责声明为代码层面硬拼接的固定文本
     assert ONLINE_FALLBACK_DISCLAIMER.startswith("【提示：以下内容来自外部网络检索")
 
@@ -691,9 +674,7 @@ async def test_agent2_all_parse_fail_returns_empty() -> None:
             "diagnosis_result": {
                 "recommended_difficulty": "intermediate",
                 "learning_style": "practice_first",
-                "skill_gaps": [
-                    {"topic": "SRVO-068", "priority": "critical", "reason": "r"}
-                ],
+                "skill_gaps": [{"topic": "SRVO-068", "priority": "critical", "reason": "r"}],
             },
             "retrieved_chunks": chunks,  # 有 chunk → 进入生成，但解析失败
             "resource_types": ["lecture", "guide", "quiz"],

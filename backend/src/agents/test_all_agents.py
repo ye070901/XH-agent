@@ -974,8 +974,7 @@ class TestCorrectionAgent:
         """裁决 delete：删除无权威参考支撑的整句（D1 规则）。"""
         state = deepcopy(CORRECTION_STATE)
         state["generated_resources"][0]["content"] = (
-            "# LangGraph 入门讲义\n\n"
-            "LangGraph 是 Google 开发的框架。这是第二句保留内容。\n"
+            "# LangGraph 入门讲义\n\nLangGraph 是 Google 开发的框架。这是第二句保留内容。\n"
         )
         state["debate_result"] = {
             "adjudications": [

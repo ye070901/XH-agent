@@ -259,9 +259,7 @@ class AgentWorkflow:
         state["agent_log"].append(
             {"agent": "debate", "status": "done", "stats": debate_result.get("stats", {})}
         )
-        await self._broadcast_status(
-            task_id, "debate", EventType.AGENT_DONE, "博弈裁决完成。"
-        )
+        await self._broadcast_status(task_id, "debate", EventType.AGENT_DONE, "博弈裁决完成。")
 
         # Step 4: Agent 4 保真修正（消费 audit_result + debate_result 落地裁决）
         logger.info("[工作流] Step 4/4: 保真修正")

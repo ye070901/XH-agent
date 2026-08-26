@@ -26,8 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.agents.generation_v2 import GenerationAgent, derive_profile_tag
 from src.agents.correction import CorrectionAgent
+from src.agents.generation_v2 import GenerationAgent, derive_profile_tag
 from src.llm.client import LLMClient, _lazy_load_openai_exceptions
 
 _PASS = 0
@@ -63,15 +63,23 @@ def test_derive_profile_tag_7_profiles() -> None:
     print("\n── demo：profile_tag 纯规则推导（7 画像）──")
 
     cases = [
-        ({}, "beginner", "visual", "zero_basis"),                      # D
-        ({}, "beginner", "theory_first", "heard_only"),                # E
-        ({"work_years": 0, "positions": ["自动化实习生"]},
-         "intermediate", "theory_first", "theory_student"),            # F
-        ({}, "intermediate", "practice_first", "hands_on_operator"),   # G
-        ({"work_years": 2, "positions": ["设备维护员"]},
-         "intermediate", "theory_first", "balanced_junior"),           # H
-        ({}, "advanced", "practice_first", "skilled_engineer"),        # I
-        ({}, "advanced", "project_based", "authority_expert"),         # J
+        ({}, "beginner", "visual", "zero_basis"),  # D
+        ({}, "beginner", "theory_first", "heard_only"),  # E
+        (
+            {"work_years": 0, "positions": ["自动化实习生"]},
+            "intermediate",
+            "theory_first",
+            "theory_student",
+        ),  # F
+        ({}, "intermediate", "practice_first", "hands_on_operator"),  # G
+        (
+            {"work_years": 2, "positions": ["设备维护员"]},
+            "intermediate",
+            "theory_first",
+            "balanced_junior",
+        ),  # H
+        ({}, "advanced", "practice_first", "skilled_engineer"),  # I
+        ({}, "advanced", "project_based", "authority_expert"),  # J
     ]
     for learner, diff, style, expected in cases:
         got = derive_profile_tag(learner, diff, style)
@@ -133,19 +141,22 @@ def test_validate_profile_match() -> None:
     agent = CorrectionAgent()
     ok = agent._validate_profile_match(
         {"difficulty_level": "beginner", "content": "用示意图拆解步骤"},
-        "beginner", "visual",
+        "beginner",
+        "visual",
     )
     check(ok["difficulty_ok"] and ok["style_ok"], "难度+风格均匹配")
 
     diff_bad = agent._validate_profile_match(
         {"difficulty_level": "advanced", "content": "用示意图拆解步骤"},
-        "beginner", "visual",
+        "beginner",
+        "visual",
     )
     check(not diff_bad["difficulty_ok"], "难度不匹配 → difficulty_ok=False")
 
     style_bad = agent._validate_profile_match(
         {"difficulty_level": "beginner", "content": "这是一个纯文字的理论讲解"},
-        "beginner", "visual",
+        "beginner",
+        "visual",
     )
     check(style_bad["difficulty_ok"] and not style_bad["style_ok"], "风格特征缺失 → style_ok=False")
 
@@ -159,8 +170,8 @@ def test_system_prompts_no_old_standard() -> None:
     """system prompt 已删除旧标准（LangGraph/Google/LangChain），仅保留新难度矩阵 + 4 风格。"""
     print("\n── 真实模式：system prompt 旧标准清理 ──")
 
-    from src.agents.generation_v2 import SYSTEM_PROMPT as G2
     from src.agents.correction import SYSTEM_PROMPT as C4
+    from src.agents.generation_v2 import SYSTEM_PROMPT as G2
 
     for name, sp in [("generation_v2", G2), ("correction", C4)]:
         check("LangGraph" not in sp, f"{name} 无 LangGraph")
@@ -177,9 +188,15 @@ def test_build_correction_prompt_has_structured_params() -> None:
 
     agent = CorrectionAgent()
     prompt = agent._build_correction_prompt(
-        resource={"resource_type": "guide", "title": "T", "difficulty_level": "beginner", "content": "C"},
+        resource={
+            "resource_type": "guide",
+            "title": "T",
+            "difficulty_level": "beginner",
+            "content": "C",
+        },
         errors=[{"severity": "error", "detail": "E", "kb_evidence": ""}],
-        warnings=[], infos=[],
+        warnings=[],
+        infos=[],
         diagnosis={"recommended_difficulty": "advanced", "learning_style": "practice_first"},
         chunks=[],
         profile_tag="skilled_engineer",
@@ -241,9 +258,13 @@ async def test_correct_one_injects_difficulty_mismatch() -> None:
     agent.call_llm_json = fake_json  # type: ignore[method-assign]
 
     resource = {
-        "resource_id": "r1", "resource_type": "guide", "title": "T",
-        "difficulty_level": "beginner", "content": "入门内容",
-        "citations": [], "key_takeaways": [],
+        "resource_id": "r1",
+        "resource_type": "guide",
+        "title": "T",
+        "difficulty_level": "beginner",
+        "content": "入门内容",
+        "citations": [],
+        "key_takeaways": [],
     }
     audit_report = {"issues": [], "fact_check": {"items": []}}
     diagnosis = {"recommended_difficulty": "advanced", "learning_style": "practice_first"}
@@ -267,7 +288,12 @@ async def test_enforce_profile_match_retry_success() -> None:
 
     agent.call_llm_json = fake_json  # type: ignore[method-assign]
 
-    resource = {"resource_id": "r1", "resource_type": "lecture", "difficulty_level": "advanced", "content": "旧内容"}
+    resource = {
+        "resource_id": "r1",
+        "resource_type": "lecture",
+        "difficulty_level": "advanced",
+        "content": "旧内容",
+    }
     out, logs = await agent._enforce_profile_match(resource, "beginner", "visual", "zero_basis")
     check(out["difficulty_level"] == "beginner", "重试后难度对齐 beginner")
     check(out.get("_profile_retried") is True, "标记 _profile_retried")
@@ -286,7 +312,12 @@ async def test_enforce_profile_match_fallback() -> None:
 
     agent.call_llm_json = fake_json  # type: ignore[method-assign]
 
-    resource = {"resource_id": "r1", "resource_type": "lecture", "difficulty_level": "advanced", "content": "旧内容"}
+    resource = {
+        "resource_id": "r1",
+        "resource_type": "lecture",
+        "difficulty_level": "advanced",
+        "content": "旧内容",
+    }
     out, logs = await agent._enforce_profile_match(resource, "beginner", "visual", "zero_basis")
     check(out["difficulty_level"] == "beginner", "兜底强制难度 beginner")
     check(out.get("_profile_fallback") is True, "标记 _profile_fallback")
@@ -304,7 +335,12 @@ async def test_enforce_profile_match_fallback_on_parse_error() -> None:
 
     agent.call_llm_json = fake_json  # type: ignore[method-assign]
 
-    resource = {"resource_id": "r1", "resource_type": "lecture", "difficulty_level": "advanced", "content": "旧内容"}
+    resource = {
+        "resource_id": "r1",
+        "resource_type": "lecture",
+        "difficulty_level": "advanced",
+        "content": "旧内容",
+    }
     out, logs = await agent._enforce_profile_match(resource, "beginner", "visual", "zero_basis")
     check(out["difficulty_level"] == "beginner", "解析失败 → 兜底强制 beginner")
     check(out.get("_profile_fallback") is True, "标记 _profile_fallback")

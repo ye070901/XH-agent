@@ -42,7 +42,7 @@ class _ResourceDebate:
     max_rounds: int = rules.MAX_ROUNDS_DEFAULT
     claims_per_round: int = rules.MAX_CLAIMS_PER_ROUND
     current_round: int = 0
-    question_seq: int = 0                 # 争议问题序号（衔接可视化）
+    question_seq: int = 0  # 争议问题序号（衔接可视化）
     queue: deque = field(default_factory=deque)
     adjudications: list[dict] = field(default_factory=list)
     unresolved: list[str] = field(default_factory=list)
@@ -78,8 +78,7 @@ class DebateEngine:
         for report in audit_result or []:
             if not isinstance(report, dict):
                 continue
-            summary, adjs, unresolved = self._adjudicate_resource(
-                report, id_by_index)
+            summary, adjs, unresolved = self._adjudicate_resource(report, id_by_index)
             summaries.append(summary)
             adjudications.extend(adjs)
             unresolved_claims.extend(unresolved)
@@ -106,9 +105,7 @@ class DebateEngine:
         self, report: dict, id_by_index: dict[int, str]
     ) -> tuple[dict, list[dict], list[str]]:
         idx = int(report.get("resource_index", 0) or 0)
-        resource_id = str(
-            report.get("resource_id") or id_by_index.get(idx) or f"res-{idx}"
-        )
+        resource_id = str(report.get("resource_id") or id_by_index.get(idx) or f"res-{idx}")
         resource_type = str(report.get("resource_type") or "")
         title = str(report.get("title") or "")
         items = self._extract_items(report)
@@ -123,14 +120,11 @@ class DebateEngine:
         )
 
         # 1. 无争议断言（支持A2）→ 直接 keep，不占用轮次
-        agreed = [it for it in items if self._state_of(
-            it) == rules.ThreeState.SUPPORT_A2]
-        disputed = [it for it in items if self._state_of(
-            it) != rules.ThreeState.SUPPORT_A2]
+        agreed = [it for it in items if self._state_of(it) == rules.ThreeState.SUPPORT_A2]
+        disputed = [it for it in items if self._state_of(it) != rules.ThreeState.SUPPORT_A2]
 
         for it in agreed:
-            self._process_one(state, it, resource_id,
-                              round_number=0, closeout=False)
+            self._process_one(state, it, resource_id, round_number=0, closeout=False)
 
         # 2. 争议断言 → 轮次辩论（每轮最多 N 个，最多 max_rounds 轮）
         state.queue = deque(disputed)
@@ -255,20 +249,16 @@ class DebateEngine:
         """提取获胜证据原文 + 权威等级（用于下游 replace 替换 / keep 溯源）。"""
         evidence = str(item.get("evidence_from_kb") or "").strip()
         if not evidence and state == rules.ThreeState.SUPPORT_A3:
-            evidence = str(item.get("contradict_a")
-                           or item.get("contradict_b") or "").strip()
+            evidence = str(item.get("contradict_a") or item.get("contradict_b") or "").strip()
         elif not evidence and state == rules.ThreeState.SUPPORT_A2:
-            evidence = str(item.get("support_a")
-                           or item.get("support_b") or "").strip()
+            evidence = str(item.get("support_a") or item.get("support_b") or "").strip()
 
         authority = rules.normalize_authority(item.get("authority_level"))
         if authority == rules.AUTHORITY_UNKNOWN:
             if state == rules.ThreeState.SUPPORT_A3:
-                authority = rules.AUTHORITY_A if item.get(
-                    "contradict_a") else rules.AUTHORITY_B
+                authority = rules.AUTHORITY_A if item.get("contradict_a") else rules.AUTHORITY_B
             elif state == rules.ThreeState.SUPPORT_A2:
-                authority = rules.AUTHORITY_A if item.get(
-                    "support_a") else rules.AUTHORITY_B
+                authority = rules.AUTHORITY_A if item.get("support_a") else rules.AUTHORITY_B
         return evidence, authority
 
     # ═══════════════════════════════════════════════════════════
@@ -278,8 +268,7 @@ class DebateEngine:
     @staticmethod
     def _extract_items(report: dict) -> list[dict]:
         """从审核报告中提取三态断言列表（兼容 fact_check.items / 平铺 items）。"""
-        fact_check = report.get("fact_check") if isinstance(
-            report.get("fact_check"), dict) else {}
+        fact_check = report.get("fact_check") if isinstance(report.get("fact_check"), dict) else {}
         items = fact_check.get("items") or []
         if not items:
             items = report.get("items") or []

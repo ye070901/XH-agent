@@ -21,6 +21,10 @@ extend-exclude = [
     "agent1/",
     "frontend/",
     ".github/",
+    # 纯内容/文档目录（Markdown 知识库与设计文档），不纳入 Python 代码格式化/规范范围
+    "data/",
+    "docs/",
+    "opt3/docs/",
 ]
 
 [lint]

@@ -657,7 +657,9 @@ class LLMClient:
         positions = info["positions"]
         if not skills:
             return "visual"
-        if difficulty == "advanced" and any(k in positions for k in ("专家", "负责人", "方案", "总监")):
+        if difficulty == "advanced" and any(
+            k in positions for k in ("专家", "负责人", "方案", "总监")
+        ):
             return "project_based"
         if any(k in positions for k in ("操作工", "调试", "示教", "上下料")):
             return "practice_first"
@@ -673,6 +675,7 @@ class LLMClient:
         # 延迟导入规避 llm.client ↔ agents.generation_v2 的循环依赖；
         # positions 在 _parse_learner 中被压平成字符串，这里还原为 list。
         from ..agents.generation_v2 import derive_profile_tag
+
         profile_tag = derive_profile_tag(
             {
                 "work_years": info["work_years"],
@@ -836,10 +839,10 @@ class LLMClient:
 
     def _demo_lecture(self, focus, difficulty, style, dlabel, depth_hint, style_hint) -> str:
         opening = {
-            "visual": f"先用一张示意图建立直觉：示教器屏幕 → {focus} → 末端执行器，三者关系一眼看清。",
+            "visual": f"先用一张示意图建立直觉：示教器屏幕 → {focus} → 末端执行器，三者关系一眼看清。",  # noqa: E501
             "theory_first": f"先讲原理：{focus} 要解决的核心问题是什么，为什么它是后续操作的前提。",
-            "practice_first": f"先给结论：一条最小可运行示例，再逐行解释每个参数的含义。",
-            "project_based": f"从一个真实产线任务切入：某汽车零部件产线需要完成 {focus} 相关的改造与调试。",
+            "practice_first": "先给结论：一条最小可运行示例，再逐行解释每个参数的含义。",
+            "project_based": f"从一个真实产线任务切入：某汽车零部件产线需要完成 {focus} 相关的改造与调试。",  # noqa: E501
         }[style]
         return (
             f"# {dlabel}讲义：{focus}\n\n"
@@ -880,7 +883,7 @@ class LLMClient:
             f"# {dlabel}测试：{focus}\n\n"
             f"## 基础题\n\n"
             f"**1. 关于 {focus}，下列说法正确的是？**\n"
-            f"- A) 与安全回路无关\n- B) 是示教编程的核心前提 ✓\n- C) 仅高级工程师需要掌握\n- D) 无需实践\n\n"
+            f"- A) 与安全回路无关\n- B) 是示教编程的核心前提 ✓\n- C) 仅高级工程师需要掌握\n- D) 无需实践\n\n"  # noqa: E501
             f"**2. 工业机器人急停恢复的正确顺序是？**\n"
             f"- A) 直接重启 → 恢复运行\n- B) 排查原因 → 复位 → 低速验证 ✓\n- C) 忽略报警继续\n\n"
             f"## 进阶题\n\n"
@@ -931,6 +934,7 @@ class LLMClient:
             主修正调用保留原资源难度（交由 _enforce_profile_match 触发重试/兜底），
             重写调用才对齐为期望难度（模拟重试成功）
         """
+
         def grab_json(key: str, default: str) -> str:
             m = re.search(r'"' + key + r'"\s*:\s*"([^"]+)"', user_message)
             return m.group(1).strip() if m else default
@@ -938,7 +942,6 @@ class LLMClient:
         expected_diff = grab_json("difficulty", "beginner")
         if expected_diff not in ("beginner", "intermediate", "advanced"):
             expected_diff = "beginner"
-        style = grab_json("learning_style", "theory_first")
         profile_tag = grab_json("profile_tag", "custom")
 
         # 区分「画像对齐重写」调用（真实 _enforce_profile_match 的 retry 路径）

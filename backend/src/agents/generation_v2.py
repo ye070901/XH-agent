@@ -23,11 +23,11 @@ from .base import BaseAgent
 
 # (难度, 学习风格) → 画像标签 的主映射（与 data/evaluation/learner_profiles.json 的 7 画像对齐）
 _PROFILE_TAG_BY_DIFF_STYLE: dict[tuple[str, str], str] = {
-    ("beginner", "visual"): "zero_basis",          # D 纯零基础·行业外转行
-    ("beginner", "theory_first"): "heard_only",    # E 有背景·仅听过机器人
+    ("beginner", "visual"): "zero_basis",  # D 纯零基础·行业外转行
+    ("beginner", "theory_first"): "heard_only",  # E 有背景·仅听过机器人
     ("intermediate", "practice_first"): "hands_on_operator",  # G 实操型·会操作不懂原理
-    ("advanced", "practice_first"): "skilled_engineer",       # I 熟练工程师·日常使用
-    ("advanced", "project_based"): "authority_expert",        # J 权威型·技术大能
+    ("advanced", "practice_first"): "skilled_engineer",  # I 熟练工程师·日常使用
+    ("advanced", "project_based"): "authority_expert",  # J 权威型·技术大能
 }
 
 
@@ -54,6 +54,7 @@ def derive_profile_tag(learner_data: dict, difficulty: str, style: str) -> str:
             return "theory_student"
         return "balanced_junior"
     return "custom"
+
 
 SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作者。你的任务是：
 1. 根据学习者的知识盲区（skill_gaps）和推荐难度，用你的专业知识生成个性化学习资源
@@ -130,9 +131,7 @@ class GenerationAgent(BaseAgent):
 
         # ── 空 KB 生成关闭：无有效知识库 chunk 时禁止凭空生成（杜绝兜底路径幻觉）──
         valid_chunks = [
-            c
-            for c in retrieved_chunks
-            if isinstance(c, dict) and str(c.get("content", "")).strip()
+            c for c in retrieved_chunks if isinstance(c, dict) and str(c.get("content", "")).strip()
         ]
         if not valid_chunks:
             self.log("⚠️ 无有效知识库素材，禁止凭空生成，返回空资源集合")
@@ -515,13 +514,23 @@ Knowledge context:
         if not isinstance(result, dict):
             return False
         content = str(result.get("content", ""))
-        question_count = len(re.findall(
-            r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:question\s*\d+|q\s*\d+|第\s*[0-9一二三四五六七八九十]+\s*题)",
-            content,
-        ))
-        answer_count = len(re.findall(r"(?im)^\s*(?:answer|标准答案|参考答案|正确答案|答案)\s*[:：]", content))
-        explanation_count = len(re.findall(r"(?im)^\s*(?:explanation|答案解析|解析)\s*[:：]", content))
-        return question_count >= 5 and answer_count >= question_count and explanation_count >= question_count
+        question_count = len(
+            re.findall(
+                r"(?im)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:question\s*\d+|q\s*\d+|第\s*[0-9一二三四五六七八九十]+\s*题)",
+                content,
+            )
+        )
+        answer_count = len(
+            re.findall(r"(?im)^\s*(?:answer|标准答案|参考答案|正确答案|答案)\s*[:：]", content)
+        )
+        explanation_count = len(
+            re.findall(r"(?im)^\s*(?:explanation|答案解析|解析)\s*[:：]", content)
+        )
+        return (
+            question_count >= 5
+            and answer_count >= question_count
+            and explanation_count >= question_count
+        )
 
     @staticmethod
     def _has_complete_quiz_key(result: dict | None) -> bool:

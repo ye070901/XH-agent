@@ -184,7 +184,9 @@ async def generate(request: dict):
             resources = []
         else:
             # 正常路径：构建 answer（从生成资源提取）
-            resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
+            resources = result.get("corrected_resources", []) or result.get(
+                "generated_resources", []
+            )
             answer = _build_answer(resources)
             sources = _build_sources(result.get("retrieved_chunks", []))
 

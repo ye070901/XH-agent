@@ -666,9 +666,7 @@ class PipelineScheduler:
 
             engine = getattr(workflow_engine, "debate", None)
             if engine is None:
-                logger.info(
-                    f"[Scheduler] task_id={task_id[:8]}… 博弈引擎未就绪，降级跳过辩论环节"
-                )
+                logger.info(f"[Scheduler] task_id={task_id[:8]}… 博弈引擎未就绪，降级跳过辩论环节")
                 return state
 
             logger.info(f"[Scheduler] task_id={task_id[:8]}… 启动博弈引擎")

@@ -178,8 +178,6 @@ def _demo_generation(user_message: str) -> str:
         style = "theory_first"
     profile_tag = _grab_profile_param(user_message, "profile_tag", "custom")
 
-    rtype_m = re.search(r"生成一份\s*(\w+)\s*类型", user_message)
-    rtype = rtype_m.group(1) if rtype_m else "lecture"
     topic_m = re.search(r"\]\s*([^(\n]+)", user_message)
     focus = topic_m.group(1).strip() if topic_m else "工业机器人示教编程"
 
@@ -236,7 +234,7 @@ def _demo_audit() -> str:
             "issues": [
                 {
                     "severity": "info",
-                    "detail": "演示模式审核 — 未进行真实事实核查。设置 LLM_API_KEY 以启用完整审核流程。",
+                    "detail": "演示模式审核 — 未进行真实事实核查。设置 LLM_API_KEY 以启用完整审核流程。",  # noqa: E501
                 },
             ],
         },

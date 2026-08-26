@@ -21,17 +21,17 @@ from typing import Iterable
 class ThreeState(str, Enum):
     """三态裁决结果（争议断言的 KB 比对结论）。"""
 
-    SUPPORT_A2 = "support_a2"   # 支持 A2：保持原文 + 标来源
-    SUPPORT_A3 = "support_a3"   # 支持 A3：撤回 / 用 KB 原文替换
-    UNCOVERED = "uncovered"     # 未覆盖：直接删除（D1）
+    SUPPORT_A2 = "support_a2"  # 支持 A2：保持原文 + 标来源
+    SUPPORT_A3 = "support_a3"  # 支持 A3：撤回 / 用 KB 原文替换
+    UNCOVERED = "uncovered"  # 未覆盖：直接删除（D1）
 
 
 # ═══════════════════════════════════════════════════════════
 # 权威等级常量
 # ═══════════════════════════════════════════════════════════
 
-AUTHORITY_A = "A"          # 一手原文（官方手册 / 说明书 / 规格书等）
-AUTHORITY_B = "B"          # 二手资料（教程 / 课程 / 指南 / 社区整理等）
+AUTHORITY_A = "A"  # 一手原文（官方手册 / 说明书 / 规格书等）
+AUTHORITY_B = "B"  # 二手资料（教程 / 课程 / 指南 / 社区整理等）
 AUTHORITY_UNKNOWN = "unknown"
 
 # 权威等级 → 数值权重（越大越权威）
@@ -50,9 +50,9 @@ _B_LEVEL_ALIASES = ("B", "SECONDARY", "二手", "二级")
 # 终止边界常量（D4）
 # ═══════════════════════════════════════════════════════════
 
-MAX_ROUNDS_DEFAULT = 3          # 每资源最多辩论轮次
-MIN_CLAIMS_PER_ROUND = 3        # 每轮争议断言下限
-MAX_CLAIMS_PER_ROUND = 5        # 每轮争议断言上限（N ∈ [3, 5]）
+MAX_ROUNDS_DEFAULT = 3  # 每资源最多辩论轮次
+MIN_CLAIMS_PER_ROUND = 3  # 每轮争议断言下限
+MAX_CLAIMS_PER_ROUND = 5  # 每轮争议断言上限（N ∈ [3, 5]）
 
 # ═══════════════════════════════════════════════════════════
 # 映射表

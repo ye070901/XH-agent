@@ -30,10 +30,14 @@ from backend.src.quality_gate.base import (
 from backend.src.schemas import GateVerdict
 
 # 离线模式兜底提示：命中 FALLBACK 时禁止调用外部 LLM，直接返回该标准化字符串
-OFFLINE_FALLBACK_MESSAGE = "【离线模式‑知识库暂无该主题素材，无法生成对应学习资料，请更换提问主题或者补充知识库素材】"  # noqa: E501
+OFFLINE_FALLBACK_MESSAGE = (
+    "【离线模式‑知识库暂无该主题素材，无法生成对应学习资料，请更换提问主题或者补充知识库素材】"  # noqa: E501
+)
 
 # 在线模式兜底：免责声明头部（代码层面硬拼接，禁止 LLM 改写润色）
-ONLINE_FALLBACK_DISCLAIMER = "【提示：以下内容来自外部网络检索，不属于项目本地知识库，仅供学习参考，不保证工业实操准确性】"  # noqa: E501
+ONLINE_FALLBACK_DISCLAIMER = (
+    "【提示：以下内容来自外部网络检索，不属于项目本地知识库，仅供学习参考，不保证工业实操准确性】"  # noqa: E501
+)
 
 # 外部检索工具未接入时的确定性占位（非 LLM 生成，杜绝兜底路径幻觉）
 EXTERNAL_RETRIEVAL_UNAVAILABLE = "（外部网络检索暂不可用，未获取到相关资料摘要）"
@@ -84,11 +88,7 @@ class RecallGate(BaseGate):
         """
         chunks_raw = state.get("retrieved_chunks", [])
         retry_count: int = state.get("recall_retry_count", 0)
-        query = (
-            state.get("_pending_query")
-            or state.get("rag_query")
-            or self._extract_query(state)
-        )
+        query = state.get("_pending_query") or state.get("rag_query") or self._extract_query(state)
         high = settings.RECALL_HIGH_CONFIDENCE_SCORE
         low = settings.RECALL_LOW_TOLERATE_SCORE
 

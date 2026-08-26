@@ -226,13 +226,10 @@ class KnowledgeBase:
                     if s.startswith("# ") and not s.startswith("## "):
                         title = s[2:].strip()
                         break
-                existing = self._collection.get(
-                    where={"doc_id": doc_id}, include=["metadatas"]
-                )
+                existing = self._collection.get(where={"doc_id": doc_id}, include=["metadatas"])
                 metadatas = existing.get("metadatas") or []
                 if metadatas and all(
-                    metadata.get("source_sha256") == source_sha256
-                    for metadata in metadatas
+                    metadata.get("source_sha256") == source_sha256 for metadata in metadatas
                 ):
                     skipped += 1
                     continue

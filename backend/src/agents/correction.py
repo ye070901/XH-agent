@@ -135,12 +135,34 @@ class CorrectionAgent(BaseAgent):
 
     # 前后矛盾检测极性词（启发式，仅标记"疑似矛盾"供人工复核）
     _NEGATIVE_CUES: tuple[str, ...] = (
-        "不", "没", "无法", "不能", "禁止", "不可", "不会", "不支持",
-        "不允许", "not", "cannot", "can't", "don't", "never",
+        "不",
+        "没",
+        "无法",
+        "不能",
+        "禁止",
+        "不可",
+        "不会",
+        "不支持",
+        "不允许",
+        "not",
+        "cannot",
+        "can't",
+        "don't",
+        "never",
     )
     _POSITIVE_CUES: tuple[str, ...] = (
-        "必须", "可以", "能够", "支持", "会", "能", "允许", "是",
-        "is", "can", "must", "should",
+        "必须",
+        "可以",
+        "能够",
+        "支持",
+        "会",
+        "能",
+        "允许",
+        "是",
+        "is",
+        "can",
+        "must",
+        "should",
     )
 
     def __init__(self):
@@ -539,8 +561,16 @@ class CorrectionAgent(BaseAgent):
         # ── 结构模板提示 ──
         structure_guide = self._fmt_structure_guide(resource_type)
 
+        profile_json = json.dumps(
+            {
+                "difficulty": difficulty,
+                "learning_style": learning_style,
+                "profile_tag": profile_tag,
+            },
+            ensure_ascii=False,
+        )
         prompt = f"""## 结构化画像参数（权威，禁止改写）
-{json.dumps({"difficulty": difficulty, "learning_style": learning_style, "profile_tag": profile_tag}, ensure_ascii=False)}
+{profile_json}
 
 ## 学习者信息
 - 学习目标：{diagnosis.get("summary", "未指定")}
@@ -733,8 +763,7 @@ class CorrectionAgent(BaseAgent):
                 "_profile_fallback": True,
             }
             self.log(
-                f"  ⚠️ {resource_type}: 画像重试失败，降级兜底强制 "
-                f"difficulty_level={expected_diff}"
+                f"  ⚠️ {resource_type}: 画像重试失败，降级兜底强制 difficulty_level={expected_diff}"
             )
             return fallback, [
                 self._make_profile_log(resource, fallback, expected_diff, "fallback_forced")
@@ -742,9 +771,7 @@ class CorrectionAgent(BaseAgent):
 
         # 难度一致但风格特征缺失 → 软提示（不重试，避免过度改写）
         if not check["style_ok"]:
-            self.log(
-                f"  ℹ️ {resource_type}: 风格特征较弱（{expected_style}），仅记录不强制改写"
-            )
+            self.log(f"  ℹ️ {resource_type}: 风格特征较弱（{expected_style}），仅记录不强制改写")
             return resource, []
 
         return resource, []
@@ -763,8 +790,7 @@ class CorrectionAgent(BaseAgent):
             "issue_index": -1,
             "severity": "warning",
             "original_text": (
-                f"difficulty_level={before.get('difficulty_level', '')} "
-                f"(期望 {expected_diff})"
+                f"difficulty_level={before.get('difficulty_level', '')} (期望 {expected_diff})"
             ),
             "corrected_text": f"difficulty_level={after.get('difficulty_level', '')}",
             "correction_basis": "profile_match",
@@ -1029,9 +1055,7 @@ class CorrectionAgent(BaseAgent):
         if not debate_result:
             return []
         if isinstance(debate_result, dict):
-            items = debate_result.get(
-                "adjudications", debate_result.get("debate_rounds", [])
-            )
+            items = debate_result.get("adjudications", debate_result.get("debate_rounds", []))
             if not items and "rounds" in debate_result:
                 items = [debate_result]  # DebateRecord 形态：含 rounds 的裸 dict
             elif not items and (debate_result.get("claim") or debate_result.get("decision")):
@@ -1103,11 +1127,7 @@ class CorrectionAgent(BaseAgent):
             if not claim:
                 continue
             action = str(defense.get("action", "") or "").strip().lower()
-            evidence = (
-                challenge.get("evidence_from_kb")
-                or defense.get("evidence_from_kb")
-                or ""
-            )
+            evidence = challenge.get("evidence_from_kb") or defense.get("evidence_from_kb") or ""
             if action == "concede":
                 decision = "delete"
             elif action == "accept_challenge":
@@ -1152,9 +1172,7 @@ class CorrectionAgent(BaseAgent):
         }
         # 溯源绑定（仅讲义/指南）
         if resource_type in ("lecture", "guide"):
-            fact_points = self._collect_fact_points(
-                corrected_resource, audit_report, adjudications
-            )
+            fact_points = self._collect_fact_points(corrected_resource, audit_report, adjudications)
             if fact_points:
                 bound_content, bound_lines = self._bind_traceability(new_content, fact_points)
                 if bound_lines:
@@ -1202,9 +1220,7 @@ class CorrectionAgent(BaseAgent):
                         "severity": "error",
                         "original_text": claim[:300],
                         "corrected_text": (
-                            "[已按裁决删除 — 无权威参考支撑]"
-                            if matched
-                            else "[未能定位待删除语句]"
+                            "[已按裁决删除 — 无权威参考支撑]" if matched else "[未能定位待删除语句]"
                         ),
                         "correction_basis": "arbitration",
                         "kb_source": doc_id,
@@ -1269,9 +1285,7 @@ class CorrectionAgent(BaseAgent):
                         "severity": "info",
                         "original_text": claim[:300],
                         "corrected_text": (
-                            f"[保留原文并标注来源 {source}]"
-                            if matched
-                            else "[未能定位待标注语句]"
+                            f"[保留原文并标注来源 {source}]" if matched else "[未能定位待标注语句]"
                         ),
                         "correction_basis": "arbitration",
                         "kb_source": doc_id,
@@ -1382,11 +1396,7 @@ class CorrectionAgent(BaseAgent):
         elif not loc:
             loc = "未标注"
         source_part = point.get("source_text") or "暂无权威参考，建议补充学习"
-        return (
-            f"- 【生成陈述】{point.get('statement')}"
-            f"【KB原文出处】{source_part}"
-            f"【来源】{loc}"
-        )
+        return f"- 【生成陈述】{point.get('statement')}【KB原文出处】{source_part}【来源】{loc}"
 
     @staticmethod
     def _bind_traceability(content: str, fact_points: list[dict]) -> tuple[str, list[str]]:
@@ -1435,11 +1445,7 @@ class CorrectionAgent(BaseAgent):
         只记录 findings 不自动改内容（不做事实判断）。
         """
         content = resource.get("content", "") or ""
-        terms = [
-            g.get("topic", "")
-            for g in diagnosis.get("skill_gaps", [])
-            if g.get("topic")
-        ]
+        terms = [g.get("topic", "") for g in diagnosis.get("skill_gaps", []) if g.get("topic")]
         issues = self._consistency_check(content, terms)
         logs = []
         for idx, issue in enumerate(issues):
@@ -1493,9 +1499,7 @@ class CorrectionAgent(BaseAgent):
                     {
                         "check_type": "missing_import",
                         "severity": "warning",
-                        "detail": (
-                            f"代码使用了 `{alias}.` 但全文未找到 `{pkg}` 的 import 语句"
-                        ),
+                        "detail": (f"代码使用了 `{alias}.` 但全文未找到 `{pkg}` 的 import 语句"),
                         "location": f"alias `{alias}`",
                     }
                 )
@@ -1556,10 +1560,7 @@ class CorrectionAgent(BaseAgent):
         flush()
 
         # "步骤 N" 写法
-        step_nums = [
-            int(x)
-            for x in re.findall(r"(?:步骤|step)\s*(\d+)", content, re.IGNORECASE)
-        ]
+        step_nums = [int(x) for x in re.findall(r"(?:步骤|step)\s*(\d+)", content, re.IGNORECASE)]
         if len(step_nums) >= 2:
             gaps = sorted(set(range(min(step_nums), max(step_nums) + 1)) - set(step_nums))
             if gaps:
@@ -1580,19 +1581,13 @@ class CorrectionAgent(BaseAgent):
         for term in terms:
             if not term or not isinstance(term, str) or not re.search(r"[A-Za-z]", term):
                 continue
-            spellings = {
-                m.group(0)
-                for m in re.finditer(re.escape(term), content, re.IGNORECASE)
-            }
+            spellings = {m.group(0) for m in re.finditer(re.escape(term), content, re.IGNORECASE)}
             if len(spellings) > 1:
                 issues.append(
                     {
                         "check_type": "term_inconsistency",
                         "severity": "warning",
-                        "detail": (
-                            f"术语 `{term}` 存在不一致写法: "
-                            f"{', '.join(sorted(spellings))}"
-                        ),
+                        "detail": (f"术语 `{term}` 存在不一致写法: {', '.join(sorted(spellings))}"),
                         "location": term,
                     }
                 )
@@ -1617,9 +1612,7 @@ class CorrectionAgent(BaseAgent):
                 hit = [s for s in sentences if tl in s.lower()]
                 if len(hit) < 2:
                     continue
-                negative = [
-                    s for s in hit if any(c in s for c in CorrectionAgent._NEGATIVE_CUES)
-                ]
+                negative = [s for s in hit if any(c in s for c in CorrectionAgent._NEGATIVE_CUES)]
                 positive = [
                     s
                     for s in hit

@@ -170,9 +170,7 @@ class TestRecallGateDoubleThreshold:
         state = _make_state([self._chunk(0.50)])
         result = await gate.check(state)
 
-        assert result["verdict"] == GateVerdict.PASS.value, (
-            "低置信区间应放行，而非 FALLBACK"
-        )
+        assert result["verdict"] == GateVerdict.PASS.value, "低置信区间应放行，而非 FALLBACK"
         assert result["details"].get("recall_type") == "low_pass"
         assert result["details"].get("low_confidence") is True
         assert state.get("_low_confidence") is True
