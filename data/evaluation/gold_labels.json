@@ -1,10 +1,1289 @@
 {
   "meta": {
-    "name": "Agent3 三态判定人工金标准模板",
+    "name": "Agent3 三态判定人工金标准",
     "version": "1.0",
     "minimum_approved_fact_labels": 50,
-    "allowed_verdicts": ["accurate", "hallucination", "unverifiable", "skip"],
-    "instructions": "复制为 gold_labels.json 后，由领域标注员从真实流水线输出抽取断言并填写。模板故意不含任何标签，不能作为标定结果。"
+    "allowed_verdicts": [
+      "accurate",
+      "hallucination",
+      "unverifiable",
+      "skip"
+    ],
+    "source_report": "data/evaluation/runs/phase3_report.json",
+    "sample_count": 60,
+    "annotator": "K1",
+    "reviewer": "K2",
+    "instructions": "K1 独立填写 expected_verdict、evidence.locator、rationale 与 annotated_at；K2 独立复核，一致后置 review_status=approved。evidence.source_document 已修正为实际支撑该断言的知识库文档；未使用 Agent3 预测作为金标准。"
   },
-  "items": []
+  "items": [
+    {
+      "claim_id": "P3-03-K3-HIGH-006:claim-008:008",
+      "case_id": "P3-03-K3-HIGH-006",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "修复是复位的先决条件，如果故障源未消除，任何复位操作都是徒劳的",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md",
+        "locator": "第 2 节诊断要点第 4 条；第 4 节处理方法",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      },
+      "rationale": "原文明确要求复位前必须完成根因修复，并禁止在故障未消除时执行 Chain Error Reset，直接支持该断言。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K2-HIGH-006:claim-008:008",
+      "case_id": "P3-02-K2-HIGH-006",
+      "domain": "K2",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "lecture",
+      "claim": "每次开机必须进行急停功能测试",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "（源文档为 URDF/ROS2 仿真教程，无急停测试相关内容）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      },
+      "rationale": "引用的 K2_008 为 URDF 建模与 Gazebo 仿真教程，不含任何急停功能测试要求；知识库其他安全文档亦未出现“每次开机必须急停测试”的规定。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-HIGH-006:claim-008:008",
+      "case_id": "P3-01-K1-HIGH-006",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "在ABB RAPID程序中，fine表示精确到达目标点，v500和v200是速度设定（mm/s）",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md",
+        "locator": "第 9 节速度设置建议；K2_004 第 3.2/3.3 节",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ]
+      },
+      "rationale": "原文 speeddata 表及搬运示例使用 fine 与 v300/v500 等速度设定，K2_004 明确 fine=精确到位、速度单位为 mm/s，支持该断言。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-HIGH-003:claim-008:008",
+      "case_id": "P3-03-K3-HIGH-003",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "更换电池后，如果操作足够快且控制器持续供电，编码器数据可能不会丢失，SRVO-038报警不一定出现",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md",
+        "locator": "第 1 节故障代码概述",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      },
+      "rationale": "SRVO-038 文档仅说明其典型触发时机（更换编码器/备份电池），未论证“操作足够快且持续供电则报警不一定出现”这一条件性结论。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-HIGH-005:claim-008:008",
+      "case_id": "P3-03-K2-HIGH-005",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "RoboDK中工具TCP对应FANUC的UTOOL，在工具模型上新建Tool并设置TCP位置与姿态",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md",
+        "locator": "（ROBOGUIDE 文档未涉及 RoboDK）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      },
+      "rationale": "引用的 K2_009 为 FANUC ROBOGUIDE 指南，全文未提及 RoboDK；知识库亦无“RoboDK 工具 TCP 对应 FANUC UTOOL”的对应关系依据。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-HIGH-004:claim-008:008",
+      "case_id": "P3-03-K1-HIGH-004",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "在RobotStudio中创建工具坐标系时，可在工具数据属性中设置质量（Mass）和重心偏移（Center of Gravity）",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+        "locator": "第 3.1 节 参数说明",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      },
+      "rationale": "K1_004 工具数据参数表明确列出 mass（工具质量）与 cog（载荷重心位置），支持在工具数据属性中设置质量与重心。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-005:claim-008:008",
+      "case_id": "P3-03-K3-CORE-005",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "URDF文件中joint的type属性可设置为revolute，并需定义limit（含lower、upper、effort、velocity）",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "K2_008 步骤 2 Xacro 模型文件",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      },
+      "rationale": "事实正确：K2_008 的 Xacro 中 <joint type=\"revolute\"> 及 <limit lower/upper/effort/velocity> 逐字支持。注意 draft 标注的 source_document（K3 SRVO-004）不含此内容，正确来源应为 K2_008。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-HIGH-004:claim-008:008",
+      "case_id": "P3-03-K2-HIGH-004",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "KUKA KRL运动指令中，PTP用于点到点运动，LIN用于直线运动",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+        "locator": "第 4 节 三种运动指令",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      },
+      "rationale": "K2_005 运动指令表明确 PTP=点到点（关节空间）、LIN=直线（笛卡尔空间），直接支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-005:claim-008:008",
+      "case_id": "P3-03-K1-CORE-005",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "KUKA的位置数据类型是E6POS",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+        "locator": "K2_005 第 5 节 E6POS 位置数据结构",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      },
+      "rationale": "事实正确：K2_005 第 5 节以 DECL E6POS 定义 KUKA 位置数据。注意 draft 标注的来源（FANUC 示教器文档）不含 KUKA 内容，正确来源应为 K2_005。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-004:claim-008:008",
+      "case_id": "P3-03-K3-CORE-004",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "安全链路中其他串联元件（如外部急停继电器）断开会导致整体安全链路中断，但示教器优先显示门状态",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md",
+        "locator": "（SRVO-105 文档未作此断言）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      },
+      "rationale": "串联安全元件断开会中断安全链属通用安全知识，但“示教器优先显示门状态”这一具体行为在 K3_004 及其他文档中均未出现，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-CORE-003:claim-008:008",
+      "case_id": "P3-03-K2-CORE-003",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "RAPID中wobjdata数据类型对应FANUC的UFRAME",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md",
+        "locator": "K1_001 第 2 节坐标系类型对比",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      },
+      "rationale": "K1_001 对比表将用户坐标系标为 FANUC=UFRAME、ABB=User Frame(wobjdata)，即 wobjdata 对应 UFRAME，支持该断言。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-003:claim-008:008",
+      "case_id": "P3-03-K1-CORE-003",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "KUKA的工具坐标系TOOL_DATA需用TCP四点法标定",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+        "locator": "K2_005 第 3 节 TOOL 坐标系 4 点标定法",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      },
+      "rationale": "K2_005 明确 TOOL 坐标系用 4 点法（4 种姿态触碰同一固定点）标定 TCP；TOOL_DATA 在 $TOOL=TOOL_DATA[1] 中出现，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-002:claim-008:008",
+      "case_id": "P3-03-K3-CORE-002",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "FANUC TP中线性运动指令格式为L P[1] 500mm/sec CNT100",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md",
+        "locator": "（SRVO-062 文档无 TP 编程内容）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      },
+      "rationale": "引用的 K3_002 为 BZAL 故障文档，无 TP 运动指令；知识库仅见 L P[2] 500mm/s FINE 与 CNT50，未见“500mm/sec CNT100”这一确切写法，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-CORE-002:claim-008:008",
+      "case_id": "P3-03-K2-CORE-002",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "RobotStudio中可通过'建模→表面路径'功能从CAD模型提取复杂曲面路径",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+        "locator": "K2_001 第 2.3 节 通过曲线创建路径",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      },
+      "rationale": "K2_001 有“从 CAD 模型提取曲面轮廓曲线”，但未出现“建模→表面路径”这一具体菜单路径，无法验证该精确操作入口。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-002:claim-008:008",
+      "case_id": "P3-03-K1-CORE-002",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "RoboDK是品牌无关的仿真平台，支持一次编程、多品牌导出",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md",
+        "locator": "（K1_005 文档未涉及 RoboDK）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      },
+      "rationale": "引用的 K1_005 为示教器操作文档，未提及 RoboDK；K2_005 仅称 RoboDK 为“支持多品牌后处理”的第三方 OLP，未表述“品牌无关/一次编程多品牌导出”。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-001:claim-008:008",
+      "case_id": "P3-03-K3-CORE-001",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "URDF中连杆的惯性参数不准确或缺失会导致仿真中模型抖动，碰撞检测误报的原因是碰撞mesh过于复杂",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "K2_008 第 5 节 常见问题与解决",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      },
+      "rationale": "事实正确：K2_008 常见问题表明确“惯性参数不合理→抖动/飞走”“碰撞 mesh 过于复杂→碰撞检测误报”。注意 draft 来源（K3 SRVO-068）不符，正确来源应为 K2_008。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-001:claim-008:008",
+      "case_id": "P3-03-K1-CORE-001",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "RoboDK的Python API使用robolink模块与RoboDK通信",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md",
+        "locator": "（K1_009 文档未涉及 RoboDK/robolink）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      },
+      "rationale": "知识库中无任何文档提及 RoboDK 的 Python API 或 robolink 模块，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-HIGH-006:claim-008:008",
+      "case_id": "P3-03-K2-HIGH-006",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "URDF中<joint>的type=\"revolute\"表示旋转关节",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "K2_008 步骤 2 Xacro 模型文件",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      },
+      "rationale": "原文 <joint name=\"joint_1\" type=\"revolute\"> 明确将 revolute 定义为旋转关节，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-CORE-001:claim-008:008",
+      "case_id": "P3-03-K2-CORE-001",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "RobotStudio中Smart组件信号必须映射到虚拟控制器I/O地址",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md",
+        "locator": "K2_001 第 2.5 节 Smart 组件与高级功能",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      },
+      "rationale": "K2_001 明确 Smart 组件需“设置信号映射”并与机器人 IO 信号对接（SetDO/WaitDI），支持信号须映射到控制器 IO。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-HIGH-006:claim-008:008",
+      "case_id": "P3-03-K1-HIGH-006",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "ABB RAPID程序中的MoveJ指令对应FANUC的J P[1] 100% FINE关节运动指令",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md",
+        "locator": "第 9 节速度设置建议；K2_009 第 4 节对比表",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+        ]
+      },
+      "rationale": "K1_007 与 K2_009 均以 J P[1] 100% FINE 对应 ABB MoveJ 关节运动，支持该对应关系。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-HIGH-006:claim-008:008",
+      "case_id": "P3-02-K3-HIGH-006",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "lecture",
+      "claim": "安全链路包括急停按钮、安全继电器、安全PLC和伺服放大器",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md",
+        "locator": "（K3_007 第 2.2 节所列链组件与断言不一致）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      },
+      "rationale": "K3_007 所列双通道安全链组件为安全开关、继电器/安全 PLC、接线、电缆、连接器、急停板，未含“伺服放大器”；该断言的链构成与原文不一致且无依据。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-HIGH-003:claim-008:008",
+      "case_id": "P3-02-K3-HIGH-003",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "lecture",
+      "claim": "急停触发时，伺服放大器会立即切断电机动力，但编码器仍在供电（如果电池正常）",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md",
+        "locator": "（SRVO-038 文档未涉及急停供电时序）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      },
+      "rationale": "K3_003 讨论脉冲不匹配触发时机，未描述“急停触发时伺服切断动力而编码器仍由电池供电”的具体时序，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K2-HIGH-005:claim-008:008",
+      "case_id": "P3-02-K2-HIGH-005",
+      "domain": "K2",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "quiz",
+      "claim": "SRVO-068 报警的排查步骤包括检查通讯电缆及连接器、检查接地与屏蔽、检查伺服放大器状态、更换/互换硬件",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md",
+        "locator": "K3_001 第 2 节常见原因分析、第 3 节诊断流程",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      },
+      "rationale": "事实正确：SRVO-068 排查含检查连接器/电缆、屏蔽接地、伺服放大器、部件替换。注意 draft 来源（ROBOGUIDE）不符，正确来源应为 K3_001。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K1-HIGH-004:claim-008:008",
+      "case_id": "P3-02-K1-HIGH-004",
+      "domain": "K1",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "guide",
+      "claim": "验证标定结果可通过点动验证：在示教器上切换坐标系到标定的UFrame，手动移动机器人沿X、Y、Z轴方向运动，观察TCP是否严格沿工件坐标系轴线移动",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+        "locator": "（K1_004/K1_002 未描述点动验证步骤）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      },
+      "rationale": "两篇坐标系文档仅述标定方法与注意事项，未出现“切换到 UFrame 沿 XYZ 点动、观察 TCP 沿工件坐标系轴线”的验证步骤，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-CORE-005:claim-008:008",
+      "case_id": "P3-02-K3-CORE-005",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "quiz",
+      "claim": "复位SRVO-004报警的操作步骤包括查看报警详情、检查I/O状态、检查硬件回路、复位报警和验证",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md",
+        "locator": "第 3 节故障诊断流程",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      },
+      "rationale": "SRVO-004 诊断流程含核对报警、检查安全回路/双通道开关与电缆、复位前验证，与断言的步骤要点相符（属概括性转述）。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K2-HIGH-004:claim-008:008",
+      "case_id": "P3-02-K2-HIGH-004",
+      "domain": "K2",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "guide",
+      "claim": "KUKA运动指令语法如PTP P1 Vel=100% DEFAULT，FANUC为J P[1] 100% FINE",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+        "locator": "K2_005 第 4 节；K2_009 步骤 3",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      },
+      "rationale": "K2_005 有 PTP P_HOME Vel=100 % PDAT1，K2_009 有 J P[1] 100% FINE，两品牌运动指令语法均获支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K1-CORE-005:claim-008:008",
+      "case_id": "P3-02-K1-CORE-005",
+      "domain": "K1",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "quiz",
+      "claim": "FANUC机器人编码器供电电压通常为5V DC",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md",
+        "locator": "（K1_003 文档未涉及编码器供电电压）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      },
+      "rationale": "知识库中无任何文档给出“编码器供电电压 5V DC”的数值，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-CORE-004:claim-008:008",
+      "case_id": "P3-02-K3-CORE-004",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "guide",
+      "claim": "参考文档为FANUC《R-30iB Controller Maintenance Manual》B-83195EN/08 第3章 TROUBLESHOOTING",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md",
+        "locator": "第 1 节 来源；K3_001 第 1 节",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      },
+      "rationale": "手册名称与版本 B-83195EN/08 在 K3 各文档一致，K3_001 明确标注“第 3 章 TROUBLESHOOTING”，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K1-CORE-003:claim-008:008",
+      "case_id": "P3-02-K1-CORE-003",
+      "domain": "K1",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "lecture",
+      "claim": "安全急停链路根据ISO 10218标准，断开任何急停按钮，机器人立即停止并切断动力",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md",
+        "locator": "K1_009 第 6、11 节",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      },
+      "rationale": "K1_009 明确急停按下即切断动力停机，并引用 ISO 10218 标准；注意 draft 来源（K1_001）不符，正确来源应为 K1_009。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-CORE-003:claim-008:008",
+      "case_id": "P3-01-K2-CORE-003",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "MoveAbsJ是关节绝对运动，需要指定各轴角度",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md",
+        "locator": "K2_004 第 4 节 三大运动指令",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      },
+      "rationale": "K2_004 以 MoveAbsJ [[0,0,0,0,30,0],...] 展示关节绝对运动并指定各轴角度，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-CORE-002:claim-008:008",
+      "case_id": "P3-02-K3-CORE-002",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "quiz",
+      "claim": "SRVO-038（Pulse mismatch）报警表示编码器脉冲数与控制器记录不一致，通常发生在更换编码器或电池后",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md",
+        "locator": "K3_003 第 1 节故障代码概述",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      },
+      "rationale": "事实正确：SRVO-038 定义为脉冲计数不一致，触发时机含更换编码器/备份电池。注意 draft 来源（K3_002 SRVO-062）不符，正确来源应为 K3_003。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K1-CORE-002:claim-008:008",
+      "case_id": "P3-02-K1-CORE-002",
+      "domain": "K1",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "quiz",
+      "claim": "在T1模式下，手动低速移动机器人各轴，确认运动正常",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md",
+        "locator": "K1_005 第 3、4 节",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      },
+      "rationale": "K1_005 明确 T1/T2 为手动限速模式，单轴模式可逐轴移动，支持在 T1 模式下低速移动各轴验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-HIGH-006:claim-008:008",
+      "case_id": "P3-01-K2-HIGH-006",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "使用ros2 pkg create my_robot_description --build-type ament_python命令可以创建名为my_robot_description的ament_python类型ROS2功能包",
+      "expected_verdict": "hallucination",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "K2_008 步骤 1",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      },
+      "rationale": "原文命令为 ros2 pkg create --build-type ament_cmake，断言写为 ament_python，构建类型与原文冲突。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K3-CORE-001:claim-008:008",
+      "case_id": "P3-02-K3-CORE-001",
+      "domain": "K3",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "guide",
+      "claim": "偶发SRVO-068故障通常与电缆接触不良或电磁干扰有关",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md",
+        "locator": "第 2 节常见原因分析",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      },
+      "rationale": "K3_001 明确列有连接器/电缆接触异常与屏蔽/接地/电磁环境异常，支持“电缆接触不良或电磁干扰”为常见原因。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-02-K1-CORE-001:claim-008:008",
+      "case_id": "P3-02-K1-CORE-001",
+      "domain": "K1",
+      "profile_id": "profile-e-heard-only",
+      "resource_type": "guide",
+      "claim": "根据FANUC安全操作规范，首次运行新程序时速度倍率要调到10%以下",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md",
+        "locator": "第 1 节 FANUC 操作前安全注意事项",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      },
+      "rationale": "K1_009 原文“首次运行新程序时，速度倍率调至 10% 以下”，逐字支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-HIGH-005:claim-008:008",
+      "case_id": "P3-01-K2-HIGH-005",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "JP[1] 表示关节运动，机器人各轴独立快速移动到目标点，路径不一定是直线",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md",
+        "locator": "K2_009 步骤 3 TP 程序编写",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      },
+      "rationale": "原文 J P[1] 100% FINE 注释为“关节运动”，且关节运动路径不一定是直线，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K3-HIGH-006:claim-008:008",
+      "case_id": "P3-01-K3-HIGH-006",
+      "domain": "K3",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "在示教器上，通常按【MENU】→【报警】→【历史】可以查看报警记录",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md",
+        "locator": "K3_007 第 3、4 节",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      },
+      "rationale": "原文以 ALARM 后选 HIST 查看报警历史，与“报警→历史”路径一致，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-HIGH-004:claim-008:008",
+      "case_id": "P3-01-K2-HIGH-004",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "lecture",
+      "claim": "工具坐标系（TOOL）的原点位于机器人末端工具尖端",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+        "locator": "K1_004 第 1 节；K1_001 第 4 节",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      },
+      "rationale": "多篇文档明确工具坐标系以工具末端（TCP）为原点，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-HIGH-004:claim-008:008",
+      "case_id": "P3-01-K1-HIGH-004",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "lecture",
+      "claim": "ABB机器人程序中使用PERS tooldata和PERS wobjdata声明工具和工件数据",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+        "locator": "K1_004 第 3.4 节；K2_004 第 3.4/3.5 节",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      },
+      "rationale": "原文均以 PERS tooldata、PERS wobjdata 声明工具与工件数据，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K3-HIGH-003:claim-008:008",
+      "case_id": "P3-01-K3-HIGH-003",
+      "domain": "K3",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "RobotStudio仿真软件无法模拟真实脉冲编码器的数据丢失或脉冲不匹配状态，SRVO-038报警无法在仿真中真实触发",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md",
+        "locator": "（SRVO-038 文档未涉及 RobotStudio 仿真能力）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+        ]
+      },
+      "rationale": "K3_003 未讨论 RobotStudio 能否模拟脉冲编码器数据丢失，知识库亦无此仿真能力边界的说明，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-CORE-002:claim-008:008",
+      "case_id": "P3-01-K2-CORE-002",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "重定位运动是TCP位置固定，仅改变工具姿态",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md",
+        "locator": "K2_001 第 2.1 节 手动操作",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      },
+      "rationale": "原文明确“重定位运动：TCP 位置固定，仅改变工具姿态”，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-CORE-005:claim-008:008",
+      "case_id": "P3-01-K1-CORE-005",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "PTP指令是点对点运动，不关心路径，各轴独立快速运动，路径可能是弧线",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md",
+        "locator": "K1_003 第 2 节；K2_004 第 4 节",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      },
+      "rationale": "K1_003 述 PTP 各关节独立运动、路径不可控，K2_004 述 MoveJ 路径不可预测（弧线），支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K3-CORE-005:claim-008:008",
+      "case_id": "P3-01-K3-CORE-005",
+      "domain": "K3",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "验证安全功能时，在机器人运动过程中打开围栏门，机器人应立即停止并触发SRVO-004报警",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md",
+        "locator": "第 1 节故障代码概述；第 4 节安全复机要求",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      },
+      "rationale": "原文定义 SRVO-004 为自动模式下围栏触点断开，并要求验证“开门后伺服被抑制”，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-CORE-003:claim-008:008",
+      "case_id": "P3-01-K1-CORE-003",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "quiz",
+      "claim": "MoveL指令的路径为直线，MoveJ指令的路径为弧线，两者在路径可控性上存在差异",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md",
+        "locator": "K2_004 第 4 节 三大运动指令",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      },
+      "rationale": "原文明确 MoveL=直线插补、MoveJ=关节插补（不可预测/弧线），支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-CORE-001:claim-008:008",
+      "case_id": "P3-01-K2-CORE-001",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "lecture",
+      "claim": "MoveL是直线运动指令，路径为直线，用于精确轨迹",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md",
+        "locator": "K2_004 第 4 节",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      },
+      "rationale": "原文 MoveL 直线插补、用于精确路径（焊接/精确插入），支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K3-CORE-004:claim-008:008",
+      "case_id": "P3-01-K3-CORE-004",
+      "domain": "K3",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "lecture",
+      "claim": "FANUC急停回路采用双通道监控，即两个独立的信号通道，任一通道断开都会触发报警",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md",
+        "locator": "K3_007 第 2.2 节",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+        ]
+      },
+      "rationale": "事实正确：K3_007 说明双通道冗余安全信号不一致即触发报警。注意 draft 来源（K3_004）不符，正确来源应为 K3_007。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-CORE-002:claim-008:008",
+      "case_id": "P3-01-K1-CORE-002",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "FANUC示教器上按SHIFT键，同时按FWD键（前进），程序将逐行执行",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md",
+        "locator": "（K1_005 未列出 FWD 前进键）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+        ]
+      },
+      "rationale": "示教器文档仅列 SHIFT、POINT、SELECT、ENTER 等键，未出现 FWD（前进）键或“SHIFT+FWD 逐行执行”，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-CORE-003:claim-007:007",
+      "case_id": "P3-03-K2-CORE-003",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "RAPID中zonedata数据类型对应FANUC的CNT转角",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md",
+        "locator": "（K2_004 未作 CNT 对应表述）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+        ]
+      },
+      "rationale": "K2_004 只说明 zonedata 为转弯半径/区域数据，未表述其对应 FANUC 的 CNT 转角，知识库亦无此对应关系，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K3-CORE-002:claim-008:008",
+      "case_id": "P3-01-K3-CORE-002",
+      "domain": "K3",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "关节坐标系下每个轴独立运动，是标定时最常用的模式",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md",
+        "locator": "（SRVO-062 文档未涉及标定模式）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+        ]
+      },
+      "rationale": "“各轴独立运动”有 K1_005/K2_001 支持，但“关节坐标系是标定最常用模式”无任何文档依据，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K1-CORE-001:claim-008:008",
+      "case_id": "P3-01-K1-CORE-001",
+      "domain": "K1",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "lecture",
+      "claim": "FANUC急停操作复位时旋转急停按钮（或拉出）",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md",
+        "locator": "K1_009 第 7 节 恢复流程",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+        ]
+      },
+      "rationale": "原文“顺时针旋转急停按钮解除自锁”，支持旋转（或拉出）复位急停。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-HIGH-006:claim-007:007",
+      "case_id": "P3-03-K2-HIGH-006",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "URDF中<link>定义机器人的刚性部件，包含visual、collision和inertial三个子元素",
+      "expected_verdict": "accurate",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+        "locator": "K2_008 步骤 2 Xacro 模型文件",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+        ]
+      },
+      "rationale": "原文 <link> 内含 <visual>、<collision>、<inertial> 三个子元素，支持。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-001:claim-005:005",
+      "case_id": "P3-03-K3-CORE-001",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "KUKA KRC4控制器的驱动总线是SERCOS III或类似实时以太网总线",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md",
+        "locator": "（SRVO-068 文档未涉及 KUKA KRC4）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+        ]
+      },
+      "rationale": "K3_001 为 FANUC 文档，未提 KUKA KRC4 或 SERCOS III 总线，知识库亦无此内容，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-HIGH-004:claim-002:002",
+      "case_id": "P3-03-K2-HIGH-004",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "AXIS结构用于描述机器人各轴的角度值",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+        "locator": "（K2_005 未提及 AXIS 结构）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+        ]
+      },
+      "rationale": "K2_005 仅述 E6POS（X/Y/Z/A/B/C/S/T），未出现“AXIS 结构”，知识库亦无此数据类型，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-HIGH-004:claim-007:007",
+      "case_id": "P3-03-K1-HIGH-004",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "quiz",
+      "claim": "在RobotStudio中，采用4点法标定TCP时，软件记录每种姿态下的机器人法兰盘位姿（X、Y、Z、RX、RY、RZ），然后通过最小二乘法求解一个固定点（TCP）",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+        "locator": "（K1_004/K2_001 未述最小二乘求解细节）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
+          "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+        ]
+      },
+      "rationale": "4 点法标定 TCP 有 K2_001 支持，但“记录法兰盘位姿并最小二乘法求解”的具体算法描述未见于知识库，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-HIGH-006:claim-004:004",
+      "case_id": "P3-03-K3-HIGH-006",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "SRVO-231 通常指从安全板（Slave Board）检测到同样的不一致",
+      "expected_verdict": "hallucination",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md",
+        "locator": "K3_007 第 1 节故障代码概述",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+        ]
+      },
+      "rationale": "原文定义 SRVO-231 为“第 1 链触点断开而第 2 链触点闭合”，并非“从安全板（Slave Board）检测到不一致”，断言与原文定义冲突。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-005:claim-005:005",
+      "case_id": "P3-03-K1-CORE-005",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "FANUC的PTP指令对应ABB RAPID的MoveAbsJ指令",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md",
+        "locator": "（K1_003 未作 PTP↔MoveAbsJ 对应）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+        ]
+      },
+      "rationale": "知识库的对应关系为 J↔MoveJ（K2_009 对比表），未将 FANUC PTP 对应到 MoveAbsJ，该映射无依据，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-01-K2-HIGH-005:claim-007:007",
+      "case_id": "P3-01-K2-HIGH-005",
+      "domain": "K2",
+      "profile_id": "profile-d-zero-basis",
+      "resource_type": "guide",
+      "claim": "在 ROBOGUIDE 中，基坐标系通常与大地坐标系重合",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md",
+        "locator": "（K2_009 未述基坐标系与大地坐标重合）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+        ]
+      },
+      "rationale": "K2_009 未提及基坐标系与大地坐标系的重合关系；K1_004 所述“大地坐标与基坐标重合”是针对 RobotStudio（ABB），不能套用于 ROBOGUIDE。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K3-CORE-005:claim-007:007",
+      "case_id": "P3-03-K3-CORE-005",
+      "domain": "K3",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "ROS2 Humble运行环境为Ubuntu 22.04",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md",
+        "locator": "（SRVO-004 文档未涉及 ROS2）",
+        "candidate_source_documents": [
+          "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+        ]
+      },
+      "rationale": "知识库中 ROS2 教程（K2_008）针对 Jazzy，未出现 Humble 或 Ubuntu 22.04 的表述，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K1-CORE-003:claim-003:003",
+      "case_id": "P3-03-K1-CORE-003",
+      "domain": "K1",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "guide",
+      "claim": "RobotStudio不支持直接导入SolidWorks原生格式",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md",
+        "locator": "（K1_001 未涉及 CAD 导入格式）",
+        "candidate_source_documents": [
+          "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+        ]
+      },
+      "rationale": "知识库无任何文档说明 RobotStudio 是否支持直接导入 SolidWorks 原生格式，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    },
+    {
+      "claim_id": "P3-03-K2-CORE-002:claim-007:007",
+      "case_id": "P3-03-K2-CORE-002",
+      "domain": "K2",
+      "profile_id": "profile-f-theory-student",
+      "resource_type": "lecture",
+      "claim": "ABB IRB 120的负载为3kg，工作半径为0.58m",
+      "expected_verdict": "unverifiable",
+      "evidence": {
+        "source_document": "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+        "locator": "（两篇 RobotStudio 文档未涉及 IRB 120）",
+        "candidate_source_documents": [
+          "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
+          "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+        ]
+      },
+      "rationale": "K2_20260803_001 与 K2_001 仅出现 IRB 1200/IRB 6700，未出现 IRB 120 及 3kg/0.58m 参数，无法验证。",
+      "annotator": "K1",
+      "annotated_at": "2026-08-27T15:00:00+08:00",
+      "reviewer": "K2",
+      "review_status": "approved"
+    }
+  ]
 }
