@@ -51,6 +51,9 @@ def test_submit_exam_scores_answers_and_saves_snapshot(tmp_path):
     assert body["details"][1]["standard_answer"] == "emergency stop"
     assert body["details"][1]["correct"] is False
     assert body["learning_advice"]
+    assert body["learning_advice"][0].startswith("优先复习这些知识点：")
+    assert body["adaptive_profile"]["knowledge_map"]["coordinates"]["mastery"] == 58
+    assert body["feedback"]["weak_topics"] == [{"topic": "safety", "mastery": 0.0}]
 
     snapshot = asyncio.run(store.get_profile(body["profile_snapshot_id"]))
     assert snapshot is not None

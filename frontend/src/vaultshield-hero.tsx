@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { ArrowRightCircle, ArrowUp, BrainCircuit, Database, Download, Maximize2, Menu, Minimize2, RefreshCw, ShieldCheck, Sparkles, Upload, X } from "lucide-react";
+import { ArrowRightCircle, ArrowUp, BrainCircuit, Download, Maximize2, Menu, Minimize2, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
-import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
+import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, resolveQuizAnswerKey, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
 import { initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
 
 type Variant = "a" | "b";
@@ -62,6 +62,7 @@ const resourceOptions = [
 ];
 
 type GeneratedResource = {
+  resource_id?: string;
   resource_type: string;
   title: string;
   content?: string;
@@ -69,6 +70,8 @@ type GeneratedResource = {
   estimated_duration_minutes?: number;
   key_takeaways?: string[];
   quiz?: Quiz;
+  quiz_validation_status?: "needs_review";
+  quiz_validation_error?: string;
   supplements?: Array<{ title: string; content: string }>;
 };
 
@@ -80,6 +83,15 @@ function getResourceSupplements(resource: GeneratedResource) {
   return legacyMatch ? [{ title: legacyMatch[1].trim(), content: legacyMatch[2].trim() }] : [];
 }
 
+function getExportBaseContent(resource: GeneratedResource, supplements: Array<{ title: string; content: string }>) {
+  let content = resource.content ?? "";
+  for (const supplement of [...supplements].reverse()) {
+    const marker = `\n\n## ${supplement.title}\n\n${supplement.content}`;
+    if (content.endsWith(marker)) content = content.slice(0, -marker.length);
+  }
+  return content;
+}
+
 type GenerationResult = {
   task_id?: string;
   status?: string;
@@ -87,10 +99,44 @@ type GenerationResult = {
   resources?: GeneratedResource[];
   audit?: Array<{ resource_index?: number; resource_type?: string; verdict?: string; issues?: Array<{ detail?: string }> }>;
   agent_log?: Array<{ agent?: string; status?: string }>;
+  generation_errors?: Array<{ resource_type?: string; error?: string; detail?: string }>;
   mode?: "demo" | "api";
 };
 
-const resourceLabel = (type: string) => resourceOptions.find((option) => option.id === type)?.label ?? type;
+type QuizAttempt = {
+  answers: Record<string, string>;
+  submitted: boolean;
+  quizResult: QuizSubmissionResult | null;
+  quizError: string | null;
+  resolvedQuiz: Quiz | null;
+};
+
+const createQuizAttempt = (): QuizAttempt => ({
+  answers: {},
+  submitted: false,
+  quizResult: null,
+  quizError: null,
+  resolvedQuiz: null,
+});
+
+const quizAttemptKey = (resource: GeneratedResource) => resource.resource_id
+  ?? `${resource.resource_type}:${resource.title}`;
+
+const isQuizResourceType = (type?: string) => type === "quiz" || /^quiz_round_\d+$/.test(type ?? "");
+
+const resourceLabel = (type: string) => {
+  const round = type.match(/^quiz_round_(\d+)$/)?.[1];
+  if (round) return `\u7b2c ${round} \u8f6e\u6d4b\u8bd5`;
+  return resourceOptions.find((option) => option.id === type)?.label ?? type;
+};
+
+const generationErrorMessage = (item: { resource_type?: string; error?: string; detail?: string }) => {
+  if (item.resource_type === "quiz" && item.error === "invalid_quiz_contract") {
+    const detail = item.detail ? ` \u5177\u4f53\u539f\u56e0\uff1a${decodeEscapedText(item.detail)}\u3002` : "";
+    return "\u6d4b\u8bd5\u9898\u5df2\u751f\u6210\uff0c\u4f46\u6682\u4e0d\u7b26\u5408\u81ea\u52a8\u8bc4\u5206\u6761\u4ef6\u3002" + detail;
+  }
+  return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u672a\u751f\u6210\uff1a" + decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
+};
 
 const documentEntityMap: Record<string, string> = {
   "&": "&amp;",
@@ -104,7 +150,9 @@ const escapeDocumentHtml = (value: string) => value.replace(/[&<>"']/g, (charact
 
 const renderDocumentInline = (value: string) => escapeDocumentHtml(value)
   .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-  .replace(/`([^`]+)`/g, "<code>$1</code>");
+  // WPS imports HTML <code> tags in .doc files as outlined compatibility fields.
+  // Keep the term itself, but export it as ordinary text.
+  .replace(/`([^`]+)`/g, "$1");
 
 const renderDocumentMarkdown = (value: string) => {
   const lines = value.replace(/\r\n?/g, "\n").split("\n");
@@ -158,7 +206,7 @@ const renderDocumentMarkdown = (value: string) => {
     }
     flushList();
     if (line.startsWith(">")) {
-      output.push(`<blockquote style="background:#f2f4f7;border-left:4px solid #7342e2;color:#40505c;margin:12pt 0;padding:9pt 12pt">${renderDocumentInline(line.replace(/^>\s?/, ""))}</blockquote>`);
+      output.push(`<p style="background:#f5f5f5;color:#40505c;margin:12pt 0;padding:9pt 12pt">${renderDocumentInline(line.replace(/^>\s?/, ""))}</p>`);
       return;
     }
     output.push(`<p>${renderDocumentInline(line)}</p>`);
@@ -211,24 +259,94 @@ const renderQuizDocumentForExport = (quiz: Quiz) => `
 `;
 
 const quizSignalPattern = /\b(?:quiz|exam|test|assessment|questionnaire)\b|\u6d4b\u8bd5\u9898|\u9009\u62e9\u9898|\u586b\u7a7a\u9898|\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848\u89e3\u6790|\u89e3\u6790/u;
-const quizOptionPattern = /^\s*(?:[-*]\s*)?([A-D])\s*[.\uFF0E\u3001:\uFF1A)\]]\s*(.+)$/i;
-const quizQuestionPattern = /^\s*(?:#{1,6}\s*)?(?:(?:\u7b2c\s*[0-9\u4e00-\u9fff]+\s*\u9898)|(?:\u9898\u76ee|\u95ee\u9898)\s*\d*|Q(?:uestion)?\s*\d+)\s*[:\uFF1A.]?/i;
-const quizAnswerPattern = /(?:\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848|answer)\s*[:\uFF1A]\s*(.+)/i;
-const quizExplanationPattern = /(?:\u7b54\u6848\u89e3\u6790|\u89e3\u6790|explanation)\s*[:\uFF1A]\s*(.+)/i;
+const quizOptionPattern = /^\s*(?:[-*]\s*)?(?:[\(\uFF08]\s*)?([A-D])\s*(?:[\)\uFF09]\s*|[.\uFF0E\u3001:\uFF1A\]]\s*)(.+)$/i;
+const quizQuestionPattern = /^\s*(?:#{1,6}\s*)?(?:(?:\u7b2c\s*[0-9\u4e00-\u9fff]+\s*\u9898)|(?:\u9898\u76ee|\u95ee\u9898)\s*\d*|Q(?:uestion)?\s*\d+|[0-9\u4e00-\u9fff]+\s*[.\uFF0E\u3001)])\s*[:\uFF1A.]?/i;
+const quizAnswerPattern = /(?:\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848(?!\u89e3\u6790)|answer)\s*(?:is|\u662f|\u4e3a|\u9009)?\s*[:\uFF1A=]?\s*(.+)/i;
+const quizExplanationPattern = /(?:\u7b54\u6848\u89e3\u6790|\u89e3\u6790|explanation)\s*[:\uFF1A=]?\s*(.+)/i;
+
+function decodeEscapedText(value: string) {
+  let decoded = value;
+  for (let pass = 0; pass < 8; pass += 1) {
+    const next = decoded
+      .replace(/\\+u([0-9a-f]{4})/gi, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
+      .replace(/\\+n/g, "\n");
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
+function decodeApiText<T>(value: T): T {
+  if (typeof value === "string") return decodeEscapedText(value) as T;
+  if (Array.isArray(value)) return value.map((item) => decodeApiText(item)) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [decodeEscapedText(key), decodeApiText(nestedValue)]),
+    ) as T;
+  }
+  return value;
+}
+
+function generationTaskErrorMessage(error: unknown) {
+  const message = decodeEscapedText(error instanceof Error ? error.message : String(error ?? "")).trim();
+  if (/connection error|api connection|network error|llm.*(?:error|fail)|模型.*(?:连接|服务)/i.test(message)) {
+    return "模型服务连接失败，下一轮测试尚未生成。请检查后端的 LLM 地址、网络和 API Key 后重试。";
+  }
+  return message || "下一轮针对性测试生成失败，请稍后重试。";
+}
 
 function cleanQuizLine(value: string) {
   return value.replace(/^\s*(?:[-*]\s*)?/, "").replace(/\*\*/g, "").replace(/^#{1,6}\s*/, "").trim();
 }
 
 function hasQuizSignals(resource: GeneratedResource) {
+  const explicitType = resource.resource_type?.trim().toLowerCase();
+  if (explicitType && !isQuizResourceType(explicitType)) return false;
   const content = resource.content ?? "";
   const identity = `${resource.resource_type} ${resource.title} ${content}`.toLowerCase();
   const optionCount = content.split("\n").filter((line) => quizOptionPattern.test(line)).length;
   return Boolean(resource.quiz?.questions.length) || optionCount >= 2 || quizSignalPattern.test(identity);
 }
 
+function hasCompleteChoiceOptions(options: Quiz["questions"][number]["options"]) {
+  const ids = new Set(options.map((option) => option.id.toUpperCase()));
+  return options.length === 4 && ["A", "B", "C", "D"].every((id) => ids.has(id));
+}
+
+function hasClearQuizStem(stem: string) {
+  const normalized = cleanQuizLine(stem).replace(quizQuestionPattern, "").trim();
+  if (normalized.replace(/\s/g, "").length < 4) return false;
+  if (/^[^?\uFF1F]{1,80}[\(\uFF08](?:\u57FA\u7840|\u8FDB\u9636|\u573A\u666F|\u5B9E\u64CD|\u6311\u6218)?(?:\u9009\u62E9\u9898|\u7B80\u7B54\u9898|\u586B\u7A7A\u9898|\u5E94\u7528\u9898)?[\)\uFF09]$/.test(normalized)) return false;
+  return /[?\uFF1F]|\b(?:which|what|how|why|when|where|should|can|does|describe|select|identify|choose|explain|state|list)\b|(?:\u4EE5\u4E0B|\u54EA(?:\u4E2A|\u9879|\u79CD)|\u4EC0\u4E48|\u5982\u4F55|\u4E3A\u4EC0\u4E48|\u662F\u5426|\u8BF7(?:\u9009\u62E9|\u5224\u65AD|\u8BF4\u660E|\u5199\u51FA|\u5217\u51FA|\u56DE\u7B54)|\u5E94(?:\u8BE5|\u5F53)|\u6B63\u786E|\u9519\u8BEF|\u6B65\u9AA4|\u539F\u56E0|\u64CD\u4F5C|\u5904\u7406|\u5224\u65AD)/i.test(normalized);
+}
+
+function isUsableQuizQuestion(question: Quiz["questions"][number]) {
+  if (!hasClearQuizStem(question.stem)) return false;
+  if (!question.answer.trim() || !question.explanation.trim()) return false;
+  return !question.options.length || hasCompleteChoiceOptions(question.options);
+}
+
+function normalizeQuiz(quiz: Quiz): Quiz | null {
+  const questions = quiz.questions.filter(isUsableQuizQuestion);
+  return questions.length >= 5 ? { ...quiz, questions } : null;
+}
+
+function decodeQuizText(quiz: Quiz): Quiz {
+  return {
+    ...quiz,
+    title: decodeEscapedText(quiz.title),
+    questions: quiz.questions.map((question) => ({
+      ...question,
+      stem: decodeEscapedText(question.stem),
+      options: question.options.map((option) => ({ ...option, text: decodeEscapedText(option.text) })),
+      answer: decodeEscapedText(question.answer),
+      explanation: decodeEscapedText(question.explanation),
+    })),
+  };
+}
+
 function parseQuizContent(resource: GeneratedResource): Quiz | null {
-  const content = resource.content ?? "";
+  const content = decodeEscapedText(resource.content ?? "");
   if (!content.trim()) return null;
 
   const lines = content.replace(/\r\n/g, "\n").split("\n");
@@ -253,23 +371,30 @@ function parseQuizContent(resource: GeneratedResource): Quiz | null {
       return !quizOptionPattern.test(clean)
         && !quizAnswerPattern.test(clean)
         && !quizExplanationPattern.test(clean)
-        && (quizQuestionPattern.test(clean) || /[?\uFF1F]$/.test(clean));
-    }) ?? block.find((line) => !quizOptionPattern.test(line) && !quizAnswerPattern.test(line) && !quizExplanationPattern.test(line));
+        && (quizQuestionPattern.test(clean) || block.indexOf(line) === 0);
+    });
     if (!questionLine) return;
 
     const answer = answerLine?.match(quizAnswerPattern)?.[1]?.trim() ?? "";
     const explanation = explanationLine?.match(quizExplanationPattern)?.[1]?.trim() ?? "";
     const stem = cleanQuizLine(questionLine).replace(quizQuestionPattern, "").trim() || cleanQuizLine(questionLine);
+    const isChoice = hasCompleteChoiceOptions(options);
+    if (!hasClearQuizStem(stem) || (options.length && !isChoice)) return;
     questions.push({
       id: `parsed-q${index + 1}`,
       stem,
-      options,
+      options: isChoice ? options : [],
       answer,
       explanation,
-      questionType: options.length ? "choice" : "fill",
+      questionType: isChoice ? "choice" : "fill",
     });
   });
 
+  return normalizeQuiz({ title: resource.title, questions });
+
+  // Legacy recovery deliberately disabled: it invented stems for malformed
+  // option groups and could turn a section title into a question.
+  if (false) {
   const normalizedQuestions = questions.flatMap((question) => {
     // A malformed model response can omit later headings and repeat A-D.
     // Recover each complete option group as its own question instead of
@@ -301,9 +426,12 @@ function parseQuizContent(resource: GeneratedResource): Quiz | null {
   });
 
   return normalizedQuestions.length ? { title: resource.title, questions: normalizedQuestions } : null;
+  }
 }
 
 function isQuizResource(resource: GeneratedResource) {
+  const explicitType = resource.resource_type?.trim().toLowerCase();
+  if (explicitType) return isQuizResourceType(explicitType);
   if (hasQuizSignals(resource)) return true;
   const identity = `${resource.resource_type} ${resource.title} ${resource.content ?? ""}`.toLowerCase();
   const optionLineCount = (resource.content ?? "").match(/^\s*[A-D][.:]\s+/gim)?.length ?? 0;
@@ -311,11 +439,32 @@ function isQuizResource(resource: GeneratedResource) {
   return /\b(quiz|exam|test|assessment)\b|测试题|测验|自测|标准答案|题目\s*\d+|第\s*[一二三四五六七八九十\d]+\s*题/.test(identity);
 }
 
-function quizFromResource(resource: GeneratedResource, topic: string): Quiz {
-  if (resource.quiz?.questions.length) return resource.quiz;
+function workspaceResourceItems(resources: GeneratedResource[]) {
+  let hasQuiz = false;
+  return resources.filter((resource) => {
+    if (!isQuizResource(resource)) return true;
+    if (hasQuiz) return false;
+    hasQuiz = true;
+    return true;
+  });
+}
+
+function quizRoundNumber(resources: GeneratedResource[], resource: GeneratedResource) {
+  const resourceIndex = resources.indexOf(resource);
+  const throughCurrent = resourceIndex >= 0 ? resources.slice(0, resourceIndex + 1) : resources;
+  return Math.max(1, throughCurrent.filter(isQuizResource).length);
+}
+
+function quizFromResource(resource: GeneratedResource, topic: string): Quiz | null {
+  if (resource.quiz?.questions.length) return normalizeQuiz(decodeQuizText(resource.quiz));
   const parsedQuiz = parseQuizContent(resource);
   if (parsedQuiz?.questions.length) return parsedQuiz;
 
+  return null;
+
+  // Legacy fallback deliberately disabled: malformed quiz text must be
+  // regenerated rather than replaced by a demo quiz.
+  if (false) {
   const content = resource.content ?? "";
   const blocks = content.split(/(?=^\s*(?:#{1,6}\s*)?(?:第\s*[一二三四五六七八九十\d]+\s*题|题目\s*\d+|Q\s*\d+))/im);
   const questions: Quiz["questions"] = [];
@@ -340,6 +489,7 @@ function quizFromResource(resource: GeneratedResource, topic: string): Quiz {
   });
 
   return questions.length ? { title: resource.title || `${topic} 测试题`, questions } : createDemoQuiz(topic);
+  }
 }
 
 const qualityGates: Array<{ id: QualityGate; label: string }> = [
@@ -361,7 +511,7 @@ function renderInlineMarkdown(value: string) {
 }
 
 function ResourceMarkdown({ content }: { content: string }) {
-  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const lines = decodeEscapedText(content).replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let lineIndex = 0;
 
@@ -453,115 +603,6 @@ function auditVerdictLabel(verdict?: string) {
   return verdict || "未返回";
 }
 
-function KnowledgeManager({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const reducedMotion = useReducedMotion();
-  const [stats, setStats] = useState<{ mode?: string; total_documents?: number; total_chunks?: number } | null>(null);
-  const [docId, setDocId] = useState("");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadStats = async () => {
-    try {
-      const response = await fetch("http://localhost:8000/api/knowledge/stats");
-      if (!response.ok) throw new Error(`API ${response.status}`);
-      setStats(await response.json());
-    } catch {
-      setStats(null);
-    }
-  };
-
-  useEffect(() => {
-    if (open) loadStats();
-  }, [open]);
-
-  const runImport = async () => {
-    setBusy(true);
-    setMessage(null);
-    setError(null);
-    try {
-      const response = await fetch("http://localhost:8000/api/knowledge/import", { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || `API ${response.status}`);
-      setMessage(`批量导入完成：${data.imported ?? 0}/${data.total ?? 0} 篇`);
-      loadStats();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitUpload = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    setError(null);
-    const id = docId.trim() || `doc_${Date.now()}`;
-    try {
-      const response = await fetch("http://localhost:8000/api/knowledge/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ doc_id: id, title: title.trim(), content }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || `API ${response.status}`);
-      setMessage(`已上传「${data.title}」，切分为 ${data.chunks_count} 个片段`);
-      setDocId("");
-      setTitle("");
-      setContent("");
-      loadStats();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <AnimatePresence>
-      {open ? (
-        <>
-          <motion.button aria-label="关闭知识库管理" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} type="button" />
-          <motion.section aria-label="知识库管理" className="fixed inset-x-3 bottom-3 top-3 z-40 mx-auto max-w-[760px] overflow-y-auto rounded-[2rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_22px_72px_rgba(25,40,55,0.28)] sm:inset-x-auto sm:bottom-auto sm:right-8 sm:top-1/2 sm:max-h-[calc(100dvh-48px)] sm:w-[min(720px,calc(100vw-64px))] sm:-translate-y-1/2 sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 28 }} transition={{ duration: 0.35, ease }} role="dialog" aria-modal="true">
-            <div className="flex items-start justify-between gap-5">
-              <div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">知识库管理</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">导入知识文档</h2></div>
-              <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={onClose} type="button"><X size={20} strokeWidth={1.8} /></button>
-            </div>
-
-            <div className="mt-6 flex items-center gap-4 rounded-2xl bg-[#192837] p-5 text-white">
-              <Database className="shrink-0" color="#B99DFF" size={28} strokeWidth={1.8} />
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-white/55">当前知识库</p>
-                <p className="mt-1 text-lg font-semibold">{stats ? `${stats.total_documents ?? 0} 篇文档 · ${stats.total_chunks ?? 0} 个片段` : "无法连接后端"}</p>
-              </div>
-              <button className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold hover:bg-white/20" onClick={loadStats} type="button"><RefreshCw size={14} strokeWidth={1.8} className="mr-1 inline -translate-y-px" />刷新</button>
-            </div>
-
-            <div className="mt-5 rounded-2xl bg-white/60 p-5">
-              <p className="font-semibold">批量导入 data/raw</p>
-              <p className="mt-1 text-sm text-[#192837]/70">把 data/raw/ 目录下所有 .md 文件向量化导入知识库（重复导入安全）。</p>
-              <button className="mt-4 flex items-center gap-2 rounded-full bg-[#7342E2] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)] disabled:cursor-wait disabled:opacity-60" disabled={busy} onClick={runImport} type="button"><Upload size={16} strokeWidth={1.8} />{busy ? "导入中..." : "执行批量导入"}</button>
-            </div>
-
-            <form className="mt-5 grid gap-4 rounded-2xl bg-white/60 p-5" onSubmit={submitUpload}>
-              <p className="font-semibold">上传单篇文档</p>
-              <label className="grid gap-2 text-sm font-medium">标题<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setTitle(event.target.value)} placeholder="例如：FANUC 坐标系偏移设置" required value={title} /></label>
-              <label className="grid gap-2 text-sm font-medium">文档标识（选填，留空自动生成）<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setDocId(event.target.value)} placeholder="例如：k1_coord_offset_001" value={docId} /></label>
-              <label className="grid gap-2 text-sm font-medium">正文（Markdown）<textarea className="min-h-40 resize-y rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setContent(event.target.value)} placeholder="# 标题&#10;&#10;正文内容..." required value={content} /></label>
-              {message ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</p> : null}
-              {error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p> : null}
-              <button className="flex items-center justify-center gap-2 rounded-full bg-[#192837] px-5 py-3 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60" disabled={busy} type="submit">{busy ? "上传中..." : "上传到知识库"}</button>
-            </form>
-          </motion.section>
-        </>
-      ) : null}
-    </AnimatePresence>
-  );
-}
-
 function LegacyLearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<LearnerQuestionResponse | null>(null);
@@ -636,7 +677,7 @@ function LegacyLearningTools({ resource, topic, onApplyRevision }: { resource: G
         <div className="mt-5 grid gap-5">{quiz.questions.map((item, index) => <fieldset className="rounded-xl bg-black/15 p-4" key={item.id}><legend className="px-1 text-sm font-semibold text-white">{index + 1}. {item.stem}</legend><div className="mt-3 grid gap-2">{item.options.map((option) => <label className={`flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${submitted && option.id === item.answer ? "bg-emerald-400/20 text-white" : submitted && answers[item.id] === option.id ? "bg-red-400/20 text-white" : "bg-white/[0.06] text-white/85 hover:bg-white/10"}`} key={option.id}><input checked={answers[item.id] === option.id} className="accent-[#7342E2]" disabled={submitted} name={item.id} onChange={() => setAnswers((current) => ({ ...current, [item.id]: option.id }))} type="radio" /><span><strong>{option.id}.</strong> {option.text}</span></label>)}</div>{submitted ? <p className="mt-3 text-sm leading-6 text-white/75"><span className="font-semibold text-white">解析：</span>{item.explanation}</p> : null}</fieldset>)}</div>
         {!submitted ? <button className="mt-5 flex w-full items-center justify-between rounded-full bg-[#7342E2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={Object.keys(answers).length !== quiz.questions.length} onClick={() => setSubmitted(true)} type="button">提交并查看解析<ArrowRightCircle size={17} /></button> : <button className="mt-5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20" onClick={() => { setAnswers({}); setSubmitted(false); }} type="button">重新作答</button>}
         {quizError ? <p className="mt-4 rounded-xl bg-red-400/15 px-4 py-3 text-sm text-red-100">{quizError}</p> : null}
-        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {advice}</li>)}</ul> : null}
+        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {decodeEscapedText(advice)}</li>)}</ul> : null}
       </div> : null}
       {quiz && resource.supplements?.length ? <section className="rounded-2xl border border-[#B99DFF]/30 bg-[#B99DFF]/10 p-5">
         <p className="text-xs font-semibold tracking-[0.12em] text-[#E5DBFF]">针对疑问的补充资源</p>
@@ -649,18 +690,47 @@ function LegacyLearningTools({ resource, topic, onApplyRevision }: { resource: G
   );
 }
 
-function LearningTools({ resource, topic, onApplyRevision }: { resource: GeneratedResource; topic: string; onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void }) {
+function LearningTools({ resource, topic, onApplyRevision, onResolveQuiz, onGenerateAdaptiveQuiz, quizAttempt, onQuizAttemptChange }: {
+  resource: GeneratedResource;
+  topic: string;
+  onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void;
+  onResolveQuiz: (resourceId: string | undefined, quiz: Quiz) => void;
+  onGenerateAdaptiveQuiz: (result: QuizSubmissionResult) => Promise<void>;
+  quizAttempt?: QuizAttempt;
+  onQuizAttemptChange: (resource: GeneratedResource, update: (current: QuizAttempt) => QuizAttempt) => void;
+}) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<LearnerQuestionResponse | null>(null);
   const [asking, setAsking] = useState(false);
   const [questionError, setQuestionError] = useState<string | null>(null);
   const [revisionApplied, setRevisionApplied] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [quizResult, setQuizResult] = useState<QuizSubmissionResult | null>(null);
   const [submittingQuiz, setSubmittingQuiz] = useState(false);
-  const [quizError, setQuizError] = useState<string | null>(null);
-  const quiz = isQuizResource(resource) ? quizFromResource(resource, topic) : null;
+  const [generatingAdaptiveQuiz, setGeneratingAdaptiveQuiz] = useState(false);
+  const attempt = quizAttempt ?? createQuizAttempt();
+  const answers = attempt.answers;
+  const submitted = attempt.submitted;
+  const quizResult = attempt.quizResult;
+  const quizError = attempt.quizError;
+  const resolvedQuiz = attempt.resolvedQuiz;
+  const updateQuizAttempt = (update: (current: QuizAttempt) => QuizAttempt) => onQuizAttemptChange(resource, update);
+  const setAnswers = (next: Record<string, string> | ((current: Record<string, string>) => Record<string, string>)) => {
+    updateQuizAttempt((current) => ({
+      ...current,
+      answers: typeof next === "function" ? next(current.answers) : next,
+    }));
+  };
+  const setSubmitted = (next: boolean) => updateQuizAttempt((current) => ({ ...current, submitted: next }));
+  const setQuizResult = (next: QuizSubmissionResult | null) => updateQuizAttempt((current) => ({
+    ...current,
+    quizResult: next ? decodeApiText(next) : null,
+  }));
+  const setQuizError = (next: string | null) => updateQuizAttempt((current) => ({ ...current, quizError: next }));
+  const setResolvedQuiz = (next: Quiz | null) => updateQuizAttempt((current) => ({ ...current, resolvedQuiz: next }));
+  const quizNeedsReview = resource.quiz_validation_status === "needs_review";
+  const parsedQuiz = isQuizResource(resource) ? quizFromResource(resource, topic) : null;
+  const quiz = resolvedQuiz ?? parsedQuiz;
+  const invalidQuizResource = isQuizResource(resource) && !quiz;
+  const quizValidationError = resource.quiz_validation_error ? decodeEscapedText(resource.quiz_validation_error) : null;
   const allQuestionsAnswered = Boolean(quiz?.questions.every((item) => answers[item.id]?.trim()));
   const quizHasAnswerKey = Boolean(quiz?.questions.length && quiz.questions.every((item) => item.answer.trim() && item.explanation.trim()));
   const quizSupplements = quiz ? getResourceSupplements(resource) : [];
@@ -687,6 +757,22 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
   const submitQuizAnswers = async () => {
     if (!quiz || !allQuestionsAnswered) return;
     if (!quizHasAnswerKey) {
+      setSubmittingQuiz(true);
+      setQuizError(null);
+      try {
+        const quizForSubmission = await resolveQuizAnswerKey(quiz, topic, resource.content ?? "");
+        setResolvedQuiz(quizForSubmission);
+        onResolveQuiz(resource.resource_id, quizForSubmission);
+        setQuizResult(await submitQuiz(quizForSubmission, answers, topic, resource.title));
+        setSubmitted(true);
+      } catch (error) {
+        setQuizError("当前资源没有可独立验证的标准答案和解析，系统不会猜测答案。请重新生成测试题。");
+      } finally {
+        setSubmittingQuiz(false);
+      }
+      return;
+    }
+    if (!quizHasAnswerKey) {
       setQuizError("这套测试题缺少标准答案或解析，无法可靠评分。请重新生成资源后再提交。");
       return;
     }
@@ -699,6 +785,19 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
       setQuizError(error instanceof Error ? error.message : "提交失败，请确认本地 API 已启动后重试。");
     } finally {
       setSubmittingQuiz(false);
+    }
+  };
+
+  const generateAdaptiveQuiz = async () => {
+    if (!quizResult || generatingAdaptiveQuiz) return;
+    setGeneratingAdaptiveQuiz(true);
+    setQuizError(null);
+    try {
+      await onGenerateAdaptiveQuiz(quizResult);
+    } catch (error) {
+      setQuizError(error instanceof Error ? error.message : "Unable to generate the next quiz round.");
+    } finally {
+      setGeneratingAdaptiveQuiz(false);
     }
   };
 
@@ -719,6 +818,21 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
           <button className="mt-4 rounded-full bg-[#7342E2] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-60" disabled={revisionApplied} onClick={() => { onApplyRevision(resource.resource_type, answer); setRevisionApplied(true); }} type="button">{revisionApplied ? "补充已加入当前资源" : "将补充内容加入当前资源"}</button>
         </motion.div> : null}
       </div>
+      {quizNeedsReview && quiz ? <section className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-amber-50">
+        <p className="text-xs font-semibold tracking-[0.12em] text-amber-100/70">题目修复中</p>
+        <h5 className="mt-2 text-lg font-semibold">可评分题目已可作答</h5>
+        <p className="mt-2 text-sm leading-6 text-amber-50/85">个别不完整题目正在单独替换；当前显示的题目均已包含标准答案和解析，可以直接完成并提交。</p>
+      </section> : null}
+      {invalidQuizResource && quizValidationError ? <section className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-amber-50">
+        <p className="text-xs font-semibold tracking-[0.12em] text-amber-100/70">{decodeEscapedText("\u6d4b\u8bd5\u9898\u5f85\u6838\u9a8c")}</p>
+        <h5 className="mt-2 text-lg font-semibold">{decodeEscapedText("\u9898\u76ee\u5df2\u4fdd\u7559\uff0c\u6682\u4e0d\u652f\u6301\u81ea\u52a8\u8bc4\u5206")}</h5>
+        <p className="mt-2 text-sm leading-6 text-amber-50/85">{`\u6821\u9a8c\u63d0\u793a\uff1a${quizValidationError}`}</p>
+      </section> : null}
+      {invalidQuizResource && !quizValidationError ? <section className="rounded-2xl border border-amber-300/30 bg-amber-300/10 p-5 text-amber-50">
+        <p className="text-xs font-semibold tracking-[0.12em] text-amber-100/70">测试题需要重新生成</p>
+        <h5 className="mt-2 text-lg font-semibold">当前内容不是可判定的测试题</h5>
+        <p className="mt-2 text-sm leading-6 text-amber-50/85">题干不完整，或每题缺少可验证的标准答案与解析。系统不会把章节标题当作题目，也不会猜测答案。请重新生成测试题后再作答。</p>
+      </section> : null}
       {quiz ? <div className="rounded-2xl bg-white/[0.07] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-xs font-semibold tracking-[0.12em] text-white/55">测试题</p><h5 className="mt-2 text-lg font-semibold text-white">{quiz.title}</h5></div>
@@ -727,16 +841,29 @@ function LearningTools({ resource, topic, onApplyRevision }: { resource: Generat
         <p className="mt-3 text-sm leading-6 text-white/65">请先完成每一题。提交前不会显示标准答案和解析；选择题请输入选项字母，简答题请直接输入答案。</p>
         <div className="mt-5 grid gap-5">{quiz.questions.map((item, index) => {
           const detail = detailByQuestion.get(item.id);
-          return <fieldset className="rounded-xl bg-black/15 p-4" key={item.id}>
-            <legend className="px-1 text-sm font-semibold leading-6 text-white">{index + 1}. {item.stem}</legend>
-            {item.options.length ? <div className="mt-3 grid gap-2 text-sm text-white/80">{item.options.map((option) => <p className="rounded-lg bg-white/[0.06] px-3 py-2" key={option.id}><strong>{option.id}.</strong> {option.text}</p>)}</div> : null}
+          const isChoiceQuestion = item.questionType === "choice" && hasCompleteChoiceOptions(item.options);
+          return <article className="rounded-xl bg-black/15 p-4" key={item.id}>
+            <h6 className="text-sm font-semibold leading-6 text-white">{index + 1}. {item.stem}</h6>
+            {isChoiceQuestion ? <div className="mt-4 grid gap-2" role="group">{item.options.map((option) => {
+              const selected = answers[item.id] === option.id;
+              return <button aria-pressed={selected} className={`flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-sm leading-6 transition ${selected ? "border-[#B99DFF] bg-[#7342E2]/30 text-white" : "border-transparent bg-white/[0.06] text-white/80 hover:border-white/25 hover:bg-white/[0.1]"}`} disabled={submitted} key={option.id} onClick={() => setAnswers((current) => ({ ...current, [item.id]: option.id }))} type="button"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${selected ? "bg-white text-[#7342E2]" : "bg-white/10 text-white/80"}`}>{option.id}</span><span className="pt-0.5">{option.text}</span></button>;
+            })}</div> : null}
+            {!isChoiceQuestion ? <>
             <label className="mt-4 grid gap-2 text-xs font-semibold text-white/65">你的答案<textarea className="min-h-20 resize-y rounded-lg bg-white/[0.08] px-3 py-2 text-sm font-normal leading-6 text-white outline-none ring-[#B99DFF] focus:ring-2 disabled:opacity-70" disabled={submitted} onChange={(event) => setAnswers((current) => ({ ...current, [item.id]: event.target.value }))} placeholder={item.options.length ? "请输入选项字母，例如 B" : "请写下你的答案"} value={answers[item.id] || ""} /></label>
-            {submitted && detail ? <div className={`mt-4 rounded-lg p-3 text-sm leading-6 ${detail.correct ? "bg-emerald-400/15 text-emerald-50" : "bg-red-400/15 text-red-50"}`}><p className="font-semibold">{detail.correct ? "回答正确" : "需要复习"}</p><p className="mt-1">标准答案：{detail.standard_answer}</p><p className="mt-1">解析：{detail.explanation}</p></div> : null}
-          </fieldset>;
+            </> : null}
+            {submitted && detail ? <div className={`mt-4 rounded-lg p-3 text-sm leading-6 ${detail.correct ? "bg-emerald-400/15 text-emerald-50" : "bg-red-400/15 text-red-50"}`}><p className="font-semibold">{detail.correct ? "回答正确" : "需要复习"}</p><p className="mt-1">标准答案：{decodeEscapedText(detail.standard_answer)}</p><p className="mt-1">解析：{decodeEscapedText(detail.explanation)}</p></div> : null}
+          </article>;
         })}</div>
         {!submitted ? <button className="mt-5 flex w-full items-center justify-between rounded-full bg-[#7342E2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50" disabled={!allQuestionsAnswered || submittingQuiz} onClick={() => void submitQuizAnswers()} type="button">{submittingQuiz ? "正在提交评分..." : "提交并查看答案解析"}<ArrowRightCircle size={17} /></button> : <button className="mt-5 rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20" onClick={() => { setAnswers({}); setSubmitted(false); setQuizResult(null); setQuizError(null); }} type="button">重新作答</button>}
         {quizError ? <p className="mt-4 rounded-xl bg-red-400/15 px-4 py-3 text-sm text-red-100">{quizError}</p> : null}
-        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {advice}</li>)}</ul> : null}
+        {submitted && quizResult?.learning_advice?.length ? <ul className="mt-4 grid gap-2 rounded-xl bg-[#B99DFF]/10 p-4 text-sm leading-6 text-[#EDE8FF]">{quizResult.learning_advice.map((advice) => <li key={advice}>- {decodeEscapedText(advice)}</li>)}</ul> : null}
+        {submitted && quizResult ? <section className="mt-5 rounded-xl border border-[#B99DFF]/35 bg-[#B99DFF]/10 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[#E5DBFF]">{decodeEscapedText("\u5b66\u4e60\u753b\u50cf\u5df2\u66f4\u65b0")}</p><h6 className="mt-1 text-base font-semibold text-white">{decodeEscapedText("\u672c\u8f6e\u8868\u73b0\u5df2\u7528\u4e8e\u4e0b\u4e00\u8f6e\u51fa\u9898")}</h6></div><span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-white">{quizResult.score}%</span></div>
+          {quizResult.feedback?.weak_topics?.length ? <p className="mt-3 text-sm leading-6 text-white/80">{decodeEscapedText("\u4f18\u5148\u8865\u5f3a\uff1a")}{quizResult.feedback.weak_topics.map((item) => `${decodeEscapedText(item.topic)} ${Math.round(item.mastery)}%`).join("\u3001")}</p> : null}
+          {quizResult.feedback?.strong_topics?.length ? <p className="mt-2 text-sm leading-6 text-white/70">{decodeEscapedText("\u5df2\u638c\u63e1\uff1a")}{quizResult.feedback.strong_topics.map((item) => `${decodeEscapedText(item.topic)} ${Math.round(item.mastery)}%`).join("\u3001")}</p> : null}
+          {quizResult.feedback?.recommendations?.length ? <p className="mt-2 text-sm leading-6 text-white/70">{decodeEscapedText(quizResult.feedback.recommendations[0])}</p> : null}
+          <button className="mt-4 flex w-full items-center justify-between rounded-full bg-white px-4 py-3 text-sm font-semibold text-[#192837] transition hover:bg-[#E5DBFF] disabled:cursor-wait disabled:opacity-60" disabled={generatingAdaptiveQuiz} onClick={() => void generateAdaptiveQuiz()} type="button">{generatingAdaptiveQuiz ? "\u6b63\u5728\u6839\u636e\u65b0\u753b\u50cf\u51fa\u9898..." : "\u751f\u6210\u4e0b\u4e00\u8f6e\u9488\u5bf9\u6027\u6d4b\u8bd5"}<ArrowRightCircle size={17} /></button>
+        </section> : null}
       </div> : null}
       {quizSupplements.length ? <section className="rounded-2xl border border-[#B99DFF]/30 bg-[#B99DFF]/10 p-5">
         <p className="text-xs font-semibold tracking-[0.12em] text-[#E5DBFF]">针对疑问的补充资源</p>
@@ -816,6 +943,10 @@ function ExpandedWorkspaceLayout({
   onOpenWorkflow,
   onOpenQualityGate,
   onApplyRevision,
+  onResolveQuiz,
+  onGenerateAdaptiveQuiz,
+  quizAttempts,
+  onQuizAttemptChange,
   onExport,
 }: {
   generationResult: GenerationResult | null;
@@ -829,11 +960,17 @@ function ExpandedWorkspaceLayout({
   onOpenWorkflow: (index: number) => void;
   onOpenQualityGate: (id: QualityGate) => void;
   onApplyRevision: (resourceType: string, response: LearnerQuestionResponse) => void;
+  onResolveQuiz: (resourceId: string | undefined, quiz: Quiz) => void;
+  onGenerateAdaptiveQuiz: (result: QuizSubmissionResult) => Promise<void>;
+  quizAttempts: Record<string, QuizAttempt>;
+  onQuizAttemptChange: (resource: GeneratedResource, update: (current: QuizAttempt) => QuizAttempt) => void;
   onExport: () => void;
 }) {
-  const resource = generationResult?.resources?.find((item) => item.resource_type === selectedResource);
-  const resourceIndex = generationResult?.resources?.findIndex((item) => item.resource_type === selectedResource);
+  const resources = generationResult?.resources ?? [];
+  const resource = resources.find((item) => item.resource_type === selectedResource);
+  const resourceIndex = resources.findIndex((item) => item.resource_type === selectedResource);
   const audit = generationResult?.audit?.find((item) => item.resource_type === selectedResource || item.resource_index === resourceIndex);
+  const quizRounds = resource && isQuizResource(resource) ? resources.filter(isQuizResource) : [];
   const workflowDetail = "详情已在弹窗中打开。";
   return (
     <div className="workspace-expanded-content mt-8 grid min-h-[calc(100dvh-150px)] min-w-0 w-full max-w-none grid-cols-[230px_minmax(0,1fr)] gap-8 rounded-[2rem] bg-[#192837] p-5 text-white shadow-[0_24px_70px_rgba(25,40,55,0.2)] sm:p-7 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
@@ -841,7 +978,7 @@ function ExpandedWorkspaceLayout({
         <div className="rounded-2xl bg-white/[0.07] p-4">
           <p className="text-xs font-semibold tracking-[0.14em] text-white/55">资源目录</p>
           <div className="mt-4 grid gap-2">
-            {(generationResult?.resources ?? []).map((item, index) => <button aria-current={selectedResource === item.resource_type ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${selectedResource === item.resource_type ? "bg-[#7342E2] text-white shadow-[0_8px_20px_rgba(115,66,226,0.28)]" : "bg-white/[0.06] text-white/75 hover:bg-white/12 hover:text-white"}`} key={item.resource_type} onClick={() => setSelectedResource(item.resource_type)} type="button"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/15 text-[11px]">0{index + 1}</span><span className="truncate">{resourceLabel(item.resource_type)}</span></button>)}
+            {workspaceResourceItems(resources).map((item, index) => <button aria-current={selectedResource === item.resource_type ? "page" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition ${selectedResource === item.resource_type ? "bg-[#7342E2] text-white shadow-[0_8px_20px_rgba(115,66,226,0.28)]" : "bg-white/[0.06] text-white/75 hover:bg-white/12 hover:text-white"}`} key={item.resource_type} onClick={() => setSelectedResource(item.resource_type)} type="button"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/15 text-[11px]">0{index + 1}</span><span className="truncate">{resourceLabel(item.resource_type)}</span></button>)}
             {!generationResult?.resources?.length ? <p className="px-3 py-2 text-sm leading-6 text-white/55">生成资源后显示目录</p> : null}
           </div>
           {generationResult?.resources?.length ? (
@@ -877,7 +1014,7 @@ function ExpandedWorkspaceLayout({
         {generationResult?.diagnosis?.summary ? <p className="mt-5 max-w-[78ch] text-base leading-8 text-white/80">诊断：{generationResult.diagnosis.summary}</p> : null}
 
         {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
-          <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">资源预览</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
+          <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
                 {isQuizResource(resource) ? (
                   <div className="mt-8 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75">
@@ -887,7 +1024,35 @@ function ExpandedWorkspaceLayout({
                 ) : (
                   <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
                 )}
-          <LearningTools onApplyRevision={onApplyRevision} resource={resource} topic={topic} />
+          <LearningTools
+            onApplyRevision={onApplyRevision}
+            onGenerateAdaptiveQuiz={onGenerateAdaptiveQuiz}
+            onQuizAttemptChange={onQuizAttemptChange}
+            onResolveQuiz={onResolveQuiz}
+            quizAttempt={quizAttempts[quizAttemptKey(resource)]}
+            resource={resource}
+            topic={topic}
+          />
+          {isQuizResource(resource) ? quizRounds.slice(1).map((roundResource) => {
+            const roundResourceIndex = resources.indexOf(roundResource);
+            const roundAudit = generationResult?.audit?.find((item) => item.resource_type === roundResource.resource_type || item.resource_index === roundResourceIndex);
+            const roundNumber = quizRoundNumber(resources, roundResource);
+            return <section className="mt-10 border-t border-white/10 pt-8" key={roundResource.resource_id ?? roundResource.resource_type}>
+              <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{`\u7b2c ${roundNumber} \u8f6e\u6d4b\u8bd5`}</p><h5 className="mt-2 text-xl font-semibold leading-tight text-white">{roundResource.title}</h5></div>{roundResource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {roundResource.estimated_duration_minutes} 分钟</span> : null}</header>
+              {roundResource.key_takeaways?.length ? <aside className="mt-6 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{roundResource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
+              <div className="mt-6 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75"><p className="font-semibold text-white">答题说明</p><p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p></div>
+              <LearningTools
+                onApplyRevision={onApplyRevision}
+                onGenerateAdaptiveQuiz={onGenerateAdaptiveQuiz}
+                onQuizAttemptChange={onQuizAttemptChange}
+                onResolveQuiz={onResolveQuiz}
+                quizAttempt={quizAttempts[quizAttemptKey(roundResource)]}
+                resource={roundResource}
+                topic={topic}
+              />
+              <footer className="mt-8 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(roundAudit?.verdict)}{roundAudit?.issues?.[0]?.detail ? <span className="ml-2">{roundAudit.issues[0].detail}</span> : null}</footer>
+            </section>;
+          }) : null}
           <footer className="mt-9 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}{audit?.issues?.[0]?.detail ? <span className="ml-2">{audit.issues[0].detail}</span> : null}</footer>
         </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
 
@@ -898,7 +1063,7 @@ function ExpandedWorkspaceLayout({
   );
 }
 
-function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspace, onOpenKb }: { open: boolean; onClose: () => void; onNavigate: (index: number) => void; onOpenGenerator: () => void; onOpenWorkspace: () => void; onOpenKb: () => void }) {
+function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspace }: { open: boolean; onClose: () => void; onNavigate: (index: number) => void; onOpenGenerator: () => void; onOpenWorkspace: () => void }) {
   const reducedMotion = useReducedMotion();
   return (
     <AnimatePresence>
@@ -911,7 +1076,7 @@ function MobileMenu({ open, onClose, onNavigate, onOpenGenerator, onOpenWorkspac
             <nav className="mt-9 grid gap-5" aria-label="移动端导航链接">
               {navigation.map((item, index) => <motion.button key={item} className="text-left text-2xl font-medium" type="button" initial={reducedMotion ? false : { opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 + index * 0.07, duration: 0.35, ease }} onClick={() => { onNavigate(index); onClose(); }}>{item}</motion.button>)}
             </nav>
-            <div className="mt-auto grid gap-3"><ActionButton kind="accent" onClick={onOpenGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={onOpenWorkspace}>进入工作台</ActionButton><ActionButton kind="quiet" onClick={onOpenKb}>知识库管理</ActionButton></div>
+            <div className="mt-auto grid gap-3"><ActionButton kind="accent" onClick={onOpenGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={onOpenWorkspace}>进入工作台</ActionButton></div>
           </motion.aside>
         </>
       ) : null}
@@ -925,7 +1090,6 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [activePanel, setActivePanel] = useState<Panel>("overview");
   const [generatorOpen, setGeneratorOpen] = useState(false);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [kbOpen, setKbOpen] = useState(false);
   const [workspaceExpanded, setWorkspaceExpanded] = useState(false);
   const [selectedQualityGate, setSelectedQualityGate] = useState<QualityGate | null>("evidence");
   const [workspaceDialog, setWorkspaceDialog] = useState<WorkspaceDialog | null>(null);
@@ -935,6 +1099,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [resourceReady, setResourceReady] = useState(false);
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<Record<string, QuizAttempt>>({});
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgressOpen, setGenerationProgressOpen] = useState(false);
@@ -1023,6 +1188,140 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       }),
     } : current);
   };
+  const applyQuizAnswerKey = (resourceId: string | undefined, quiz: Quiz) => {
+    setGenerationResult((current) => current ? {
+      ...current,
+      resources: (current.resources ?? []).map((resource) => {
+        const matchesCurrentQuiz = resourceId
+          ? resource.resource_id === resourceId
+          : resource.resource_type === "quiz";
+        return matchesCurrentQuiz ? { ...resource, quiz } : resource;
+      }),
+    } : current);
+  };
+  const updateQuizAttempt = (resource: GeneratedResource, update: (current: QuizAttempt) => QuizAttempt) => {
+    const key = quizAttemptKey(resource);
+    setQuizAttempts((current) => ({
+      ...current,
+      [key]: update(current[key] ?? createQuizAttempt()),
+    }));
+  };
+  const generateAdaptiveQuiz = async (submission: QuizSubmissionResult) => {
+    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    const knowledgeMap = submission.adaptive_profile?.knowledge_map ?? {};
+    const topicScores = Object.fromEntries(
+      Object.entries(knowledgeMap).map(([knowledgeId, record]) => [knowledgeId, Number(record.mastery ?? 50)]),
+    );
+    const round = (submission.adaptive_profile?.quiz_history?.length ?? 1) + 1;
+    const goal = decodeEscapedText(topic.trim() || learningGoal.trim());
+    if (!goal) throw new Error("A learning goal is required before the next quiz can be generated.");
+
+    const payload = {
+      learning_goal: goal,
+      education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
+      major: major.trim(),
+      work_years: workYears,
+      industry: industry.trim(),
+      positions: role ? [role.trim()] : [],
+      skills_used: skills.split(/[,，]/).map((skill) => skill.trim()).filter(Boolean),
+      pretest_results: [{
+        test_name: `adaptive_quiz_round_${round}`,
+        total_score: submission.score,
+        max_score: 100,
+        topic_scores: topicScores,
+      }],
+      resource_types: ["quiz"],
+    };
+
+    setIsGenerating(true);
+    stopWorkflowRef.current?.();
+    setWorkflowEvents(initialWorkflowEvents());
+    setWorkflowMode("waiting");
+    setGenerationError(null);
+    setGenerationProgressOpen(true);
+
+    try {
+      const startResponse = await fetch(`${apiBase}/api/generate/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!startResponse.ok) throw new Error(`API ${startResponse.status}`);
+      const start = await startResponse.json() as { task_id?: string };
+      if (!start.task_id) throw new Error("The API did not return a task id");
+
+      setWorkflowMode("connected");
+      stopWorkflowRef.current = subscribeWorkflow(
+        start.task_id,
+        (incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)),
+        () => undefined,
+      );
+
+      let task: { status?: string; result?: GenerationResult; error?: string } | null = null;
+      for (let attempt = 0; attempt < 720; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        const taskResponse = await fetch(`${apiBase}/api/tasks/${encodeURIComponent(start.task_id)}`);
+        if (!taskResponse.ok) throw new Error(`Task API ${taskResponse.status}`);
+        task = await taskResponse.json() as { status?: string; result?: GenerationResult; error?: string };
+        if (task.status === "completed" && task.result) break;
+        if (["error", "failed", "cancelled"].includes(task.status ?? "")) {
+          throw new Error(task.error || "下一轮针对性测试生成失败。");
+        }
+      }
+      if (!task?.result) throw new Error("The next quiz did not finish in time");
+
+      const result = { ...task.result, mode: "api" as const };
+      setWorkflowEvents((current) => (result.agent_log ?? []).reduce(
+        (events, item) => mergeWorkflowEvent(events, {
+          agent: item.agent || "generation",
+          status: item.status === "error" ? "error" : "done",
+          message: item.status === "error" ? "Error" : "Complete",
+        }),
+        current,
+      ));
+      setWorkflowMode("complete");
+      const incomingResources = result.resources ?? [];
+      const includesQuiz = incomingResources.some(isQuizResource);
+      setGenerationResult((current) => {
+        const existingResources = current?.resources ?? [];
+        let nextRound = existingResources.filter(isQuizResource).length + 1;
+        const appendedResources = incomingResources.map((resource) => {
+          if (!isQuizResource(resource)) return resource;
+          const resourceType = `quiz_round_${nextRound}`;
+          nextRound += 1;
+          return { ...resource, resource_type: resourceType };
+        });
+        const appendedAudit = (result.audit ?? []).map((item) => {
+          const generatedIndex = item.resource_index ?? 0;
+          const generatedResource = appendedResources[generatedIndex];
+          return {
+            ...item,
+            resource_index: existingResources.length + generatedIndex,
+            resource_type: generatedResource?.resource_type ?? item.resource_type,
+          };
+        });
+        return {
+          ...(current ?? {}),
+          ...result,
+          diagnosis: result.diagnosis ?? current?.diagnosis,
+          resources: [...existingResources, ...appendedResources],
+          audit: [...(current?.audit ?? []), ...appendedAudit],
+          agent_log: [...(current?.agent_log ?? []), ...(result.agent_log ?? [])],
+        };
+      });
+      setResourceReady(true);
+      setSelectedResource(includesQuiz ? "quiz" : incomingResources[0]?.resource_type ?? "quiz");
+    } catch (error) {
+      const message = generationTaskErrorMessage(error);
+      setGenerationError(message);
+      setWorkflowMode("idle");
+      throw new Error(message);
+    } finally {
+      stopWorkflowRef.current?.();
+      setIsGenerating(false);
+      setGenerationProgressOpen(false);
+    }
+  };
   const exportGeneratedResources = () => {
     const resources = generationResult?.resources ?? [];
     if (!resources.length) return;
@@ -1035,20 +1334,27 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       .join("、");
     const resourceSections = resources.map((resource, index) => {
       const quiz = resource.quiz ?? (hasQuizSignals(resource) ? parseQuizContent(resource) : null);
+      const roundNumber = isQuizResource(resource) ? quizRoundNumber(resources, resource) : null;
+      const sectionLabel = roundNumber ? `\u7b2c ${roundNumber} \u8f6e\u6d4b\u8bd5` : resourceLabel(resource.resource_type);
       const takeaways = (resource.key_takeaways ?? []).filter(Boolean);
-      const content = quiz ? renderQuizDocumentForExport(quiz) : renderDocumentMarkdown(resource.content ?? "");
+      const supplements = getResourceSupplements(resource);
+      const baseContent = getExportBaseContent(resource, supplements);
+      const content = quiz ? renderQuizDocumentForExport(quiz) : renderDocumentMarkdown(baseContent);
       const takeawaysMarkup = takeaways.length
         ? `<section class="takeaways"><h3>学习重点</h3><ul>${takeaways.map((item) => `<li>${escapeDocumentHtml(item)}</li>`).join("")}</ul></section>`
         : "";
+      const supplementsMarkup = supplements.length
+        ? `<section class="supplements"><h3>针对学习疑问的补充资源</h3>${supplements.map((supplement) => `<article class="supplement"><h4>${escapeDocumentHtml(supplement.title)}</h4><section class="content">${renderDocumentMarkdown(supplement.content)}</section></article>`).join("")}</section>`
+        : "";
 
-      return `<section class="resource"><h2>${index + 1}. ${escapeDocumentHtml(resourceLabel(resource.resource_type))}</h2><h3>${escapeDocumentHtml(resource.title || resourceLabel(resource.resource_type))}</h3><p class="meta">难度：${escapeDocumentHtml(resource.difficulty_level || "未提供")}　预计时长：${resource.estimated_duration_minutes ? `${resource.estimated_duration_minutes} 分钟` : "未提供"}</p>${takeawaysMarkup}<section class="content">${content}</section></section>`;
+      return `<section class="resource"><h2>${index + 1}. ${escapeDocumentHtml(sectionLabel)}</h2><h3>${escapeDocumentHtml(resource.title || sectionLabel)}</h3><p class="meta">难度：${escapeDocumentHtml(resource.difficulty_level || "未提供")}　预计时长：${resource.estimated_duration_minutes ? `${resource.estimated_duration_minutes} 分钟` : "未提供"}</p>${takeawaysMarkup}<section class="content">${content}</section>${supplementsMarkup}</section>`;
     }).join("");
     const auditItems = (generationResult?.audit ?? []).map((item) => {
       const issues = (item.issues ?? []).map((issue) => issue.detail).filter((detail): detail is string => Boolean(detail)).join("；");
       return `<li><strong>${escapeDocumentHtml(resourceLabel(item.resource_type || "资源"))}：</strong>${escapeDocumentHtml(item.verdict || "未提供")}${issues ? `（${escapeDocumentHtml(issues)}）` : ""}</li>`;
     }).join("");
     const documentTitle = `${exportTopic} - 个性化学习资源`;
-    const documentHtml = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><title>${escapeDocumentHtml(documentTitle)}</title><style>@page{size:A4;margin:18mm}body{color:#172b3a;font-family:"Microsoft YaHei",Arial,sans-serif;font-size:11pt;line-height:1.75}h1,h2,h3,h4{color:#172b3a;margin:0}h1{font-size:22pt}h2{font-size:16pt;margin-top:0}h3{font-size:13pt;margin-top:8pt}h4{font-size:11pt;margin-top:12pt}.meta{color:#5d6a75;font-size:9.5pt}.summary,.audit{background:#f2f4f7;border-left:4px solid #7342e2;padding:12pt 16pt;margin:18pt 0}.resource{border-top:1px solid #d7dce1;margin-top:22pt;padding-top:18pt}.takeaways{background:#f8f6ff;padding:10pt 14pt;margin:14pt 0}.content p{margin:9pt 0}.quiz{margin-top:10pt}.question{border-top:1px solid #e3e6e9;margin-top:14pt;padding-top:12pt}ol,ul{padding-left:22pt}li{margin:4pt 0}</style></head><body><h1>${escapeDocumentHtml(documentTitle)}</h1><p class="meta">导出时间：${escapeDocumentHtml(new Date().toLocaleString("zh-CN"))}</p><section class="summary"><h2>学习画像</h2><p><strong>学习目标：</strong>${escapeDocumentHtml(exportTopic)}</p><p><strong>诊断摘要：</strong>${escapeDocumentHtml(diagnosis?.summary || "暂无诊断摘要。")}</p><p><strong>推荐难度：</strong>${escapeDocumentHtml(diagnosis?.recommended_difficulty || "未提供")}</p>${skillGaps ? `<p><strong>待补足方向：</strong>${escapeDocumentHtml(skillGaps)}</p>` : ""}</section>${resourceSections}${auditItems ? `<section class="audit"><h2>审核摘要</h2><ul>${auditItems}</ul></section>` : ""}</body></html>`;
+    const documentHtml = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><title>${escapeDocumentHtml(documentTitle)}</title><style>@page{size:A4;margin:18mm}body{color:#172b3a;font-family:"Microsoft YaHei",Arial,sans-serif;font-size:11pt;line-height:1.75}h1,h2,h3,h4{color:#172b3a;margin:0}h1{font-size:22pt}h2{font-size:16pt;margin-top:0}h3{font-size:13pt;margin-top:8pt}h4{font-size:11pt;margin-top:12pt}.meta{color:#5d6a75;font-size:9.5pt}.summary,.audit{background:#f2f4f7;border-left:4px solid #7342e2;padding:12pt 16pt;margin:18pt 0}.resource{border-top:1px solid #d7dce1;margin-top:22pt;padding-top:18pt}.takeaways{background:#f8f6ff;padding:10pt 14pt;margin:14pt 0}.supplements{background:#f8f6ff;border-left:4px solid #7342e2;margin:14pt 0;padding:10pt 14pt}.supplement+.supplement{border-top:1px solid #e3e6e9;margin-top:12pt;padding-top:12pt}.content p{margin:9pt 0}.quiz{margin-top:10pt}.question{border-top:1px solid #e3e6e9;margin-top:14pt;padding-top:12pt}ol,ul{padding-left:22pt}li{margin:4pt 0}</style></head><body><h1>${escapeDocumentHtml(documentTitle)}</h1><p class="meta">导出时间：${escapeDocumentHtml(new Date().toLocaleString("zh-CN"))}</p><section class="summary"><h2>学习画像</h2><p><strong>学习目标：</strong>${escapeDocumentHtml(exportTopic)}</p><p><strong>诊断摘要：</strong>${escapeDocumentHtml(diagnosis?.summary || "暂无诊断摘要。")}</p><p><strong>推荐难度：</strong>${escapeDocumentHtml(diagnosis?.recommended_difficulty || "未提供")}</p>${skillGaps ? `<p><strong>待补足方向：</strong>${escapeDocumentHtml(skillGaps)}</p>` : ""}</section>${resourceSections}${auditItems ? `<section class="audit"><h2>审核摘要</h2><ul>${auditItems}</ul></section>` : ""}</body></html>`;
     const safeFileName = exportTopic.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) || "学习资源";
     const blob = new Blob(["\ufeff", documentHtml], { type: "application/msword;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -1134,6 +1440,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       if (result.status === "completed") setWorkflowMode("complete");
     }
     setGenerationResult(result);
+    setQuizAttempts({});
     setResourceReady(true);
     setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
     setIsGenerating(false);
@@ -1237,6 +1544,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     ));
     setWorkflowMode("complete");
     setGenerationResult(result);
+    setQuizAttempts({});
     setResourceReady(true);
     setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
     setIsGenerating(false);
@@ -1262,10 +1570,10 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
 
       <header className="relative z-10 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 max-[1023px]:[&>div]:hidden lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
         {!schemeB ? <BrandMark /> : null}
-        <nav className={`hidden items-center gap-3 text-sm lg:flex xl:gap-8 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
-          {navigation.map((item, index) => <button className={`font-medium transition-opacity hover:opacity-50 ${activePanel === panelIds[index] ? "opacity-100" : "opacity-65"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
+        <nav className={`hidden items-center gap-5 text-[15px] lg:flex xl:gap-7 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
+          {navigation.map((item, index) => <button className={`relative whitespace-nowrap px-1 py-2 font-semibold leading-none transition-colors after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded-full after:transition-transform ${activePanel === panelIds[index] ? "text-[#192837] after:scale-x-100 after:bg-[#7342E2]" : "text-[#192837]/60 after:scale-x-0 hover:text-[#192837]"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
         </nav>
-        <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton><ActionButton kind="quiet" onClick={() => setKbOpen(true)}>知识库</ActionButton></div>
+        <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton></div>
         <button aria-expanded={menuOpen} aria-label="打开菜单" className="grid h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={21} strokeWidth={1.8} /></button>
       </header>
 
@@ -1306,8 +1614,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
           </div>
         </div>
       </motion.section>
-      <MobileMenu onNavigate={selectPanel} onOpenGenerator={openGenerator} onOpenWorkspace={() => { setMenuOpen(false); setWorkspaceOpen(true); }} onOpenKb={() => { setMenuOpen(false); setKbOpen(true); }} open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <KnowledgeManager open={kbOpen} onClose={() => setKbOpen(false)} />
+      <MobileMenu onNavigate={selectPanel} onOpenGenerator={openGenerator} onOpenWorkspace={() => { setMenuOpen(false); setWorkspaceOpen(true); }} open={menuOpen} onClose={() => setMenuOpen(false)} />
       <AnimatePresence>
         {homeInfoDialog ? (
           <>
@@ -1385,7 +1692,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onExport={exportGeneratedResources} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
                  <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
@@ -1398,23 +1705,26 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                     </div>
                     {generationResult.diagnosis?.summary ? <p className="mt-4 max-w-[76ch] text-[0.96rem] leading-7 text-white/85">诊断：{generationResult.diagnosis.summary}</p> : null}
                     <div className="mt-6 flex flex-wrap gap-2" aria-label="资源类型">
-                      {(generationResult.resources ?? []).map((resource) => (
+                      {workspaceResourceItems(generationResult.resources ?? []).map((resource) => (
                         <button aria-pressed={selectedResource === resource.resource_type} className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${selectedResource === resource.resource_type ? "bg-white text-[#192837]" : "bg-white/15 text-white hover:bg-white/25"}`} key={resource.resource_type} onClick={() => setSelectedResource(resource.resource_type)} type="button">
                           {resourceLabel(resource.resource_type)}
                         </button>
-                      ))}
-                    </div>
+                       ))}
+                     </div>
+                     {generationResult.generation_errors?.length ? <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-50">{generationResult.generation_errors.map(generationErrorMessage).join("\n")}</div> : null}
                   </div>
                   <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={exportGeneratedResources} type="button"><Download size={16} strokeWidth={1.9} />导出全部资源</button>
                   {selectedResource ? (() => {
-                    const resource = generationResult.resources?.find((item) => item.resource_type === selectedResource);
-                    const resourceIndex = generationResult.resources?.findIndex((entry) => entry.resource_type === selectedResource);
+                    const resources = generationResult.resources ?? [];
+                    const resource = resources.find((item) => item.resource_type === selectedResource);
+                    const resourceIndex = resources.findIndex((entry) => entry.resource_type === selectedResource);
                     const audit = generationResult.audit?.find((item) => item.resource_type === selectedResource || item.resource_index === resourceIndex);
+                    const quizRounds = resource && isQuizResource(resource) ? resources.filter(isQuizResource) : [];
                     return resource ? (
                       <motion.article className="mx-auto mt-6 max-w-[80ch] rounded-2xl bg-[#102333] p-5 shadow-inner shadow-black/10 sm:p-7" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
                         <header className="flex flex-wrap items-start justify-between gap-4">
                           <div className="max-w-2xl">
-                            <p className="text-xs font-semibold text-white/60">资源预览</p>
+                            <p className="text-xs font-semibold text-white/60">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p>
                             <h4 className="mt-2 text-xl font-semibold leading-tight text-white">{resource.title}</h4>
                           </div>
                           {resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/80">预计 {resource.estimated_duration_minutes} 分钟</span> : null}
@@ -1435,7 +1745,35 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
               ) : (
                 <div className="mt-6"><ResourceMarkdown content={resource.content || ""} /></div>
               )}
-                        <LearningTools onApplyRevision={applyRevision} resource={resource} topic={topic} />
+                        <LearningTools
+                          onApplyRevision={applyRevision}
+                          onGenerateAdaptiveQuiz={generateAdaptiveQuiz}
+                          onQuizAttemptChange={updateQuizAttempt}
+                          onResolveQuiz={applyQuizAnswerKey}
+                          quizAttempt={quizAttempts[quizAttemptKey(resource)]}
+                          resource={resource}
+                          topic={topic}
+                        />
+                        {isQuizResource(resource) ? quizRounds.slice(1).map((roundResource) => {
+                          const roundResourceIndex = resources.indexOf(roundResource);
+                          const roundAudit = generationResult.audit?.find((item) => item.resource_type === roundResource.resource_type || item.resource_index === roundResourceIndex);
+                          const roundNumber = quizRoundNumber(resources, roundResource);
+                          return <section className="mt-8 border-t border-white/10 pt-7" key={roundResource.resource_id ?? roundResource.resource_type}>
+                            <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/60">{`\u7b2c ${roundNumber} \u8f6e\u6d4b\u8bd5`}</p><h5 className="mt-2 text-lg font-semibold leading-tight text-white">{roundResource.title}</h5></div>{roundResource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/80">预计 {roundResource.estimated_duration_minutes} 分钟</span> : null}</header>
+                            {roundResource.key_takeaways?.length ? <aside className="mt-5 rounded-xl bg-white/[0.07] p-4"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-6 text-white/85 marker:text-[#B99DFF]">{roundResource.key_takeaways.map((takeaway, index) => <li key={`${takeaway}-${index}`}>{takeaway}</li>)}</ul></aside> : null}
+                            <div className="mt-5 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75"><p className="font-semibold text-white">答题说明</p><p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p></div>
+                            <LearningTools
+                              onApplyRevision={applyRevision}
+                              onGenerateAdaptiveQuiz={generateAdaptiveQuiz}
+                              onQuizAttemptChange={updateQuizAttempt}
+                              onResolveQuiz={applyQuizAnswerKey}
+                              quizAttempt={quizAttempts[quizAttemptKey(roundResource)]}
+                              resource={roundResource}
+                              topic={topic}
+                            />
+                            <footer className="mt-7 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(roundAudit?.verdict)}{roundAudit?.issues?.[0]?.detail ? <span className="ml-2 text-white/65">{roundAudit.issues[0].detail}</span> : null}</footer>
+                          </section>;
+                        }) : null}
                         <footer className="mt-8 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80">
                           <span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}
                           {audit?.issues?.[0]?.detail ? <span className="ml-2 text-white/65">{audit.issues[0].detail}</span> : null}

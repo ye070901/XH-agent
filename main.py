@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import sys
 import uuid
@@ -171,6 +172,23 @@ class LearningQuestionRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1500)
     topic: str = Field(default="", max_length=500)
     resource_context: str = Field(default="", max_length=12000)
+
+
+class QuizAnswerKeyQuestion(BaseModel):
+    """A displayed quiz question that needs a recoverable answer key."""
+
+    id: str = Field(..., min_length=1, max_length=120)
+    stem: str = Field(..., min_length=1, max_length=3000)
+    question_type: str = Field(default="choice", max_length=20)
+    options: list[dict[str, str]] = Field(default_factory=list, max_length=8)
+
+
+class QuizAnswerKeyRequest(BaseModel):
+    """Resolve a missing quiz key for an already generated learning resource."""
+
+    topic: str = Field(default="general", max_length=500)
+    resource_context: str = Field(default="", max_length=12000)
+    questions: list[QuizAnswerKeyQuestion] = Field(..., min_length=1, max_length=20)
 
 
 class GoalAssessmentRequest(BaseModel):
@@ -341,6 +359,7 @@ def _generation_response(result: dict[str, Any]) -> dict[str, Any]:
         "status": result.get("status", "completed"),
         "diagnosis": result.get("diagnosis_result", {}),
         "resources": result.get("generated_resources", []),
+        "generation_errors": result.get("generation_errors", []),
         "audit": result.get("audit_result", []),
         "agent_log": result.get("agent_log", []),
         "mode": "demo" if settings.is_demo_mode else "real",
@@ -364,6 +383,8 @@ async def _run_generation_task(task_id: str, request: GenerateRequest) -> None:
         )
         record["status"] = result.get("status", "completed")
         record["result"] = _generation_response(result)
+        if record["status"] == "error":
+            record["error"] = str(result.get("error") or "生成工作流未能完成。")
     except Exception as exc:
         logger.exception(f"[API] Async generation failed: task_id={task_id}")
         record["status"] = "error"
@@ -582,6 +603,135 @@ Rewrite the answer in Chinese. Start with the direct answer in 2-5 complete sent
     }
 
 
+@app.post("/api/quizzes/answer-key")
+async def resolve_quiz_answer_key(request: QuizAnswerKeyRequest):
+    """Recover a missing answer key before a learner's submitted quiz is scored."""
+    if llm.is_demo:
+        raise HTTPException(
+            status_code=503,
+            detail="Quiz answer recovery requires a configured LLM provider.",
+        )
+
+    query = " ".join([request.topic, *(question.stem for question in request.questions)]).strip()
+    chunks = await knowledge_base.search(query=query, top_k=6) if query else []
+    sources = [
+        {
+            "sourceRef": index,
+            "title": str(chunk.get("doc_title", "Knowledge base")),
+            "content": str(chunk.get("content", ""))[:1200],
+        }
+        for index, chunk in enumerate(chunks, 1)
+        if str(chunk.get("content", "")).strip()
+    ]
+    if not sources:
+        raise HTTPException(status_code=422, detail="No knowledge-base evidence was found for this quiz.")
+    knowledge_context = json.dumps(sources, ensure_ascii=False)
+    questions_json = json.dumps(
+        [question.model_dump() for question in request.questions],
+        ensure_ascii=False,
+    )
+    prompt = f"""You are repairing the answer key of a Chinese technical learning quiz.
+
+Topic: {request.topic or 'Not specified'}
+Displayed questions:
+{questions_json}
+
+Generated learning material:
+{request.resource_context.strip()[:8000] or 'Not provided'}
+
+Knowledge-base excerpts:
+{knowledge_context or 'No relevant excerpt was retrieved.'}
+
+Return valid JSON only in this exact shape:
+{{
+  "questions": [
+    {{"id": "original id", "answer": "answer", "explanation": "Chinese explanation", "sourceRef": 1, "evidence": "exact supporting excerpt"}}
+  ]
+}}
+
+Return exactly one entry for every displayed question, preserving its id. Use the
+provided material and knowledge-base excerpts only. For multiple-choice items,
+the answer must be exactly one of the displayed option ids (normally A-D). Each
+explanation must directly justify that answer. Every item must cite one sourceRef
+from the supplied list and include a short exact evidence excerpt. Do not add or
+remove questions.
+"""
+    result = await llm.call_json(
+        system_prompt=(
+            "You produce reliable answer keys for technical learning quizzes. "
+            "Never invent a key when the supplied evidence cannot support it."
+        ),
+        user_message=prompt,
+        temperature=0.1,
+    )
+    raw_questions = result.get("questions") if isinstance(result, dict) else None
+    if not isinstance(raw_questions, list):
+        raise HTTPException(status_code=502, detail="The model returned an invalid quiz answer key.")
+
+    keyed_by_id = {
+        str(item.get("id", "")).strip(): item
+        for item in raw_questions
+        if isinstance(item, dict) and str(item.get("id", "")).strip()
+    }
+    source_refs = {source["sourceRef"] for source in sources}
+    resolved: list[dict[str, object]] = []
+    for question in request.questions:
+        item = keyed_by_id.get(question.id)
+        if item is None:
+            raise HTTPException(status_code=502, detail="The model omitted part of the quiz answer key.")
+        answer = str(item.get("answer", "")).strip()
+        explanation = str(item.get("explanation", "")).strip()
+        evidence = str(item.get("evidence", "")).strip()
+        try:
+            source_ref = int(item.get("sourceRef"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=502, detail="The model did not cite a valid knowledge source.")
+        option_ids = {str(option.get("id", "")).strip().upper() for option in question.options}
+        is_choice_question = (
+            question.question_type == "choice"
+            and len(question.options) == 4
+            and option_ids == {"A", "B", "C", "D"}
+        )
+        if is_choice_question:
+            answer_match = re.match(r"^([A-Za-z])\b", answer)
+            if not answer_match or answer_match.group(1).upper() not in option_ids:
+                raise HTTPException(status_code=502, detail="The model returned an invalid multiple-choice answer key.")
+            answer = answer_match.group(1).upper()
+        if not answer or not explanation or not evidence or source_ref not in source_refs:
+            raise HTTPException(status_code=502, detail="The model returned an incomplete quiz answer key.")
+        resolved.append({
+            "id": question.id,
+            "answer": answer,
+            "explanation": explanation,
+            "sourceRef": source_ref,
+            "evidence": evidence,
+        })
+
+    verification = await llm.call_json(
+        system_prompt=(
+            "You are an independent technical assessment reviewer. Verify answer keys only against the supplied source excerpts. "
+            "Do not infer beyond the evidence."
+        ),
+        user_message=(
+            "Return JSON only as {\"questions\":[{\"id\":\"...\",\"verdict\":\"supported\" or \"unsupported\"}]}. "
+            "Every candidate id must appear exactly once.\nSources:\n"
+            f"{knowledge_context}\nCandidate answer key:\n{json.dumps(resolved, ensure_ascii=False)}"
+        ),
+        temperature=0.0,
+    )
+    reviewed = verification.get("questions") if isinstance(verification, dict) else None
+    verdicts = {
+        str(item.get("id", "")).strip(): str(item.get("verdict", "")).strip().lower()
+        for item in reviewed
+        if isinstance(item, dict)
+    } if isinstance(reviewed, list) else {}
+    expected_ids = {question.id for question in request.questions}
+    if set(verdicts) != expected_ids or any(verdicts[question_id] != "supported" for question_id in expected_ids):
+        raise HTTPException(status_code=502, detail="The recovered quiz key could not be independently verified against the knowledge base.")
+
+    return {"questions": resolved, "sources": [source["title"] for source in sources]}
+
+
 @app.post("/api/generate")
 async def generate(request: GenerateRequest):
     """唯一业务接口：输入学习者画像，启动 3 Agent 协同流水线。
@@ -631,6 +781,7 @@ async def generate(request: GenerateRequest):
         "status": result.get("status", "completed"),
         "diagnosis": result.get("diagnosis_result", {}),
         "resources": result.get("generated_resources", []),
+        "generation_errors": result.get("generation_errors", []),
         "audit": result.get("audit_result", []),
         "agent_log": result.get("agent_log", []),
         "mode": "demo" if settings.is_demo_mode else "real",

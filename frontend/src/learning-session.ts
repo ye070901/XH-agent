@@ -45,10 +45,33 @@ export type QuizSubmissionResult = {
   }>;
   learning_advice: string[];
   profile_snapshot_id: string;
+  adaptive_profile?: {
+    knowledge_map?: Record<string, { mastery?: number; last_result?: string }>;
+    weak_topics?: string[];
+    quiz_history?: Array<{ score?: number; total?: number; completed_at?: string }>;
+  };
+  feedback?: {
+    score: number;
+    total_questions: number;
+    answered: number;
+    completion_rate: number;
+    strong_topics: Array<{ topic: string; mastery: number }>;
+    weak_topics: Array<{ topic: string; mastery: number }>;
+    recommendations: string[];
+    overall_assessment: string;
+  };
+};
+
+type QuizAnswerKeyResponse = {
+  questions: Array<{
+    id: string;
+    answer: string;
+    explanation: string;
+  }>;
 };
 
 function formatApiError(detail: unknown): string {
-  if (typeof detail === "string" && detail.trim()) return detail;
+  if (typeof detail === "string" && detail.trim()) return decodeEscapedText(detail);
   if (Array.isArray(detail)) {
     const messages = detail.map((item) => {
       if (typeof item === "string") return item;
@@ -60,6 +83,30 @@ function formatApiError(detail: unknown): string {
     return messages.length ? messages.join("；") : "请求数据不完整";
   }
   return "请求失败，请稍后重试。";
+}
+
+function decodeEscapedText(value: string) {
+  let decoded = value;
+  // Some API payloads are serialized more than once before reaching the browser.
+  for (let pass = 0; pass < 8; pass += 1) {
+    const next = decoded
+      .replace(/\\+u([0-9a-f]{4})/gi, (_match, code: string) => String.fromCharCode(Number.parseInt(code, 16)))
+      .replace(/\\+n/g, "\n");
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
+function restoreEscapedApiText(value: unknown): unknown {
+  if (typeof value === "string") return decodeEscapedText(value);
+  if (Array.isArray(value)) return value.map(restoreEscapedApiText);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, restoreEscapedApiText(nestedValue)]),
+    );
+  }
+  return value;
 }
 
 function getLearnerId() {
@@ -86,14 +133,14 @@ export async function submitQuiz(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       learner_id: getLearnerId(),
-      topic: topic || "general",
+      topic: decodeEscapedText(topic || "general"),
       resource_id: resourceId,
       questions: quiz.questions.map((question) => ({
         id: question.id,
         question_type: question.questionType || "choice",
         standard_answer: question.answer,
         explanation: question.explanation,
-        knowledge_id: question.knowledgeId || topic || "general",
+        knowledge_id: decodeEscapedText(question.knowledgeId || topic || "general"),
       })),
       answers: quiz.questions.map((question) => ({
         question_id: question.id,
@@ -105,7 +152,46 @@ export async function submitQuiz(
   if (!response.ok) {
     throw new Error(formatApiError(payload.detail) || `API ${response.status}`);
   }
-  return payload as QuizSubmissionResult;
+  return restoreEscapedApiText(payload) as QuizSubmissionResult;
+}
+
+export async function resolveQuizAnswerKey(
+  quiz: Quiz,
+  topic: string,
+  resourceContext = "",
+): Promise<Quiz> {
+  const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+  const response = await fetch(apiBase + "/api/quizzes/answer-key", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      topic: topic || "general",
+      resource_context: resourceContext,
+      questions: quiz.questions.map((question) => ({
+        id: question.id,
+        stem: question.stem,
+        question_type: question.questionType || (question.options.length ? "choice" : "fill"),
+        options: question.options,
+      })),
+    }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(formatApiError(payload.detail) || `API ${response.status}`);
+  }
+
+  const decodedPayload = restoreEscapedApiText(payload) as QuizAnswerKeyResponse;
+  const keys = new Map(
+    (decodedPayload.questions || []).map((item) => [item.id, item]),
+  );
+  const questions = quiz.questions.map((question) => {
+    const key = keys.get(question.id);
+    if (!key?.answer?.trim() || !key.explanation?.trim()) {
+      throw new Error("The answer-key service returned an incomplete quiz result.");
+    }
+    return { ...question, answer: key.answer.trim(), explanation: key.explanation.trim() };
+  });
+  return { ...quiz, questions };
 }
 
 const broadGoalPatterns = [
