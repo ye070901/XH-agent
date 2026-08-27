@@ -1,11 +1,18 @@
 {
   "meta": {
     "name": "工业机器人编程与调试核心知识点清单",
-    "version": "1.0",
+    "version": "2.0",
     "domain": "FANUC / KUKA / ABB 工业机器人编程与调试",
-    "coverage_levels": ["core", "high", "standard"],
-    "counted_levels": ["core", "high"],
-    "counted_knowledge_points": 18,
+    "coverage_levels": [
+      "core",
+      "high",
+      "standard"
+    ],
+    "counted_levels": [
+      "core",
+      "high"
+    ],
+    "counted_knowledge_points": 42,
     "source_policy": "每个知识点必须至少绑定一篇仓库内知识库文档；覆盖率只统计 core/high。",
     "owner": "Arch-L 汇总，K1/K2/K3 维护，Opt-4 消费"
   },
@@ -18,28 +25,62 @@
           "id": "K1-CORE-001",
           "topic": "工业机器人基础安全与急停",
           "level": "core",
-          "aliases": ["机器人安全", "操作前安全", "急停", "E-Stop", "手动限速"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"]
+          "aliases": [
+            "机器人安全",
+            "操作前安全",
+            "急停",
+            "E-Stop",
+            "手动限速"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260811_工业机器人基础安全常识_009.md"
+          ]
         },
         {
           "id": "K1-CORE-002",
           "topic": "示教器基本操作与运行模式",
           "level": "core",
-          "aliases": ["示教器", "Teach Pendant", "FlexPendant", "手动模式", "自动模式", "Deadman"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"]
+          "aliases": [
+            "示教器",
+            "Teach Pendant",
+            "FlexPendant",
+            "手动模式",
+            "自动模式",
+            "Deadman"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260811_机器人示教器基本操作_005.md"
+          ]
         },
         {
           "id": "K1-CORE-003",
           "topic": "工业机器人坐标系",
           "level": "core",
-          "aliases": ["机器人坐标系", "基坐标系", "工具坐标系", "用户坐标系", "工件坐标系", "WORLD"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"]
+          "aliases": [
+            "机器人坐标系",
+            "基坐标系",
+            "工具坐标系",
+            "用户坐标系",
+            "工件坐标系",
+            "WORLD"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+          ]
         },
         {
           "id": "K1-HIGH-004",
           "topic": "工具与工件坐标系标定",
           "level": "high",
-          "aliases": ["TCP标定", "tooldata", "wobjdata", "UTOOL", "UFRAME", "三点法", "六点法"],
+          "aliases": [
+            "TCP标定",
+            "tooldata",
+            "wobjdata",
+            "UTOOL",
+            "UFRAME",
+            "三点法",
+            "六点法"
+          ],
           "source_documents": [
             "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
             "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
@@ -49,22 +90,48 @@
           "id": "K1-CORE-005",
           "topic": "点位示教与PTP/LIN/CIRC运动",
           "level": "core",
-          "aliases": ["点位示教", "PTP", "LIN", "CIRC", "MoveJ", "MoveL", "MoveC", "运动指令"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"]
+          "aliases": [
+            "点位示教",
+            "PTP",
+            "LIN",
+            "CIRC",
+            "MoveJ",
+            "MoveL",
+            "MoveC",
+            "运动指令"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260803_001_fanuc_teachpendant_programming.md"
+          ]
         },
         {
           "id": "K1-HIGH-006",
           "topic": "搬运上下料与夹具I/O",
           "level": "high",
-          "aliases": ["搬运上下料", "取料点", "放料点", "夹爪信号", "SetDO", "RO", "安全点"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"]
+          "aliases": [
+            "搬运上下料",
+            "取料点",
+            "放料点",
+            "夹爪信号",
+            "SetDO",
+            "RO",
+            "安全点"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+          ]
         },
         {
           "id": "K1-STANDARD-007",
           "topic": "机器人操作初学者常见误区",
           "level": "standard",
-          "aliases": ["初学者误区", "示教误操作"],
-          "source_documents": ["data/raw/K1_robot_base/K1_20260811_机器人操作初学者常见误区_008.md"]
+          "aliases": [
+            "初学者误区",
+            "示教误操作"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260811_机器人操作初学者常见误区_008.md"
+          ]
         }
       ]
     },
@@ -76,7 +143,13 @@
           "id": "K2-CORE-001",
           "topic": "RobotStudio工作站与虚拟控制器",
           "level": "core",
-          "aliases": ["RobotStudio", "工作站搭建", "虚拟控制器", "机器人模型导入", "Virtual Controller"],
+          "aliases": [
+            "RobotStudio",
+            "工作站搭建",
+            "虚拟控制器",
+            "机器人模型导入",
+            "Virtual Controller"
+          ],
           "source_documents": [
             "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
             "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
@@ -86,7 +159,13 @@
           "id": "K2-CORE-002",
           "topic": "离线路径生成与碰撞检测",
           "level": "core",
-          "aliases": ["路径生成", "碰撞检测", "碰撞监控", "节拍分析", "无碰撞路径"],
+          "aliases": [
+            "路径生成",
+            "碰撞检测",
+            "碰撞监控",
+            "节拍分析",
+            "无碰撞路径"
+          ],
           "source_documents": [
             "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
             "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
@@ -96,36 +175,78 @@
           "id": "K2-CORE-003",
           "topic": "RAPID程序结构与运动指令",
           "level": "core",
-          "aliases": ["RAPID", "PROC", "robtarget", "MoveJ", "MoveL", "MoveC", "zonedata"],
-          "source_documents": ["data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"]
+          "aliases": [
+            "RAPID",
+            "PROC",
+            "robtarget",
+            "MoveJ",
+            "MoveL",
+            "MoveC",
+            "zonedata"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_004_abb_rapid_programming_tutorial.md"
+          ]
         },
         {
           "id": "K2-HIGH-004",
           "topic": "KUKA KRL离线仿真",
           "level": "high",
-          "aliases": ["KUKA", "KRL", "KUKA.Sim", "PTP", "LIN", "CIRC"],
-          "source_documents": ["data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"]
+          "aliases": [
+            "KUKA",
+            "KRL",
+            "KUKA.Sim",
+            "PTP",
+            "LIN",
+            "CIRC"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+          ]
         },
         {
           "id": "K2-HIGH-005",
           "topic": "FANUC ROBOGUIDE离线编程",
           "level": "high",
-          "aliases": ["FANUC ROBOGUIDE", "ROBOGUIDE", "虚拟示教器", "TP程序", "Cell Browser"],
-          "source_documents": ["data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"]
+          "aliases": [
+            "FANUC ROBOGUIDE",
+            "ROBOGUIDE",
+            "虚拟示教器",
+            "TP程序",
+            "Cell Browser"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_009_fanuc_roboguide_guide.md"
+          ]
         },
         {
           "id": "K2-HIGH-006",
           "topic": "ROS2 URDF/Xacro与Gazebo仿真",
           "level": "high",
-          "aliases": ["ROS2", "URDF", "Xacro", "Gazebo", "ros2_control", "joint_trajectory_controller"],
-          "source_documents": ["data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"]
+          "aliases": [
+            "ROS2",
+            "URDF",
+            "Xacro",
+            "Gazebo",
+            "ros2_control",
+            "joint_trajectory_controller"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+          ]
         },
         {
           "id": "K2-STANDARD-007",
           "topic": "离线仿真常见故障排查",
           "level": "standard",
-          "aliases": ["仿真故障", "控制器连接失败", "模型异常"],
-          "source_documents": ["data/raw/K2_robot_simulation/K2_010_simulation_fault_troubleshooting.md"]
+          "aliases": [
+            "仿真故障",
+            "控制器连接失败",
+            "模型异常"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_010_simulation_fault_troubleshooting.md"
+          ]
         }
       ]
     },
@@ -137,50 +258,521 @@
           "id": "K3-CORE-001",
           "topic": "SRVO-068数据传输故障诊断",
           "level": "core",
-          "aliases": ["SRVO-068", "DTERR", "脉冲编码器数据传输", "编码器电缆", "伺服放大器"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"]
+          "aliases": [
+            "SRVO-068",
+            "DTERR",
+            "脉冲编码器数据传输",
+            "编码器电缆",
+            "伺服放大器"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+          ]
         },
         {
           "id": "K3-CORE-002",
           "topic": "SRVO-062 BZAL绝对位置恢复",
           "level": "core",
-          "aliases": ["SRVO-062", "BZAL", "备份电池", "绝对位置", "MASTERING", "重新标定"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"]
+          "aliases": [
+            "SRVO-062",
+            "BZAL",
+            "备份电池",
+            "绝对位置",
+            "MASTERING",
+            "重新标定"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+          ]
         },
         {
           "id": "K3-HIGH-003",
           "topic": "SRVO-038脉冲不匹配处理",
           "level": "high",
-          "aliases": ["SRVO-038", "Pulse mismatch", "脉冲不匹配", "轴滑移", "MASTERING"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"]
+          "aliases": [
+            "SRVO-038",
+            "Pulse mismatch",
+            "脉冲不匹配",
+            "轴滑移",
+            "MASTERING"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+          ]
         },
         {
           "id": "K3-CORE-004",
           "topic": "SRVO-105控制柜门与急停链路",
           "level": "core",
-          "aliases": ["SRVO-105", "Door open or E-Stop", "控制柜门", "急停链路", "CRMA92", "CRMA94"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"]
+          "aliases": [
+            "SRVO-105",
+            "Door open or E-Stop",
+            "控制柜门",
+            "急停链路",
+            "CRMA92",
+            "CRMA94"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+          ]
         },
         {
           "id": "K3-CORE-005",
           "topic": "SRVO-004安全围栏报警",
           "level": "core",
-          "aliases": ["SRVO-004", "Fence open", "安全围栏", "安全门", "EAS双通道"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"]
+          "aliases": [
+            "SRVO-004",
+            "Fence open",
+            "安全围栏",
+            "安全门",
+            "EAS双通道"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+          ]
         },
         {
           "id": "K3-HIGH-006",
           "topic": "SRVO-230/231双通道安全链失配",
           "level": "high",
-          "aliases": ["SRVO-230", "SRVO-231", "安全链失配", "Chain Error Reset", "双通道安全信号"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"]
+          "aliases": [
+            "SRVO-230",
+            "SRVO-231",
+            "安全链失配",
+            "Chain Error Reset",
+            "双通道安全信号"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+          ]
         },
         {
           "id": "K3-STANDARD-007",
           "topic": "SRVO-075脉冲未建立",
           "level": "standard",
-          "aliases": ["SRVO-075", "Pulse not established", "脉冲未建立"],
-          "source_documents": ["data/raw/K3_safety_fault/K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix.md"]
+          "aliases": [
+            "SRVO-075",
+            "Pulse not established",
+            "脉冲未建立"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K4",
+      "name": "机器人基础理论",
+      "knowledge_points": [
+        {
+          "id": "K4-CORE-001",
+          "topic": "坐标变换与齐次变换",
+          "level": "core",
+          "aliases": [
+            "坐标变换",
+            "齐次变换",
+            "位姿",
+            "旋转矩阵",
+            "平移"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_001_robot_coordinate_transform.md"
+          ]
+        },
+        {
+          "id": "K4-CORE-002",
+          "topic": "D-H参数建模",
+          "level": "core",
+          "aliases": [
+            "DH参数",
+            "D-H",
+            "连杆参数",
+            "连杆坐标系",
+            "Denavit"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_002_dh_parameter_modeling.md"
+          ]
+        },
+        {
+          "id": "K4-CORE-003",
+          "topic": "正运动学",
+          "level": "core",
+          "aliases": [
+            "正运动学",
+            "Forward Kinematics",
+            "正解",
+            "末端位姿"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_003_forward_kinematics.md"
+          ]
+        },
+        {
+          "id": "K4-HIGH-004",
+          "topic": "逆运动学",
+          "level": "high",
+          "aliases": [
+            "逆运动学",
+            "Inverse Kinematics",
+            "逆解",
+            "多解",
+            "无解"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_004_inverse_kinematics.md"
+          ]
+        },
+        {
+          "id": "K4-HIGH-005",
+          "topic": "雅可比矩阵与奇异位形",
+          "level": "high",
+          "aliases": [
+            "雅可比",
+            "Jacobian",
+            "奇异",
+            "奇异性",
+            "万向节锁"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_005_robot_jacobian.md",
+            "data/raw/K1_robot_base/K1_20260827_006_kinematic_singularity.md"
+          ]
+        },
+        {
+          "id": "K4-HIGH-006",
+          "topic": "轨迹规划",
+          "level": "high",
+          "aliases": [
+            "轨迹规划",
+            "轨迹生成",
+            "关节空间",
+            "笛卡尔空间",
+            "多项式插补",
+            "S曲线"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_016_robot_trajectory_planning.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K5",
+      "name": "机器视觉集成",
+      "knowledge_points": [
+        {
+          "id": "K5-CORE-001",
+          "topic": "2D/3D视觉系统与相机选型",
+          "level": "core",
+          "aliases": [
+            "视觉系统",
+            "相机选型",
+            "镜头",
+            "光源",
+            "2D视觉",
+            "3D视觉"
+          ],
+          "source_documents": [
+            "data/raw/K1_20260826_工业相机与镜头选型_072.md",
+            "data/raw/K1_20260826_2D视觉系统组成与成像链路_070.md"
+          ]
+        },
+        {
+          "id": "K5-CORE-002",
+          "topic": "手眼标定",
+          "level": "core",
+          "aliases": [
+            "手眼标定",
+            "Eye-in-Hand",
+            "Eye-to-Hand",
+            "九点标定"
+          ],
+          "source_documents": [
+            "data/raw/K1_20260826_手眼标定原理与数学模型_086.md",
+            "data/raw/K1_20260826_九点标定法_087.md"
+          ]
+        },
+        {
+          "id": "K5-HIGH-003",
+          "topic": "相机标定与畸变校正",
+          "level": "high",
+          "aliases": [
+            "相机内参",
+            "畸变校正",
+            "内参标定",
+            "相机标定"
+          ],
+          "source_documents": [
+            "data/raw/K1_20260826_相机内参标定与畸变校正_073.md"
+          ]
+        },
+        {
+          "id": "K5-HIGH-004",
+          "topic": "点云处理与配准",
+          "level": "high",
+          "aliases": [
+            "点云",
+            "ICP",
+            "点云配准",
+            "点云预处理"
+          ],
+          "source_documents": [
+            "data/raw/K1_20260826_点云获取与预处理_082.md",
+            "data/raw/K1_20260826_点云配准ICP_083.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K6",
+      "name": "协作机器人",
+      "knowledge_points": [
+        {
+          "id": "K6-CORE-001",
+          "topic": "协作机器人安全标准与力限制",
+          "level": "core",
+          "aliases": [
+            "协作机器人",
+            "ISO TS 15066",
+            "力限制",
+            "碰撞检测",
+            "cobot"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_20260826_086_cobot_iso_ts_15066_safety.md",
+            "data/raw/K2_robot_simulation/K2_20260826_087_cobot_collision_force_limit.md"
+          ]
+        },
+        {
+          "id": "K6-HIGH-002",
+          "topic": "拖动示教与力控制",
+          "level": "high",
+          "aliases": [
+            "拖动示教",
+            "hand guiding",
+            "力控制",
+            "force control",
+            "力传感器"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_20260826_088_cobot_hand_guiding.md",
+            "data/raw/K2_robot_simulation/K2_20260826_090_cobot_force_control.md"
+          ]
+        },
+        {
+          "id": "K6-HIGH-003",
+          "topic": "速度与距离监控",
+          "level": "high",
+          "aliases": [
+            "速度监控",
+            "距离监控",
+            "speed separation",
+            "安全区域",
+            "safety zone"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_20260826_089_cobot_speed_separation.md",
+            "data/raw/K2_robot_simulation/K2_20260826_095_cobot_safety_zone_speed.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K7",
+      "name": "I/O与现场总线",
+      "knowledge_points": [
+        {
+          "id": "K7-CORE-001",
+          "topic": "PROFINET设备调试",
+          "level": "core",
+          "aliases": [
+            "PROFINET",
+            "站名",
+            "IP",
+            "GSDML",
+            "设备名"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260827_078_profinet_device_name_ip_commissioning.md"
+          ]
+        },
+        {
+          "id": "K7-HIGH-002",
+          "topic": "EthernetIP与IO扫描",
+          "level": "high",
+          "aliases": [
+            "EthernetIP",
+            "IO扫描",
+            "IO Scan",
+            "现场总线"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260827_079_ethernetip_io_scan_commissioning.md"
+          ]
+        },
+        {
+          "id": "K7-HIGH-003",
+          "topic": "安全总线PROFIsafe",
+          "level": "high",
+          "aliases": [
+            "PROFIsafe",
+            "安全总线",
+            "安全IO",
+            "safety IO"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260827_076_abb_profisafe_plc_scanner_integration.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K8",
+      "name": "产线集成与PLC",
+      "knowledge_points": [
+        {
+          "id": "K8-CORE-001",
+          "topic": "PLC-机器人握手设计",
+          "level": "core",
+          "aliases": [
+            "PLC",
+            "握手",
+            "handshake",
+            "机器人联动",
+            "信号交互"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260827_077_plc_robot_handshake_design.md"
+          ]
+        },
+        {
+          "id": "K8-HIGH-002",
+          "topic": "上下料单元部署",
+          "level": "high",
+          "aliases": [
+            "上下料单元",
+            "machine tending",
+            "单元部署",
+            "产线部署"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260827_081_abb_machine_tending_cell_deployment.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K9",
+      "name": "工艺应用",
+      "knowledge_points": [
+        {
+          "id": "K9-CORE-001",
+          "topic": "弧焊工艺",
+          "level": "core",
+          "aliases": [
+            "弧焊",
+            "Arc Welding",
+            "ARCL",
+            "ARCC",
+            "weave",
+            "焊接"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_20260815_012_abb_arc_welding_arcl_arcc_weave.md",
+            "data/raw/K3_safety_fault/K3_20260827_083_fanuc_arc_welding_cell_readiness.md"
+          ]
+        },
+        {
+          "id": "K9-HIGH-002",
+          "topic": "码垛与搬运工艺",
+          "level": "high",
+          "aliases": [
+            "码垛",
+            "palletizing",
+            "拆垛",
+            "depal",
+            "上下料"
+          ],
+          "source_documents": [
+            "data/raw/K2_robot_simulation/K2_006_abb_palletizing_process_package.md",
+            "data/raw/K3_safety_fault/K3_20260827_082_abb_depal_vision_pick_validation.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K10",
+      "name": "多厂商机器人",
+      "knowledge_points": [
+        {
+          "id": "K10-CORE-001",
+          "topic": "安川YRC1000报警与诊断",
+          "level": "core",
+          "aliases": [
+            "安川",
+            "YRC1000",
+            "Yaskawa",
+            "报警",
+            "alarm"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260826_061_yaskawa_yrc1000_alarm1300_1301_servo.md",
+            "data/raw/K3_safety_fault/K3_20260826_058_yaskawa_yrc1000_alarm0060_io_comm.md"
+          ]
+        },
+        {
+          "id": "K10-HIGH-002",
+          "topic": "KUKA安全功能",
+          "level": "high",
+          "aliases": [
+            "KUKA",
+            "SafeOperation",
+            "KUKA.Safe",
+            "KRL"
+          ],
+          "source_documents": [
+            "data/raw/K3_safety_fault/K3_20260826_073_kuka_safeoperation_workspace.md",
+            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K11",
+      "name": "机器人动力学与精度",
+      "knowledge_points": [
+        {
+          "id": "K11-HIGH-001",
+          "topic": "动力学建模",
+          "level": "high",
+          "aliases": [
+            "动力学",
+            "牛顿-欧拉",
+            "拉格朗日",
+            "dynamics"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_009_robot_dynamics_newton_lagrange.md"
+          ]
+        },
+        {
+          "id": "K11-HIGH-002",
+          "topic": "负载辨识与精度标定",
+          "level": "high",
+          "aliases": [
+            "负载辨识",
+            "load identification",
+            "标定",
+            "calibration",
+            "NIST",
+            "精度"
+          ],
+          "source_documents": [
+            "data/raw/K1_robot_base/K1_20260827_010_payload_inertia_model.md",
+            "data/raw/K1_robot_base/K1_20260827_013_nist_robot_cell_calibration.md"
+          ]
         }
       ]
     }
