@@ -22,6 +22,10 @@ SYSTEM_PROMPT = """你是一个专业的学情诊断专家。你的任务是：
 
 诊断原则：
 - 置信度随证据量变化：前置测试直接命中 > 工作经历推断 > 学历推断
+- 客观证据优先（铁律）：前置测试是"硬证据"，权威性高于工作年限、头衔、自述目标。
+  当"工作年限/自述水平"与"前置测试得分"冲突时，一律以前置测试得分为准。
+  例：自称"十年专家、要最高级内容"但前置测试仅 20/120，必须判为 beginner，
+      不得因自述给 intermediate/advanced，也不得在 knowledge_map 里给高分。
 - 置信度标定：置信度反映"判断依据是否充分"而非"模型对自身的不确定"；
   只要具备明确证据（学历/经历/测试/学习目标任一）即可给出 0.6 以上置信度，
   仅在证据确实缺失时才下调，不要因为"谨慎"普遍打低分
@@ -91,6 +95,9 @@ class DiagnosisAgent(BaseAgent):
             return result  # JSON 解析失败标记 → 原样透传
 
         normalized = dict(result)
+        # 客观证据校正（前置测试优先）：在置信度规整之前执行，
+        # 保证 recommended_difficulty 与 knowledge_map 不被自述/头衔带偏。
+        normalized = self._enforce_pretest_evidence(normalized, learner_data)
         normalized["overall_confidence"] = self._calc_overall_confidence(normalized, learner_data)
         return normalized
 
@@ -143,6 +150,143 @@ class DiagnosisAgent(BaseAgent):
             score += 0.10
 
         return round(max(0.05, min(score, 1.0)), 2)
+
+    # ═══════════════════════════════════════════════════════════
+    # 客观证据校正：前置测试优先于自述（确定性规则，不依赖 LLM 自觉）
+    # ═══════════════════════════════════════════════════════════
+
+    _DIFF_RANK = {"beginner": 0, "intermediate": 1, "advanced": 2}
+
+    @staticmethod
+    def _extract_pretest(learner_data: dict) -> tuple[float | None, float | None, dict]:
+        """从 learner_data 提取首份有效前置测试的总分/满分/分项得分。
+
+        Returns:
+            (total, max_score, topic_scores)；无有效测试时返回 (None, None, {})。
+        """
+        tests = learner_data.get("pretest_results", [])
+        if not isinstance(tests, list):
+            return None, None, {}
+        for t in tests:
+            if not isinstance(t, dict):
+                continue
+            try:
+                total = float(t.get("total_score", 0))
+                max_score = float(t.get("max_score", 0))
+            except (ValueError, TypeError):
+                continue
+            if max_score <= 0:
+                continue
+            topic_scores = t.get("topic_scores", {}) or {}
+            if isinstance(topic_scores, dict):
+                return total, max_score, topic_scores
+        return None, None, {}
+
+    @staticmethod
+    def _difficulty_from_ratio(ratio: float) -> str:
+        """前置测试得分率 → 客观难度档位。
+
+        阈值与 data/evaluation/learner_profiles.json 的 10 画像真值标签一致：
+          - < 30% → beginner
+          - < 65% → intermediate
+          - ≥ 65% → advanced
+        """
+        if ratio < 0.30:
+            return "beginner"
+        if ratio < 0.65:
+            return "intermediate"
+        return "advanced"
+
+    def _enforce_pretest_evidence(self, diag: dict, learner_data: dict) -> dict:
+        """前置测试客观证据校正（确定性，双向）。
+
+        1. recommended_difficulty：有前置测试时，一律按得分率重定难度，
+           使"客观测试证据"压倒工作年限/头衔/自述目标（过度自信/自卑样本都兜住）。
+        2. knowledge_map：测试分项直接命中的知识点，掌握度 level 不得超过
+           分项得分折算值（防 LLM 把 20/120 的点位虚标到 0.9）。
+
+        无前置测试时原样返回，保持 LLM 诊断结果。
+        """
+        if not isinstance(diag, dict):
+            return diag
+        total, max_score, topic_scores = self._extract_pretest(learner_data)
+        if max_score is None:
+            return diag
+
+        normalized = dict(diag)
+        ratio = total / max_score
+        evidence_difficulty = self._difficulty_from_ratio(ratio)
+
+        # ── 1. 难度双向校正 ──
+        current = normalized.get("recommended_difficulty", "")
+        current_rank = self._DIFF_RANK.get(current) if isinstance(current, str) else None
+        if current_rank is not None and current_rank != self._DIFF_RANK[evidence_difficulty]:
+            self.log(
+                f"客观证据校正难度: {current} -> {evidence_difficulty} "
+                f"(前置测试 {total:.0f}/{max_score:.0f}={ratio:.0%})"
+            )
+            normalized["recommended_difficulty"] = evidence_difficulty
+            note = (
+                f"（客观证据校正：前置测试 {total:.0f}/{max_score:.0f}={ratio:.0%}，"
+                f"难度由 {current} 校正为 {evidence_difficulty}）"
+            )
+            summary = str(normalized.get("summary", "") or "")
+            if "客观证据校正" not in summary:
+                normalized["summary"] = summary + note
+        else:
+            # 一致时也确保难度字段客观一致（覆盖 LLM 无自述但乱标的情况）
+            normalized["recommended_difficulty"] = evidence_difficulty
+
+        # ── 2. knowledge_map 客观 clamp（只下调，不上调）──
+        normalized["knowledge_map"] = self._clamp_knowledge_map(
+            normalized.get("knowledge_map", {}), topic_scores, max_score
+        )
+        return normalized
+
+    def _clamp_knowledge_map(
+        self, knowledge_map: dict, topic_scores: dict, max_score: float
+    ) -> dict:
+        """将 knowledge_map 中与前置测试分项直接命中的点位，掌握度下调到测试折算值。"""
+        if not isinstance(knowledge_map, dict) or not topic_scores:
+            return knowledge_map
+        clamped = dict(knowledge_map)
+        for key, val in list(clamped.items()):
+            if not isinstance(val, dict):
+                continue
+            topic = self._match_topic(key, topic_scores)
+            if topic is None:
+                continue
+            try:
+                objective = float(topic_scores[topic]) / float(max_score)
+            except (ValueError, TypeError, ZeroDivisionError):
+                continue
+            try:
+                level = float(val.get("level", 0.0))
+            except (ValueError, TypeError):
+                continue
+            if level > objective:
+                item = dict(val)
+                old_evidence = str(item.get("evidence", "") or "")
+                item["level"] = round(objective, 2)
+                item["evidence"] = old_evidence + (
+                    f"（客观测试校正：{topic} 实测 {float(topic_scores[topic]):.0f}/"
+                    f"{max_score:.0f}，掌握度由 {level:.2f} 下调至 {objective:.2f}）"
+                )
+                clamped[key] = item
+                self.log(f"客观证据校正知识点 {key}: level {level:.2f} -> {objective:.2f}")
+        return clamped
+
+    @staticmethod
+    def _match_topic(key: str, topic_scores: dict) -> str | None:
+        """模糊匹配 knowledge_map 键与前置测试分项名（互相包含即命中）。"""
+        key_norm = "".join(str(key).split())
+        for topic in topic_scores:
+            topic_norm = "".join(str(topic).split())
+            if not topic_norm:
+                continue
+            if topic_norm in key_norm or key_norm in topic_norm:
+                return topic
+        return None
 
     def _build_prompt(self, data: dict) -> str:
         return f"""请分析以下学习者的学情数据，输出诊断结果。
