@@ -3,7 +3,7 @@
 - 来源 URL：[For greater results](https://new.abb.com/news/detail/102746/for-greater-results)
 - 作者/机构：ABB Review / ABB Robotics；本文由 XH-agent 基于官方技术文章二次整理
 - 发布日期：2023（页面标注）；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方技术文章的中文工程化二次整理；延迟预算和阈值为项目模板
 - 领域标签：K4P_AI实时对准
 - 摘要：将 ABB High Speed Alignment 的视觉反馈思路落到工业机器人焊接、装配和加工对准任务，提供延迟预算、误差测量、反馈限制和失效处理，避免把“实时 AI”当成无条件在线控制。

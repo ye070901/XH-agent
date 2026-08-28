@@ -3,7 +3,7 @@
 - 来源 URL：[ABB Integrated Vision Application Manual](https://library.e.abb.com/public/f8ed851bf78e4912814a1d5629d3fb36/3HAC067707%20AM%20Integrated%20Vision%20OmniCore-en.pdf?x-sign=7GEzWSIFhwLxUNnyQJB0d7gzrzYCfCcTi%2FH4W1sB7bUI71%2FyCF4MAduLZbirhmwL)
 - 作者/机构：ABB Robotics；本文由 XH-agent 基于官方手册二次整理
 - 发布日期：官方修订版 J（2019-2025）；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方手册的中文工程化二次整理；示例坐标与伪代码不是 ABB 原文
 - 领域标签：K4P_AI视觉标定
 - 摘要：把 AI 视觉检测结果转换为 ABB 工业机器人可执行的抓取姿态，重点讲相机标定、相机到机器人坐标变换、置信度门控、RAPID 任务接口和首件验收。适用于视觉引导抓取、定位和检测单元。

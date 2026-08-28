@@ -3,7 +3,7 @@
 - 来源 URL：[NVIDIA Isaac Manipulator](https://developer.nvidia.com/blog/advancing-robot-learning-perception-and-manipulation-with-latest-nvidia-isaac-release/)；[NVIDIA Isaac Sim Core API](https://docs.isaacsim.omniverse.nvidia.com/latest/core_api_tutorials/index.html)
 - 作者/机构：NVIDIA；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2025 / 2026 页面；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方 ROS 2/Isaac 资料的技术化二次整理；topic 名称为逻辑示例
 - 领域标签：K4P_TECH_ROS2
 - 摘要：从节点、消息、QoS、时间戳、心跳和超时角度说明 AI 与工业机器人控制器的实时集成，防止把非确定性的模型推理直接接到运动执行。

@@ -3,7 +3,7 @@
 - 来源 URL：[ABB Innovation highlights 2020](https://new.abb.com/news/detail/56162/innovation-highlights-2020)；[Cognex In-Sight 3D-L4000 Guide](https://docs.cognex.com/is3d_2410/EN/3D-L4000_Manual.pdf)
 - 作者/机构：ABB Robotics / Cognex；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2020 / 文档版本 24.10；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方资料的中文工程化二次整理；精度、力和节拍阈值需按产品工艺确认
 - 领域标签：K4P_电子装配AI
 - 摘要：针对连接器、PCB、壳体和小型器件装配，说明 AI 视觉识别、工业机器人精密定位、力/到位反馈和质量追溯如何组成闭环。

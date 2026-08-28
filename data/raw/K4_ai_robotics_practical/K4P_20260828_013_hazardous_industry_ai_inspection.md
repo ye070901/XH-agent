@@ -3,7 +3,7 @@
 - 来源 URL：[ABB shows off R&D projects in robotics, AI](https://new.abb.com/news/detail/17076/abb-shows-off-rd-projects-in-robotics-ai)
 - 作者/机构：ABB Robotics；本文由 XH-agent 基于官方研发案例二次整理
 - 发布日期：2018-06-12（页面标注）；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方研发案例的中文工程化二次整理；案例能力不等同于特定场所防爆或安全认证
 - 领域标签：K4P_高危巡检AI
 - 摘要：围绕矿山输送带、化工/电力设备等人员不宜频繁进入的场景，整理激光/成像传感器、工业机器人或移动机械机构、AI 异常识别和维护复检流程。

@@ -3,7 +3,7 @@
 - 来源 URL：[In-Sight 3D-L4000 Series Smart Camera Reference Guide](https://docs.cognex.com/is3d_2410/EN/3D-L4000_Manual.pdf)
 - 作者/机构：Cognex Corporation；本文由 XH-agent 基于官方参考指南二次整理
 - 发布日期：In-Sight 3D-L4000 文档 24.10；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方手册的中文工程化二次整理；字段名和验收阈值需按实际项目确认
 - 领域标签：K4P_AI3D机器人引导
 - 摘要：围绕 Cognex 3D-L4000 的深度学习视觉工具与工业机器人引导，给出相机作业结果、坐标变换、目标门控、机器人执行和验收记录。重点解决“检测到目标但姿态不能直接用于机器人”的常见误区。

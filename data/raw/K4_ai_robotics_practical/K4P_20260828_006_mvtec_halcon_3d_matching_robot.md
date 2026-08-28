@@ -3,7 +3,7 @@
 - 来源 URL：[MVTec HALCON 25.05 press release](https://www.mvtec.com/fileadmin/Redaktion/mvtec.com/company/press_room/press_releases/2025/2025-04-15-halcon-2505/Press_release_MVTec_HALCON_25.05.pdf)
 - 作者/机构：MVTec Software GmbH；本文由 XH-agent 基于官方发布材料二次整理
 - 发布日期：2025-04-15；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方发布材料的中文工程化二次整理；具体 HALCON 算子参数需查对应版本手册
 - 领域标签：K4P_AI3D匹配
 - 摘要：将 Deep 3D Matching 用于工业机器人 bin-picking 时，如何从候选姿态中筛选出可达、无碰撞、工具可用的抓取目标。内容覆盖模型、点云、姿态变换、失败重试和质量监控。

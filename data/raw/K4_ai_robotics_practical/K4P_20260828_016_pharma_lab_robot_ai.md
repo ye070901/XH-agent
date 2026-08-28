@@ -3,7 +3,7 @@
 - 来源 URL：[NVIDIA Isaac Manipulator](https://developer.nvidia.com/blog/advancing-robot-learning-perception-and-manipulation-with-latest-nvidia-isaac-release/)；[ABB Robotics](https://www.abb.com/global/en/areas/robotics)
 - 作者/机构：NVIDIA / ABB；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2025 / 官方页面持续更新；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方机器人资料的中文工程化二次整理；不构成 GMP、洁净室或医疗器械合规意见
 - 领域标签：K4P_医药实验室AI
 - 摘要：将工业机械臂的视觉抓取、物体跟随和样品处理能力用于医药/实验室自动化，重点是样品身份、污染隔离、轨迹验证、记录追溯和异常人工接管。

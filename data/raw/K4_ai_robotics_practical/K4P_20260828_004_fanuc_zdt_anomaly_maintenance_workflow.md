@@ -3,7 +3,7 @@
 - 来源 URL：[FANUC America ZDT brochure](https://www.fanucamerica.com/docs/default-source/robotics-files/fanuc-zero-down-time-brochure.pdf?keyword=fanuc+usa%3Fwtime)
 - 作者/机构：FANUC America；本文由 XH-agent 基于官方产品资料二次整理
 - 发布日期：资料统计截至 2025-12；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方产品资料的中文工程化二次整理；告警分级和字段为推荐实施模型
 - 领域标签：K4P_AI预测维护
 - 摘要：把 FANUC ZDT 的预测分析、异常检测、资产/机群管理和 REST API 能力落到 FANUC 工业机器人维护流程。本文给出数据字段、异常确认、工单闭环和禁止自动化动作，避免把 AI 分数误当成故障结论。

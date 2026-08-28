@@ -3,7 +3,7 @@
 - 来源 URL：[ABB Innovation highlights 2020](https://new.abb.com/news/detail/56162/innovation-highlights-2020)；[ABB For greater results](https://new.abb.com/news/detail/102746/for-greater-results)
 - 作者/机构：ABB Robotics；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2020-02-11 / 2023；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方文章的中文工程化二次整理；焊接参数和阈值必须按工艺验证
 - 领域标签：K4P_汽车焊接AI
 - 摘要：将 AI 视觉、工业机器人焊枪和高速对准用于车身焊接。内容覆盖焊缝识别、坐标转换、轨迹修正、缺陷复检和质量追溯，适合汽车白车身和零部件焊接单元。

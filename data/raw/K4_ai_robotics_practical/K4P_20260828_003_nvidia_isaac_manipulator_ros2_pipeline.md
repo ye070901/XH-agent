@@ -3,7 +3,7 @@
 - 来源 URL：[Advancing Robot Learning, Perception, and Manipulation with NVIDIA Isaac](https://developer.nvidia.com/blog/advancing-robot-learning-perception-and-manipulation-with-latest-nvidia-isaac-release/)
 - 作者/机构：NVIDIA Developer Blog；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2025-01-06；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方技术博客和 Isaac 入口的中文工程化二次整理；ROS 2 接口名为逻辑示例
 - 领域标签：K4P_AI机械臂ROS2
 - 摘要：以工业机械臂避障抓取/放置为例，拆解 Isaac Manipulator 的感知、姿态、规划、控制和反馈接口。内容强调 ROS 2 消息契约、时间同步、规划失败分支和实体机器人部署门槛。

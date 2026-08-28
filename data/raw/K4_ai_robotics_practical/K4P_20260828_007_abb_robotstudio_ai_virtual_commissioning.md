@@ -3,7 +3,7 @@
 - 来源 URL：[RobotStudio slashes installation schedule for parcel sorting](https://new.abb.com/news/detail/123569/cstmr-robotstudio-slashes-installation-schedule-by-several-months-for-new-parcel-sorting-solution)
 - 作者/机构：ABB Robotics；本文由 XH-agent 基于官方案例二次整理
 - 发布日期：页面标注 2024；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方客户案例的中文工程化二次整理；虚拟信号为测试契约，不是 ABB 固定接口
 - 领域标签：K4P_AI数字孪生
 - 摘要：用 RobotStudio 虚拟控制器和 AI/3D 视觉软件联调工业机器人分拣。本文提供虚拟单元建模清单、AI 接口、故障注入和实体迁移的测试矩阵，让仿真真正服务于工业机器人投产。

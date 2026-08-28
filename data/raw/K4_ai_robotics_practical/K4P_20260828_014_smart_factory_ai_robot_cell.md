@@ -3,7 +3,7 @@
 - 来源 URL：[Siemens Advanced robotics in tomorrow's factory](https://static.sw.cdn.siemens.com/siemens-disw-assets/public/4TCO9LYXRI6oHFk8Www3Le/en-US/Siemens-SW-Advanced-robotics-in-tomorrows-factory-White-Paper_tcm27-84778.pdf)；[NVIDIA Isaac platform](https://developer.nvidia.com/isaac)
 - 作者/机构：Siemens Digital Industries Software / NVIDIA；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：官方白皮书/产品页；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方资料的中文工程化二次整理；架构字段为实施模板
 - 领域标签：K4P_智能工厂AI
 - 摘要：将工业机器人、AI 视觉/规划、PLC、MES、数字孪生和云边计算组织成可审计的智能工厂单元，重点解决数据版本、模型变更和 OT/IT 边界。

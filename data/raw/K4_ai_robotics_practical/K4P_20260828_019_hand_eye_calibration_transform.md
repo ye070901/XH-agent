@@ -3,7 +3,7 @@
 - 来源 URL：[ABB Integrated Vision Application Manual](https://library.e.abb.com/public/f8ed851bf78e4912814a1d5629d3fb36/3HAC067707%20AM%20Integrated%20Vision%20OmniCore-en.pdf?x-sign=7GEzWSIFhwLxUNnyQJB0d7gzrzYCfCcTi%2FH4W1sB7bUI71%2FyCF4MAduLZbirhmwL)；[Cognex In-Sight 3D-L4000 Guide](https://docs.cognex.com/is3d_2410/EN/3D-L4000_Manual.pdf)
 - 作者/机构：ABB Robotics / Cognex；本文由 XH-agent 基于官方手册二次整理
 - 发布日期：官方修订版/24.10；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方手册的技术化二次整理；矩阵示例和误差计算为工程示例
 - 领域标签：K4P_TECH_坐标变换
 - 摘要：解释 AI 视觉输出从相机坐标转换到工业机器人基座/工件坐标的数学和验收方法。包括齐次变换、手眼标定、误差传播、时间戳和失效门控。

@@ -3,7 +3,7 @@
 - 来源 URL：[SIMATIC Robot Pick AI and Robot Library with Universal Robots UR5](https://support.industry.siemens.com/cs/attachments/109974553/109974553_SIMATICRobotPickAI_SRL_UR_AppExample_DOC_v10_en.pdf)
 - 作者/机构：Siemens AG；本文由 XH-agent 基于官方应用示例二次整理
 - 发布日期：文档版本 1.0；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方应用示例的中文工程化二次整理；信号名为推荐接口，不是 Siemens 固定变量名
 - 领域标签：K4P_AI视觉PLC
 - 摘要：将 Siemens Robot Pick AI、SIMATIC PLC、TIA Portal、HMI 和 UR5 工业协作机器人组织成可诊断的取放单元。提供信号握手、状态机、超时和恢复逻辑，解决“AI 识别成功但机器人不应动作”的工程问题。

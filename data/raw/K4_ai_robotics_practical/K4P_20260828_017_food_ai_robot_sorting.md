@@ -3,7 +3,7 @@
 - 来源 URL：[Cognex In-Sight 3D-L4000 Guide](https://docs.cognex.com/is3d_2410/EN/3D-L4000_Manual.pdf)；[ABB Innovation highlights 2020](https://new.abb.com/news/detail/56162/innovation-highlights-2020)
 - 作者/机构：Cognex / ABB；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：文档版本 24.10 / 2020；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方资料的中文工程化二次整理；卫生、食品接触材料和法规需按工厂体系验证
 - 领域标签：K4P_食品分拣AI
 - 摘要：针对食品、包装和农产品分拣，说明 AI 视觉识别尺寸、颜色、缺陷和姿态，工业机器人执行高速取放，PLC 管理批次、清洗和卫生状态。

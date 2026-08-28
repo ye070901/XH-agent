@@ -3,7 +3,7 @@
 - 来源 URL：[ABB shows off R&D projects in robotics, AI](https://new.abb.com/news/detail/17076/abb-shows-off-rd-projects-in-robotics-ai)；[FANUC ZDT brochure](https://www.fanucamerica.com/docs/default-source/robotics-files/fanuc-zero-down-time-brochure.pdf?keyword=fanuc+usa%3Fwtime)
 - 作者/机构：ABB Robotics / FANUC America；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2018 / 2025-12；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方资料的中文工程化二次整理；电力、压力和防爆场景必须由专业人员验收
 - 领域标签：K4P_能源巡检AI
 - 摘要：把工业机器人/巡检机构的视觉、激光和运行数据与 AI 异常检测结合，用于输送带、电机、泵、阀和站房巡检，并建立从异常告警到人工复检的闭环。

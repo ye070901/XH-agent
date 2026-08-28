@@ -3,7 +3,7 @@
 - 来源 URL：[NVIDIA Isaac robotics platform](https://developer.nvidia.com/isaac)；[Isaac Sim Robot Simulation](https://docs.isaacsim.omniverse.nvidia.com/latest/robot_simulation/index.html)
 - 作者/机构：NVIDIA；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：官方页面持续更新；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方平台/文档的技术化二次整理；规划伪代码为通用表示
 - 领域标签：K4P_TECH_运动规划
 - 摘要：说明 AI 目标或策略如何经过工业机器人运动学、关节限位、碰撞场景、工具约束和时间预算，形成可下发轨迹。

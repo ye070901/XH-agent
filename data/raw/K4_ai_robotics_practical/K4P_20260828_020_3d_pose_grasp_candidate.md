@@ -3,7 +3,7 @@
 - 来源 URL：[MVTec HALCON 25.05 press release](https://www.mvtec.com/fileadmin/Redaktion/mvtec.com/company/press_room/press_releases/2025/2025-04-15-halcon-2505/Press_release_MVTec_HALCON_25.05.pdf)；[NVIDIA Isaac Manipulator](https://developer.nvidia.com/blog/advancing-robot-learning-perception-and-manipulation-with-latest-nvidia-isaac-release/)
 - 作者/机构：MVTec / NVIDIA；本文由 XH-agent 基于官方资料二次整理
 - 发布日期：2025 / 2025-01-06；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方资料的技术化二次整理；伪代码是通用工程表示
 - 领域标签：K4P_TECH_3D抓取
 - 摘要：从点云/图像中的对象匹配、位姿候选生成，到工业机器人抓手姿态筛选和碰撞验证。重点说明 AI 匹配分数不等于机器人可执行性。

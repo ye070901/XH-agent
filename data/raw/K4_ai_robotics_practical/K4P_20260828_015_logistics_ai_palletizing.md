@@ -3,7 +3,7 @@
 - 来源 URL：[ABB RobotStudio parcel sorting solution](https://new.abb.com/news/detail/123569/cstmr-robotstudio-slashes-installation-schedule-by-several-months-for-new-parcel-sorting-solution)；[NVIDIA manufacturing and logistics](https://blogs.nvidia.com/blog/isaac-generative-ai-manufacturing-logistics/)
 - 作者/机构：ABB Robotics / NVIDIA；本文由 XH-agent 基于官方案例二次整理
 - 发布日期：2024 / 2024-03-18；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方案例/博客的中文工程化二次整理；码垛速度和载荷需按具体机器人验证
 - 领域标签：K4P_物流码垛AI
 - 摘要：针对包裹分拣、动态码垛和机器上下料，说明 AI 识别包裹类别/姿态、工业机器人抓手执行、输送带同步和 RobotStudio/Isaac 仿真验证的完整链路。

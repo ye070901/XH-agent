@@ -3,7 +3,7 @@
 - 来源 URL：[AI Accelerator manual](https://www.universal-robots.com/manuals/EN/PDF/SW10_7/prod-AI-kit_online/AI%20Accelerator_en.pdf)
 - 作者/机构：Universal Robots；本文由 XH-agent 基于官方手册二次整理
 - 发布日期：PolyScope X 软件 10.7 文档；本文整理日期 2026-08-28
-- 来源权威等级：A
+- 来源权威等级：B
 - 内容性质：官方手册的中文工程化二次整理；接口字段为工程建议，需按实际组件核对
 - 领域标签：K4P_AI协作机器人
 - 摘要：把 AI Accelerator 的视觉/深度感知能力接入 Universal Robots 工业协作机器人时，如何管理软件版本、相机标定、目标门控、程序状态、工具风险和人机共域验收。
