@@ -121,12 +121,13 @@ class EvaluationMetrics:
         """计算幻觉率。
 
         公式：幻觉率 = (hallucination_count + unverifiable_count) / total_claims
+        （partially_supported 核心事实成立，不计入坏样本分子，仅进分母）
         要求：< 5%（HALLUCINATION_THRESHOLD）
 
         Args:
             fact_check: {
                 "items": [
-                    {"claim": "...", "verdict": "accurate|hallucination|unverifiable", ...},
+                    {"claim": "...", "verdict": "accurate|partially_supported|hallucination|unverifiable", ...},
                     ...
                 ]
             }
@@ -137,6 +138,7 @@ class EvaluationMetrics:
                 "pass": bool,                # 是否达标
                 "hallucination_count": int,  # 幻觉断言数
                 "unverifiable_count": int,   # 无法验证断言数
+                "partially_supported_count": int,  # 部分支持断言数
                 "accurate_count": int,       # 准确断言数
                 "total": int,                # 总断言数
             }
@@ -150,6 +152,7 @@ class EvaluationMetrics:
                 "pass": True,
                 "hallucination_count": 0,
                 "unverifiable_count": 0,
+                "partially_supported_count": 0,
                 "accurate_count": 0,
                 "total": 0,
             }
@@ -161,8 +164,14 @@ class EvaluationMetrics:
             if item.get("verdict") == "hallucination" or item.get("is_accurate") is False
         )
         unverifiable_count = sum(1 for item in items if item.get("verdict") == "unverifiable")
-        accurate_count = total - hallucination_count - unverifiable_count
+        partially_supported_count = sum(
+            1 for item in items if item.get("verdict") == "partially_supported"
+        )
+        accurate_count = (
+            total - hallucination_count - unverifiable_count - partially_supported_count
+        )
 
+        # partially_supported 核心事实成立，不计入坏样本分子（仅进分母）
         rate = (hallucination_count + unverifiable_count) / total if total > 0 else 0.0
         passed = rate < settings.HALLUCINATION_THRESHOLD
 
@@ -171,6 +180,7 @@ class EvaluationMetrics:
             "pass": passed,
             "hallucination_count": hallucination_count,
             "unverifiable_count": unverifiable_count,
+            "partially_supported_count": partially_supported_count,
             "accurate_count": accurate_count,
             "total": total,
         }

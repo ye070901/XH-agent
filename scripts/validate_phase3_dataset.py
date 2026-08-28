@@ -20,7 +20,7 @@ DEFAULT_GOLD = REPO_ROOT / "data" / "evaluation" / "gold_labels.json"
 VALID_DIFFICULTIES = {"beginner", "intermediate", "advanced"}
 VALID_STYLES = {"theory_first", "practice_first", "visual", "project_based"}
 VALID_LEVELS = {"core", "high", "standard"}
-VALID_VERDICTS = {"accurate", "hallucination", "unverifiable", "skip"}
+VALID_VERDICTS = {"accurate", "hallucination", "unverifiable", "partially_supported", "skip"}
 
 
 def load_json(path: Path, errors: list[str]) -> dict[str, Any]:

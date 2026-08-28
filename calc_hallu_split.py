@@ -12,6 +12,7 @@ print(f"总共读取case数量： {total_cases}\n")
 
 total_hallucination = 0
 total_unverifiable = 0
+total_partially_supported = 0
 sum_case_hallu_rate = 0.0
 valid_case_rate = 0
 
@@ -23,6 +24,7 @@ for idx, case in enumerate(cases):
 
     hallu_cnt = 0
     unveri_cnt = 0
+    partially_cnt = 0
     hallu_rate = None
 
     if isinstance(audit_list, list) and len(audit_list) >= 1:
@@ -32,10 +34,12 @@ for idx, case in enumerate(cases):
             fact_check = audit_obj.get("fact_check", {})
             hallu_cnt = fact_check.get("hallucination_count", 0)
             unveri_cnt = fact_check.get("unverifiable_count", 0)
+            partially_cnt = fact_check.get("partially_supported_count", 0)
             hallu_rate = audit_obj.get("hallucination_rate")
 
     total_hallucination += hallu_cnt
     total_unverifiable += unveri_cnt
+    total_partially_supported += partially_cnt
 
     if hallu_rate is not None:
         sum_case_hallu_rate += hallu_rate
@@ -45,15 +49,16 @@ for idx, case in enumerate(cases):
         "case_idx": idx,
         "hallucination_count": hallu_cnt,
         "unverifiable_count": unveri_cnt,
+        "partially_supported_count": partially_cnt,
         "hallucination_rate": hallu_rate
     })
     #打印前10个case调试，case0现在应该输出 hallu_cnt=1, unveri=1, rate=0.25
     if idx < 10:
-        print(f"case[{idx}]: hallu_cnt={hallu_cnt}, unveri={unveri_cnt}, rate={hallu_rate}")
+        print(f"case[{idx}]: hallu_cnt={hallu_cnt}, unveri={unveri_cnt}, partially={partially_cnt}, rate={hallu_rate}")
 
 out_csv = "hallucination_stats.csv"
 with open(out_csv, "w", encoding="utf-8", newline="") as fcsv:
-    writer = csv.DictWriter(fcsv, fieldnames=["case_idx","hallucination_count","unverifiable_count","hallucination_rate"])
+    writer = csv.DictWriter(fcsv, fieldnames=["case_idx","hallucination_count","unverifiable_count","partially_supported_count","hallucination_rate"])
     writer.writeheader()
     writer.writerows(csv_rows)
 print(f"\n✅已导出全部case明细到文件: {out_csv}")
@@ -61,6 +66,7 @@ print(f"\n✅已导出全部case明细到文件: {out_csv}")
 print("\n==== 汇总统计结果 ====")
 print(f"全部case累计幻觉条目数 hallucination_count = {total_hallucination}")
 print(f"全部case累计不可验证条目数 unverifiable_count = {total_unverifiable}")
+print(f"全部case累计部分支持条目数 partially_supported_count = {total_partially_supported}")
 if valid_case_rate > 0:
     avg_case_rate = sum_case_hallu_rate / valid_case_rate
     print(f"有效case数量（含有hallucination_rate字段） = {valid_case_rate}")

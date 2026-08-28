@@ -65,10 +65,12 @@ STATE_TO_DECISION: dict[ThreeState, str] = {
     ThreeState.UNCOVERED: "delete",
 }
 
-# audit.py 三态 verdict → 博弈三态（K2 上游输出对齐）
+# audit.py 四态 verdict → 博弈三态（K2 上游输出对齐）
 AUDIT_VERDICT_TO_STATE: dict[str, ThreeState] = {
     "accurate": ThreeState.SUPPORT_A2,
     "hallucination": ThreeState.SUPPORT_A3,
+    # 核心事实成立但细节缺失：仍属"支持"而非未覆盖，避免被保守兜底删掉
+    "partially_supported": ThreeState.SUPPORT_A2,
     "unverifiable": ThreeState.UNCOVERED,
 }
 

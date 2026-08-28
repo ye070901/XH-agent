@@ -203,12 +203,14 @@ class GeneratedResource(BaseModel):
 class FactCheckItem(BaseModel):
     claim: str = Field(description="从生成内容中提取的断言")
     citation_ref: Optional[str] = Field(default=None, description="对应的 Citation.doc_id")
-    verdict: Literal["accurate", "hallucination", "unverifiable", "skip"] = Field(
-        description="三态事实核验结果；非事实性表述使用 skip"
+    verdict: Literal[
+        "accurate", "hallucination", "unverifiable", "partially_supported", "skip"
+    ] = Field(
+        description="四态事实核验结果；非事实性表述使用 skip"
     )
     is_accurate: Optional[bool] = Field(
         default=None,
-        description="兼容字段：accurate=True，hallucination=False，其余为 None",
+        description="兼容字段：accurate=True，hallucination=False，partially_supported/其余为 None",
     )
     evidence_from_kb: Optional[str] = Field(default=None, description="知识库中支撑/反驳的原句")
     explanation: str = ""
@@ -234,6 +236,7 @@ class FactCheckItem(BaseModel):
             item["is_accurate"] = {
                 "accurate": True,
                 "hallucination": False,
+                "partially_supported": None,  # 核心事实成立但细节缺失 → 非完全准确，亦非错误
             }.get(item["verdict"])
         return item
 
@@ -243,6 +246,7 @@ class FactCheckResult(BaseModel):
     items: list[FactCheckItem] = Field(default_factory=list)
     hallucination_count: int = 0
     unverifiable_count: int = 0
+    partially_supported_count: int = 0
 
 
 class ComplianceResult(BaseModel):

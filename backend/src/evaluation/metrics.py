@@ -20,7 +20,7 @@ from loguru import logger
 
 from ..config import settings
 
-_VALID_VERDICTS = {"accurate", "hallucination", "unverifiable", "skip"}
+_VALID_VERDICTS = {"accurate", "hallucination", "unverifiable", "partially_supported", "skip"}
 _VALID_STYLES = {"theory_first", "practice_first", "visual", "project_based"}
 _TARGET_PRIORITIES = {"critical", "high", "core"}
 _DIFFICULTY_LEVELS = {
@@ -344,9 +344,18 @@ class EvaluationMetrics:
         return result
 
     def compute_hallucination(self, fact_check: Any) -> dict[str, Any]:
-        """幻觉率 = (hallucination + unverifiable) / 有效事实断言总数。"""
+        """幻觉率 = (hallucination + unverifiable) / 有效事实断言总数。
 
-        counts = {"accurate": 0, "hallucination": 0, "unverifiable": 0, "skip": 0}
+        partially_supported 核心事实成立，不计入坏样本分子（仅进分母）。
+        """
+
+        counts = {
+            "accurate": 0,
+            "hallucination": 0,
+            "unverifiable": 0,
+            "partially_supported": 0,
+            "skip": 0,
+        }
         invalid_count = 0
         for item in _iter_fact_items(fact_check):
             verdict = str(item.get("verdict") or "").strip().casefold()
@@ -357,6 +366,9 @@ class EvaluationMetrics:
                 elif accurate is False:
                     verdict = "hallucination"
                 else:
+                    # is_accurate=None 且无 verdict：保守按 unverifiable（旧兼容）
+                    # 注意：partially_supported 的 item 自带 verdict 字段，
+                    # 不会落入此分支，仍走 verdict 分支正确计数。
                     verdict = "unverifiable"
             if verdict not in _VALID_VERDICTS:
                 # 未知标签不能静默从分母消失，否则会人为压低幻觉率。
@@ -364,7 +376,12 @@ class EvaluationMetrics:
                 invalid_count += 1
             counts[verdict] += 1
 
-        total = counts["accurate"] + counts["hallucination"] + counts["unverifiable"]
+        total = (
+            counts["accurate"]
+            + counts["hallucination"]
+            + counts["unverifiable"]
+            + counts["partially_supported"]
+        )
         numerator = counts["hallucination"] + counts["unverifiable"]
         rate = numerator / total if total else 0.0
         return {
@@ -372,6 +389,7 @@ class EvaluationMetrics:
             "pass": bool(total and rate < self.hallucination_threshold),
             "hallucination_count": counts["hallucination"],
             "unverifiable_count": counts["unverifiable"],
+            "partially_supported_count": counts["partially_supported"],
             "accurate_count": counts["accurate"],
             "skip_count": counts["skip"],
             "invalid_verdict_count": invalid_count,

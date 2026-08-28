@@ -2,13 +2,14 @@
 Agent 3: 内容审核 Agent — KB 逐条比对版（Phase 3）
 ══════════════════════════════════════════════════════════
 只审不修。拿到 Agent 2 生成的资源 + Agent 1 的诊断，把资源拆成一条条
-"事实断言"，逐条与知识库原文比对，输出三态裁决报告。
+"事实断言"，逐条与知识库原文比对，输出四态裁决报告。
 
 对应 PHASE3_PLAN.md §4.6（K2 交付标准）：
-  提取资源中每条"事实断言" → 逐条比对 KB 原文 → 三态输出
-    - accurate        知识库原文支持该断言（保真）
-    - hallucination   知识库原文反驳该断言（事实错误，须修正/替换为原文）
-    - unverifiable    知识库无对应原文，无法验证（无权威参考，按 D1 删除）
+  提取资源中每条"事实断言" → 逐条比对 KB 原文 → 四态输出
+    - accurate            知识库原文支持该断言（核心事实与次要细节均匹配）
+    - partially_supported 核心事实被原文支持，仅次要修饰/参数/同义转述细节缺失
+    - hallucination       知识库原文反驳该断言（事实错误，须修正/替换为原文）
+    - unverifiable        知识库无对应原文，核心事实无法验证（无权威参考，按 D1 删除）
 
 权威等级 A>B 加权（对应 D3）：
   A 级 = 一手原文（官方手册/说明书/规格书等）
@@ -82,9 +83,14 @@ REUSE_RETRIEVED_CHUNKS = True
 # 调试日志中检索片段内容的打印长度上限（便于观察召回，又不刷爆日志）
 _LOG_CONTENT_CHARS = 200
 
-# 规则兜底比对：claim 关键词在 KB 原文中的覆盖率阈值（≥ 此值判"支持"）
+# 规则兜底比对：claim 关键词在 KB 原文中的覆盖率阈值（≥ 此值判"部分支持"）
 _RULE_SUPPORT_THRESHOLD = 0.5
-# 规则兜底反驳：命中否定词的最小集合
+# 规则兜底比对：覆盖率 ≥ 此值判"完整支持"（核心事实与细节全部逐字命中 → accurate）
+_RULE_COMPLETE_THRESHOLD = 1.0
+# 规则兜底覆盖等级权重（用于多级降级取最高等级）
+_RULE_LEVEL_RANK = {"none": 0, "partial": 1, "full": 2}
+# 规则兜底反驳：命中否定词的最小集合（仅作辅助弱参考：须先有支撑命中才判反驳，
+# 不单独驱动降级——核心事实已覆盖时不会因否定词缺失细节而被一步降级）
 _NEGATION_MARKERS = (
     "不",
     "不是",
@@ -109,14 +115,20 @@ SYSTEM_PROMPT = """你是一个严格的内容审核专家，负责把学习资�
 （技术名词、参数、型号、步骤、因果、配置关系等），忽略纯过渡性/修辞性语句。
 2. 逐条比对知识库原文：对每条断言，从给定的知识库原文片段中寻找"支撑"或"反驳"的证据。
 
-裁决三态（最终由代码按权威等级裁决，你只需填证据）：
-- accurate        知识库原文明确支持该断言
-- hallucination   知识库原文明确反驳该断言（事实错误）
-- unverifiable    知识库原文没有覆盖该断言，无法验证
+裁决四态（最终由代码按权威等级裁决，你只需填证据）：
+- accurate            知识库原文明确支持该断言（核心事实与次要细节均匹配）
+- partially_supported 核心事实被原文支持，但次要修饰/参数/同义转述细节未逐字匹配
+- hallucination       知识库原文明确反驳该断言（事实错误）
+- unverifiable        知识库原文没有覆盖该断言的核心事实，无法验证
+
+硬性底线：只要断言的核心业务事实被知识库原文覆盖，无论多少次要细节缺失，
+禁止直接输出 unverifiable——最多判定 partially_supported；只有核心事实无原文
+依据时才允许落 unverifiable。
 
 权威等级 A>B 加权：每条知识库原文已标注权威等级（A=一手原文/官方，B=二手/教程）。
 你输出时必须把"支撑证据"和"反驳证据"分别归入 A 级、B 级四类字段（无则填 null），
-代码会按 A>B 规则做最终裁决。切勿把 A 级证据错填到 B 级字段。
+并额外给出 support_complete 与 missing_detail 两个字段，代码会按 A>B 规则做最终裁决。
+切勿把 A 级证据错填到 B 级字段。
 
 输出必须为严格的 JSON 格式。"""
 
@@ -196,7 +208,7 @@ class AuditAgent(BaseAgent):
         # 3. 逐条比对（LLM 语义判断 + 代码权威裁决）
         items = await self._classify_claims(claims, evidence_pool)
 
-        # 4. 汇总为审核报告（三态 → verdict + issues，向后兼容）
+        # 4. 汇总为审核报告（四态 → verdict + issues，向后兼容）
         return self._build_report(index, resource, items)
 
     async def _audit_consistency(self, index: int, resource: dict) -> dict:
@@ -398,6 +410,14 @@ class AuditAgent(BaseAgent):
 逐条比对：对每条断言，从知识库原文中寻找"支撑"和"反驳"证据，
 分别归入 A 级（一手原文/官方）与 B 级（二手/教程）四类字段，无证据填 null。
 
+在证据槽之外，还需对每条断言给出完整度判定：
+- support_complete（bool）：支撑证据是否完整覆盖断言的每一项内容
+  （核心业务事实 + 次要修饰/参数/同义转述细节均命中 → true）
+- missing_detail（"core" 或 "minor"）：缺失部分属于——
+  core = 核心业务事实无原文依据；minor = 仅次要修饰/参数/同义转述细节未逐字匹配
+硬性底线：核心事实已被原文覆盖时，缺失的只能标 minor，禁止整体判 unverifiable；
+只有核心事实无原文依据时才标 core。
+
 仅输出纯 JSON（不要 markdown 代码块）：
 {{"claims": [
   {{
@@ -407,6 +427,8 @@ class AuditAgent(BaseAgent):
     "support_b": "B级支撑原文（无则 null）",
     "contradict_a": "A级反驳原文（无则 null）",
     "contradict_b": "B级反驳原文（无则 null）",
+    "support_complete": true,
+    "missing_detail": "core",
     "explanation": "一句话说明"
   }}
 ]}}
@@ -414,7 +436,8 @@ class AuditAgent(BaseAgent):
 规则：
 - 只摘录原文，不要改写；确实无证据的字段填 null
 - 同一条 KB 原文不能同时填进支撑与反驳
-- A 级证据必须来自标注 [A] 的原文，B 级同理，严禁混淆"""
+- A 级证据必须来自标注 [A] 的原文，B 级同理，严禁混淆
+- 无任何支撑证据时 support_complete=false 且 missing_detail="core"""
 
         try:
             result = await self.call_llm_json(prompt)
@@ -437,7 +460,12 @@ class AuditAgent(BaseAgent):
     # ── 权威裁决（纯代码规则，不调 LLM）──
 
     def _resolve_verdict(self, item: dict) -> str:
-        """按权威等级 A>B 裁决三态（对应 D3，冲突取更高权威，同权威反驳优先）。"""
+        """按权威等级 A>B + 完整度两级降级裁决四态。
+
+        对应 D3：冲突取更高权威，同权威反驳优先；有支撑证据时按
+        support_complete / missing_detail 两级降级（accurate →
+        partially_supported → unverifiable），核心事实缺失才触达底线。
+        """
         support_a = item.get("support_a")
         support_b = item.get("support_b")
         contradict_a = item.get("contradict_a")
@@ -445,22 +473,42 @@ class AuditAgent(BaseAgent):
 
         if contradict_a:  # A 级一手原文反驳 → 最高权威，直接判幻觉
             return "hallucination"
-        if support_a:  # A 级一手原文支持
-            return "accurate"
+        if support_a:  # A 级一手原文支持 → 进入完整度两级降级
+            return self._resolve_support_grade(item)
         if contradict_b:  # B 级反驳（无 A 级覆盖）
             return "hallucination"
-        if support_b:  # B 级支持
-            return "accurate"
+        if support_b:  # B 级支持 → 进入完整度两级降级
+            return self._resolve_support_grade(item)
         return "unverifiable"  # 无任何覆盖
 
+    def _resolve_support_grade(self, item: dict) -> str:
+        """有支撑证据时的两级降级：core 缺失 → unverifiable；minor 缺失 → partially_supported。
+
+        硬性底线：只要核心事实被原文覆盖，最多降到 partially_supported，
+        禁止一步降到 unverifiable。向后兼容：LLM 未返回 support_complete /
+        missing_detail 新字段时，有支撑证据即判 accurate，保持旧行为，不误伤。
+        """
+        support_complete = item.get("support_complete")
+        missing_detail = str(item.get("missing_detail") or "").strip().lower()
+        if support_complete is not None:
+            if support_complete is True:
+                return "accurate"
+            # support_complete=False：按缺失级别降级，仅核心事实缺失才落 unverifiable
+            if missing_detail == "core":
+                return "unverifiable"
+            return "partially_supported"
+        # LLM 未返回新字段 → 向后兼容：有支撑证据即 accurate
+        return "accurate"
+
     def _build_item(self, claim: str, verdict: str, raw: dict) -> dict:
-        """构建单条断言的三态比对结果。"""
+        """构建单条断言的比对结果。"""
         evidence = ""
         authority = None
         if verdict == "hallucination":
             evidence = str(raw.get("contradict_a") or raw.get("contradict_b") or "")
             authority = AUTHORITY_A if raw.get("contradict_a") else AUTHORITY_B
-        elif verdict == "accurate":
+        elif verdict in ("accurate", "partially_supported"):
+            # partially_supported 亦属支撑证据（核心事实成立），取 support 槽位
             evidence = str(raw.get("support_a") or raw.get("support_b") or "")
             authority = AUTHORITY_A if raw.get("support_a") else AUTHORITY_B
         if not evidence:
@@ -483,39 +531,65 @@ class AuditAgent(BaseAgent):
     # ═══════════════════════════════════════════════════════════
 
     def _fallback_classify(self, claim: str, evidence_pool: list[dict]) -> dict:
-        """规则兜底：关键词覆盖率判支持，否定词判反驳，按权威分级归位。"""
+        """规则兜底：关键词覆盖率分完整/部分/无支持三级，否定词仅作辅助弱参考。"""
         out: dict = {
             "claim": claim,
             "support_a": None,
             "support_b": None,
             "contradict_a": None,
             "contradict_b": None,
+            "support_complete": False,
+            "missing_detail": "minor",
             "explanation": "规则兜底比对（关键词覆盖）",
         }
+        best_level = "none"
         for ev in evidence_pool:
             text = str(ev.get("content") or "")
-            supports = self._rule_support(claim, text)
+            level = self._rule_support_level(claim, text)
             contradicts = self._rule_contradict(claim, text)
-            if contradicts and supports:
-                supports = False  # 同 chunk 既支持又反驳 → 反驳优先
+            if contradicts and level != "none":
+                level = "none"  # 同 chunk 既支持又反驳 → 反驳优先
             auth = ev.get("authority") or AUTHORITY_B
             slot = None
-            if supports:
+            if level != "none":
                 slot = "support_a" if auth == AUTHORITY_A else "support_b"
+                if _RULE_LEVEL_RANK[level] > _RULE_LEVEL_RANK[best_level]:
+                    best_level = level
             elif contradicts:
                 slot = "contradict_a" if auth == AUTHORITY_A else "contradict_b"
             if slot and not out[slot]:
                 out[slot] = text[:300]
+        # 按最高覆盖等级设置完整度字段，供两级降级使用
+        if best_level == "full":
+            out["support_complete"] = True
+            out["missing_detail"] = "minor"
+        elif best_level == "partial":
+            out["support_complete"] = False
+            # 规则兜底无法区分核心/次要缺失，按硬性底线保守标 minor
+            # （核心事实被部分覆盖时禁止一步降 unverifiable，最多 partially_supported）
+            out["missing_detail"] = "minor"
+        else:
+            out["support_complete"] = False
+            out["missing_detail"] = "core"  # 无任何覆盖 → 核心事实无原文依据
         return out
 
-    def _rule_support(self, claim: str, text: str) -> bool:
-        """规则支持判定：claim 关键词在 KB 原文中的覆盖率 ≥ 阈值。"""
+    def _rule_support_level(self, claim: str, text: str) -> str:
+        """规则支持等级：full(完整覆盖) / partial(部分覆盖) / none(低于支持阈值)。"""
         tokens = self._extract_tokens(claim)
         if not tokens:
-            return False
+            return "none"
         normalized_text = self._normalize(text)
         hits = sum(1 for t in tokens if t in normalized_text)
-        return hits / len(tokens) >= _RULE_SUPPORT_THRESHOLD
+        ratio = hits / len(tokens)
+        if ratio >= _RULE_COMPLETE_THRESHOLD:
+            return "full"
+        if ratio >= _RULE_SUPPORT_THRESHOLD:
+            return "partial"
+        return "none"
+
+    def _rule_support(self, claim: str, text: str) -> bool:
+        """规则支持判定（bool）：覆盖率 ≥ 支持阈值即认为有支撑（供反驳辅助判断）。"""
+        return self._rule_support_level(claim, text) != "none"
 
     def _rule_contradict(self, claim: str, text: str) -> bool:
         """规则反驳判定：claim 关键词出现在原文中，且原文含否定词。"""
@@ -593,7 +667,7 @@ class AuditAgent(BaseAgent):
         issues: list[dict] | None = None,
         no_kb: bool = False,
     ) -> dict:
-        """由三态比对结果构建单资源审核报告。
+        """由四态比对结果构建单资源审核报告。
 
         兼容 correction.py（读 issues + fact_check.items）与
         evaluation/metrics.py（读 fact_check.items[].verdict）。
@@ -631,6 +705,15 @@ class AuditAgent(BaseAgent):
                             "kb_evidence": "",
                         }
                     )
+                elif v == "partially_supported":
+                    # 核心事实成立：不产生 error 级 issue，仅 warning 提示次要细节缺失
+                    issues.append(
+                        {
+                            "severity": "warning",
+                            "detail": f"次要细节缺失：{it.get('claim', '')}",
+                            "kb_evidence": it.get("evidence_from_kb") or "",
+                        }
+                    )
             hallucination_flags = flags
         else:
             hallucination_flags = []
@@ -638,7 +721,13 @@ class AuditAgent(BaseAgent):
         total = len(items)
         hallucination_count = sum(1 for it in items if it.get("verdict") == "hallucination")
         unverifiable_count = sum(1 for it in items if it.get("verdict") == "unverifiable")
-        accurate_count = total - hallucination_count - unverifiable_count
+        partially_supported_count = sum(
+            1 for it in items if it.get("verdict") == "partially_supported"
+        )
+        accurate_count = (
+            total - hallucination_count - unverifiable_count - partially_supported_count
+        )
+        # 幻觉率分子仅含 hallucination + unverifiable，partially_supported 不计入坏样本
         hallucination_rate = (
             round((hallucination_count + unverifiable_count) / total, 4) if total else 0.0
         )
@@ -658,6 +747,7 @@ class AuditAgent(BaseAgent):
                 "items": items,
                 "hallucination_count": hallucination_count,
                 "unverifiable_count": unverifiable_count,
+                "partially_supported_count": partially_supported_count,
             },
             "hallucination_flags": hallucination_flags,
             "hallucination_rate": hallucination_rate,
@@ -726,6 +816,7 @@ class AuditAgent(BaseAgent):
                 "items": [],
                 "hallucination_count": 0,
                 "unverifiable_count": 0,
+                "partially_supported_count": 0,
             },
             "hallucination_flags": [],
             "hallucination_rate": 0.0,
