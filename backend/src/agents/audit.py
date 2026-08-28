@@ -357,9 +357,9 @@ class AuditAgent(BaseAgent):
             self.log(f"[检索] claim[{i}]={claim[:60]!r} → 命中 {len(results)} 片段")
             for r in results:
                 self.log(
-                    f"    [检索] {r.get('doc_id','?')}#{r.get('chunk_index','?')} "
-                    f"score={r.get('relevance_score')} title={str(r.get('doc_title',''))[:30]!r} "
-                    f"content={str(r.get('content',''))[:_LOG_CONTENT_CHARS]!r}"
+                    f"    [检索] {r.get('doc_id', '?')}#{r.get('chunk_index', '?')} "
+                    f"score={r.get('relevance_score')} title={str(r.get('doc_title', ''))[:30]!r} "
+                    f"content={str(r.get('content', ''))[:_LOG_CONTENT_CHARS]!r}"
                 )
 
     # ═══════════════════════════════════════════════════════════

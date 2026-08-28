@@ -49,7 +49,9 @@ except ImportError:  # pragma: no cover - 独立运行兜底
             if str(_repo_found) not in sys.path:
                 sys.path.insert(0, str(_repo_found))
             from src.persistence.profile_store import ProfileStore  # type: ignore
-            from src.persistence.profile_store import profile_store as default_profile_store  # type: ignore
+            from src.persistence.profile_store import (
+                profile_store as default_profile_store,  # type: ignore
+            )
         else:
             ProfileStore = None  # type: ignore
             default_profile_store = None  # type: ignore
@@ -61,11 +63,11 @@ except ImportError:  # pragma: no cover - 独立运行兜底
 # 规则参数（步长与阈值，统一集中便于调参）
 # ═══════════════════════════════════════════════════════════
 
-LEVEL_STEP_UP = 0.12          # 答对：掌握度上调步长
-LEVEL_STEP_DOWN = 0.18        # 答错：掌握度下调步长（略大于奖励，引导巩固）
+LEVEL_STEP_UP = 0.12  # 答对：掌握度上调步长
+LEVEL_STEP_DOWN = 0.18  # 答错：掌握度下调步长（略大于奖励，引导巩固）
 CONFIDENCE_GAIN_CORRECT = 0.15  # 答对：置信度向 1 靠拢的比例（获得正向实测证据）
-CONFIDENCE_GAIN_WRONG = 0.30    # 答错：置信度上调更多（获得“不会”的反向实测证据）
-GAP_TARGET_DEFAULT = 0.85       # 缺口目标掌握度（无既有目标时的默认值）
+CONFIDENCE_GAIN_WRONG = 0.30  # 答错：置信度上调更多（获得“不会”的反向实测证据）
+GAP_TARGET_DEFAULT = 0.85  # 缺口目标掌握度（无既有目标时的默认值）
 
 
 def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -118,8 +120,7 @@ def apply_rules(
     gaps = [dict(g) for g in (profile.get("skill_gaps") or [])]
 
     entry = dict(
-        knowledge_map.get(kp)
-        or {"level": 0.30, "confidence": 0.10, "evidence": "初始默认评估"}
+        knowledge_map.get(kp) or {"level": 0.30, "confidence": 0.10, "evidence": "初始默认评估"}
     )
     old_level = _clamp(float(entry.get("level", 0.30)))
     old_confidence = _clamp(float(entry.get("confidence", 0.10)))
@@ -135,7 +136,11 @@ def apply_rules(
     # 3) 证据链追加（按“对/错”两类记录，保留最近一次）
     verdict = "对" if is_correct else "错"
     evidence = entry.get("evidence") or ""
-    new_evidence = f"{evidence}；[{_now_iso()}] 习题实测答{verdict}" if evidence else f"[{_now_iso()}] 习题实测答{verdict}"
+    new_evidence = (
+        f"{evidence}；[{_now_iso()}] 习题实测答{verdict}"
+        if evidence
+        else f"[{_now_iso()}] 习题实测答{verdict}"
+    )
 
     entry.update(
         level=new_level,
@@ -276,8 +281,11 @@ def profile_write_pipeline(
     """
     return asyncio.run(
         update_learner_profile(
-            learner_id, knowledge_point, is_correct,
-            store=store, profile_id=profile_id,
+            learner_id,
+            knowledge_point,
+            is_correct,
+            store=store,
+            profile_id=profile_id,
         )
     )
 
@@ -286,15 +294,24 @@ if __name__ == "__main__":
     # ── 单元自测（独立运行） ──
     # 1) 先验证纯规则函数（不依赖持久化层，任何环境可跑）
     print("== 纯规则自测：答错 → 掌握度下调 + 置信度上调 + 新增缺口 ==")
-    base = {"knowledge_map": {"FANUC点位编程": {"level": 0.5, "confidence": 0.2, "evidence": "前置摸底"}},
-            "skill_gaps": []}
+    base = {
+        "knowledge_map": {
+            "FANUC点位编程": {"level": 0.5, "confidence": 0.2, "evidence": "前置摸底"},
+        },
+        "skill_gaps": [],
+    }
     km1, gaps1, diff1 = apply_rules(base, "FANUC点位编程", is_correct=False)
     assert km1["FANUC点位编程"]["level"] < 0.5, km1
     assert km1["FANUC点位编程"]["confidence"] > 0.2, km1
     assert len(gaps1) == 1 and gaps1[0]["topic"] == "FANUC点位编程", gaps1
-    print("答错后 level:", km1["FANUC点位编程"]["level"],
-          "| confidence:", km1["FANUC点位编程"]["confidence"],
-          "| gap priority:", gaps1[0]["priority"])
+    print(
+        "答错后 level:",
+        km1["FANUC点位编程"]["level"],
+        "| confidence:",
+        km1["FANUC点位编程"]["confidence"],
+        "| gap priority:",
+        gaps1[0]["priority"],
+    )
 
     print("== 纯规则自测：答对 → 掌握度上调 ==")
     km2, gaps2, diff2 = apply_rules(km1, "FANUC点位编程", is_correct=True)
@@ -318,10 +335,16 @@ if __name__ == "__main__":
             item = prof["items"][0]["profile"]
             self_km = item["knowledge_map"]["FANUC点位编程"]
             uses_repo_store = r1["profile_id"] == r2["profile_id"]
-            print("两次回写同一快照:", uses_repo_store,
-                  "| level:", self_km["level"],
-                  "| confidence:", self_km["confidence"],
-                  "| updated_at:", r2["updated_at"])
+            print(
+                "两次回写同一快照:",
+                uses_repo_store,
+                "| level:",
+                self_km["level"],
+                "| confidence:",
+                self_km["confidence"],
+                "| updated_at:",
+                r2["updated_at"],
+            )
             assert r1["profile_id"] == r2["profile_id"]
             assert r1["level_after"] < r2["level_after"]
 

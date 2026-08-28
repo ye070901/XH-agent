@@ -33,18 +33,50 @@ from typing import Any
 # ═══════════════════════════════════════════════════════════
 
 BRAND_KEYWORDS: tuple[str, ...] = (
-    "FANUC", "发那科", "KUKA", "库卡", "ABB",
+    "FANUC",
+    "发那科",
+    "KUKA",
+    "库卡",
+    "ABB",
 )
 
 DEVICE_KEYWORDS: tuple[str, ...] = (
-    "示教器", "示教盒", "机器人本体", "控制柜", "R-30iB", "R-2000iC",
-    "离线仿真", "ROBOGUIDE", "KUKA.Sim", "IRC5", "控制器", "外部轴",
+    "示教器",
+    "示教盒",
+    "机器人本体",
+    "控制柜",
+    "R-30iB",
+    "R-2000iC",
+    "离线仿真",
+    "ROBOGUIDE",
+    "KUKA.Sim",
+    "IRC5",
+    "控制器",
+    "外部轴",
 )
 
 TASK_KEYWORDS: tuple[str, ...] = (
-    "点位编程", "示教编程", "搬运", "码垛", "焊接", "弧焊", "点焊",
-    "喷涂", "装配", "轨迹规划", "TCP标定", "标定", "IO配置", "信号配置",
-    "视觉引导", "追剪", "打磨", "上下料", "运动指令", "调试", "报警处理",
+    "点位编程",
+    "示教编程",
+    "搬运",
+    "码垛",
+    "焊接",
+    "弧焊",
+    "点焊",
+    "喷涂",
+    "装配",
+    "轨迹规划",
+    "TCP标定",
+    "标定",
+    "IO配置",
+    "信号配置",
+    "视觉引导",
+    "追剪",
+    "打磨",
+    "上下料",
+    "运动指令",
+    "调试",
+    "报警处理",
 )
 
 # ═══════════════════════════════════════════════════════════
@@ -60,7 +92,10 @@ DIMENSION_QUESTIONS: dict[str, dict[str, str]] = {
         "help": "品牌越具体，资源越能落到对应控制器与指令体系。",
     },
     "task": {
-        "ask_content": "您要主攻哪个具体任务 / 环节？例如：点位编程、搬运码垛、焊接工艺、TCP 标定、示教器操作。",
+        "ask_content": (
+            "您要主攻哪个具体任务 / 环节？例如：点位编程、搬运码垛、焊接工艺、"
+            "TCP 标定、示教器操作。"
+        ),
         "help": "任务明确了，才能映射到领域核心知识点清单。",
     },
     "goal_level": {
@@ -220,7 +255,10 @@ def _has_profile_evidence(learner_data: dict[str, Any] | None) -> bool:
     skills = learner_data.get("skills_used") or []
     if pretests and len(pretests) > 0:
         return True
-    return any(any(kw.upper() in _clean(str(s)) for kw in (*BRAND_KEYWORDS, *DEVICE_KEYWORDS)) for s in skills)
+    return any(
+        any(kw.upper() in _clean(str(s)) for kw in (*BRAND_KEYWORDS, *DEVICE_KEYWORDS))
+        for s in skills
+    )
 
 
 def pick_ask_dimension(
@@ -256,7 +294,7 @@ def pick_ask_dimension(
 
 
 def _pick_brand_word(answer: str) -> str:
-    """"从追问答案里提取厂商词（大写规整）。"""
+    """ "从追问答案里提取厂商词（大写规整）。"""
     for kw in BRAND_KEYWORDS:
         if kw.upper() in _clean(answer):
             return kw
@@ -398,8 +436,14 @@ if __name__ == "__main__":
         "我想学机器人",
         followup_answers={"direction": "FANUC", "task": "点位编程"},
     )
-    print("need_ask:", r2["need_ask"], "| 收窄目标:", r2["refined_target"],
-          "| 触发生成:", r2["trigger_generation"])
+    print(
+        "need_ask:",
+        r2["need_ask"],
+        "| 收窄目标:",
+        r2["refined_target"],
+        "| 触发生成:",
+        r2["trigger_generation"],
+    )
     assert r2["refined_target"] == "FANUC 点位编程", r2
     # learner_data 契约对齐：learning_goal 已替换
     assert r2["learner_data"]["learning_goal"] == "FANUC 点位编程"
@@ -411,13 +455,23 @@ if __name__ == "__main__":
     print("== 场景4：画像感知（带 pretest 跳过 base 维度） ==")
     r4 = pre_ask_pipeline(
         "想学KUKA",
-        learner_data={"pretest_results": [{"test_name": "前置摸底", "total_score": 40, "max_score": 100}]},
+        learner_data={
+            "pretest_results": [{"test_name": "前置摸底", "total_score": 40, "max_score": 100}]
+        },
     )
-    print("need_ask:", r4["need_ask"], "| 首问维度:", r4["asked_dimension"],
-          "（应跳过 base 优先补齐 task）")
+    print(
+        "need_ask:",
+        r4["need_ask"],
+        "| 首问维度:",
+        r4["asked_dimension"],
+        "（应跳过 base 优先补齐 task）",
+    )
 
     print("== 场景5：LLM 兜底（规则判不清时注入） ==")
-    fake_llm = lambda g: {"too_wide": True, "reason": "LLM 判定仍需补任务环节"}
+
+    def fake_llm(g):
+        return {"too_wide": True, "reason": "LLM 判定仍需补任务环节"}
+
     r5 = pre_ask_pipeline("想学KUKA", llm_handler=fake_llm)
     print("judged_by:", r5["judged_by"], "| 追问维度:", r5["asked_dimension"])
 

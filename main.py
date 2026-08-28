@@ -654,7 +654,10 @@ async def resolve_quiz_answer_key(request: QuizAnswerKeyRequest):
         if str(chunk.get("content", "")).strip()
     ]
     if not sources:
-        raise HTTPException(status_code=422, detail="No knowledge-base evidence was found for this quiz.")
+        raise HTTPException(
+            status_code=422,
+            detail="No knowledge-base evidence was found for this quiz.",
+        )
     knowledge_context = json.dumps(sources, ensure_ascii=False)
     questions_json = json.dumps(
         [question.model_dump() for question in request.questions],
@@ -662,20 +665,21 @@ async def resolve_quiz_answer_key(request: QuizAnswerKeyRequest):
     )
     prompt = f"""You are repairing the answer key of a Chinese technical learning quiz.
 
-Topic: {request.topic or 'Not specified'}
+Topic: {request.topic or "Not specified"}
 Displayed questions:
 {questions_json}
 
 Generated learning material:
-{request.resource_context.strip()[:8000] or 'Not provided'}
+{request.resource_context.strip()[:8000] or "Not provided"}
 
 Knowledge-base excerpts:
-{knowledge_context or 'No relevant excerpt was retrieved.'}
+{knowledge_context or "No relevant excerpt was retrieved."}
 
 Return valid JSON only in this exact shape:
 {{
   "questions": [
-    {{"id": "original id", "answer": "answer", "explanation": "Chinese explanation", "sourceRef": 1, "evidence": "exact supporting excerpt"}}
+    {{"id": "original id", "answer": "answer", "explanation": "Chinese explanation",
+    "sourceRef": 1, "evidence": "exact supporting excerpt"}}
   ]
 }}
 
@@ -696,7 +700,10 @@ remove questions.
     )
     raw_questions = result.get("questions") if isinstance(result, dict) else None
     if not isinstance(raw_questions, list):
-        raise HTTPException(status_code=502, detail="The model returned an invalid quiz answer key.")
+        raise HTTPException(
+            status_code=502,
+            detail="The model returned an invalid quiz answer key.",
+        )
 
     keyed_by_id = {
         str(item.get("id", "")).strip(): item
@@ -708,14 +715,20 @@ remove questions.
     for question in request.questions:
         item = keyed_by_id.get(question.id)
         if item is None:
-            raise HTTPException(status_code=502, detail="The model omitted part of the quiz answer key.")
+            raise HTTPException(
+                status_code=502,
+                detail="The model omitted part of the quiz answer key.",
+            )
         answer = str(item.get("answer", "")).strip()
         explanation = str(item.get("explanation", "")).strip()
         evidence = str(item.get("evidence", "")).strip()
         try:
             source_ref = int(item.get("sourceRef"))
         except (TypeError, ValueError):
-            raise HTTPException(status_code=502, detail="The model did not cite a valid knowledge source.")
+            raise HTTPException(
+                status_code=502,
+                detail="The model did not cite a valid knowledge source.",
+            )
         option_ids = {str(option.get("id", "")).strip().upper() for option in question.options}
         is_choice_question = (
             question.question_type == "choice"
@@ -725,39 +738,62 @@ remove questions.
         if is_choice_question:
             answer_match = re.match(r"^([A-Za-z])\b", answer)
             if not answer_match or answer_match.group(1).upper() not in option_ids:
-                raise HTTPException(status_code=502, detail="The model returned an invalid multiple-choice answer key.")
+                raise HTTPException(
+                    status_code=502,
+                    detail="The model returned an invalid multiple-choice answer key.",
+                )
             answer = answer_match.group(1).upper()
         if not answer or not explanation or not evidence or source_ref not in source_refs:
-            raise HTTPException(status_code=502, detail="The model returned an incomplete quiz answer key.")
-        resolved.append({
-            "id": question.id,
-            "answer": answer,
-            "explanation": explanation,
-            "sourceRef": source_ref,
-            "evidence": evidence,
-        })
+            raise HTTPException(
+                status_code=502,
+                detail="The model returned an incomplete quiz answer key.",
+            )
+        resolved.append(
+            {
+                "id": question.id,
+                "answer": answer,
+                "explanation": explanation,
+                "sourceRef": source_ref,
+                "evidence": evidence,
+            }
+        )
 
     verification = await llm.call_json(
         system_prompt=(
-            "You are an independent technical assessment reviewer. Verify answer keys only against the supplied source excerpts. "
+            "You are an independent technical assessment reviewer. Verify answer keys "
+            "only against the supplied source excerpts. "
             "Do not infer beyond the evidence."
         ),
         user_message=(
-            "Return JSON only as {\"questions\":[{\"id\":\"...\",\"verdict\":\"supported\" or \"unsupported\"}]}. "
+            'Return JSON only as {"questions":[{"id":"...","verdict":"supported" '
+            'or "unsupported"}]}. '
             "Every candidate id must appear exactly once.\nSources:\n"
-            f"{knowledge_context}\nCandidate answer key:\n{json.dumps(resolved, ensure_ascii=False)}"
+            f"{knowledge_context}\nCandidate answer key:\n"
+            f"{json.dumps(resolved, ensure_ascii=False)}"
         ),
         temperature=0.0,
     )
     reviewed = verification.get("questions") if isinstance(verification, dict) else None
-    verdicts = {
-        str(item.get("id", "")).strip(): str(item.get("verdict", "")).strip().lower()
-        for item in reviewed
-        if isinstance(item, dict)
-    } if isinstance(reviewed, list) else {}
+    verdicts = (
+        {
+            str(item.get("id", "")).strip(): str(item.get("verdict", "")).strip().lower()
+            for item in reviewed
+            if isinstance(item, dict)
+        }
+        if isinstance(reviewed, list)
+        else {}
+    )
     expected_ids = {question.id for question in request.questions}
-    if set(verdicts) != expected_ids or any(verdicts[question_id] != "supported" for question_id in expected_ids):
-        raise HTTPException(status_code=502, detail="The recovered quiz key could not be independently verified against the knowledge base.")
+    if set(verdicts) != expected_ids or any(
+        verdicts[question_id] != "supported" for question_id in expected_ids
+    ):
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "The recovered quiz key could not be independently verified "
+                "against the knowledge base."
+            ),
+        )
 
     return {"questions": resolved, "sources": [source["title"] for source in sources]}
 

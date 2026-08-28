@@ -52,14 +52,9 @@ def run_exam_pipeline(
             topic_scores[q_topic] = []
         topic_scores[q_topic].append(answer_data.get("score", 0.0))
 
-    total_weighted_score = sum(
-        r.get("score", 0.0) * r.get("weight", 1.0)
-        for r in results
-    )
+    total_weighted_score = sum(r.get("score", 0.0) * r.get("weight", 1.0) for r in results)
     total_weight = sum(r.get("weight", 1.0) for r in results)
-    normalized_score = (
-        (total_weighted_score / total_weight) if total_weight > 0 else 0.0
-    )
+    normalized_score = (total_weighted_score / total_weight) if total_weight > 0 else 0.0
 
     return {
         "results": results,

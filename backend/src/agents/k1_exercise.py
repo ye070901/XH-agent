@@ -57,10 +57,7 @@ def normalize_text(text: str) -> str:
         return ""
     s = str(text).strip().upper()
     # 全角转半角（字母数字部分）
-    s = "".join(
-        chr(ord(c) - 0xFEE0) if "Ａ" <= c <= "Ｚ" or "０" <= c <= "９" else c
-        for c in s
-    )
+    s = "".join(chr(ord(c) - 0xFEE0) if "Ａ" <= c <= "Ｚ" or "０" <= c <= "９" else c for c in s)
     return _IGNORE_CHARS.sub("", s)
 
 
@@ -68,7 +65,12 @@ def _synonym_id(token: str) -> int | None:
     """返回 token 所属同义词组的下标；不在任何组返回 None。"""
     norm = normalize_text(token)
     for idx, group in enumerate(SYNONYM_GROUPS):
-        if any(normalize_text(member) == norm or norm in normalize_text(member) or normalize_text(member) in norm for member in group):
+        if any(
+            normalize_text(member) == norm
+            or norm in normalize_text(member)
+            or normalize_text(member) in norm
+            for member in group
+        ):
             return idx
     return None
 
@@ -102,7 +104,9 @@ def similarity_score(user_answer: str, standard_answer: str) -> float:
     Returns:
         float: 0~1 相似度。
     """
-    return difflib.SequenceMatcher(None, normalize_text(user_answer), normalize_text(standard_answer)).ratio()
+    return difflib.SequenceMatcher(
+        None, normalize_text(user_answer), normalize_text(standard_answer)
+    ).ratio()
 
 
 def match_fill(
@@ -134,19 +138,34 @@ def match_fill(
     for std in standards:
         n_std = normalize_text(std)
         if n_user == n_std or (n_std and (n_user in n_std or n_std in n_user)):
-            return {"is_correct": True, "match_type": "exact", "score": 1.0, "matched_standard": std}
+            return {
+                "is_correct": True,
+                "match_type": "exact",
+                "score": 1.0,
+                "matched_standard": std,
+            }
 
     # 2) 同义 / 近义
     for std in standards:
         if synonym_match(user_answer, std):
-            return {"is_correct": True, "match_type": "synonym", "score": 0.95, "matched_standard": std}
+            return {
+                "is_correct": True,
+                "match_type": "synonym",
+                "score": 0.95,
+                "matched_standard": std,
+            }
 
     # 3) 相似度兜底
     scores = {std: similarity_score(user_answer, std) for std in standards}
     best_std = max(scores, key=scores.get)
     best_score = scores[best_std]
     if best_score >= threshold:
-        return {"is_correct": True, "match_type": "similarity", "score": round(best_score, 3), "matched_standard": best_std}
+        return {
+            "is_correct": True,
+            "match_type": "similarity",
+            "score": round(best_score, 3),
+            "matched_standard": best_std,
+        }
 
     return {
         "is_correct": False,
@@ -174,26 +193,53 @@ def match_choice(
     n_user = normalize_text(user_answer)
     n_std = normalize_text(standard_answer)
     if n_user and n_user == n_std:
-        return {"is_correct": True, "match_type": "exact", "score": 1.0, "matched_standard": standard_answer}
+        return {
+            "is_correct": True,
+            "match_type": "exact",
+            "score": 1.0,
+            "matched_standard": standard_answer,
+        }
 
     # 字母映射到选项文本再比较
     if options:
         user_text = options.get(user_answer.strip().upper())
-        std_text = options.get(n_std.split(maxsplit=1)[0] if len(n_std.split(maxsplit=1)) else n_std)
+        std_text = options.get(
+            n_std.split(maxsplit=1)[0] if len(n_std.split(maxsplit=1)) else n_std
+        )
         if user_text:
             if std_text and normalize_text(user_text) == normalize_text(std_text):
-                return {"is_correct": True, "match_type": "option_text", "score": 1.0, "matched_standard": standard_answer}
+                return {
+                    "is_correct": True,
+                    "match_type": "option_text",
+                    "score": 1.0,
+                    "matched_standard": standard_answer,
+                }
             if synonym_match(user_text, str(standard_answer) if not std_text else std_text):
-                return {"is_correct": True, "match_type": "synonym", "score": 0.95, "matched_standard": standard_answer}
+                return {
+                    "is_correct": True,
+                    "match_type": "synonym",
+                    "score": 0.95,
+                    "matched_standard": standard_answer,
+                }
 
     # 用户给出文本，标准为字母 → 反查选项文本
     if options and not n_user.isdigit():
         std_key = n_std[:1] if len(n_std) == 1 else None
         std_text = options.get(std_key or n_std, standard_answer)
         if synonym_match(user_answer, std_text):
-            return {"is_correct": True, "match_type": "synonym", "score": 0.95, "matched_standard": standard_answer}
+            return {
+                "is_correct": True,
+                "match_type": "synonym",
+                "score": 0.95,
+                "matched_standard": standard_answer,
+            }
 
-    return {"is_correct": False, "match_type": "none", "score": 0.0, "matched_standard": standard_answer}
+    return {
+        "is_correct": False,
+        "match_type": "none",
+        "score": 0.0,
+        "matched_standard": standard_answer,
+    }
 
 
 def grade_question(question: dict[str, Any]) -> dict[str, Any]:
@@ -234,7 +280,9 @@ def grade_question(question: dict[str, Any]) -> dict[str, Any]:
         "match_type": grading["match_type"],
         "score": grading["score"],
         "user_answer": str(user_answer),
-        "standard_answer": standard_answer if isinstance(standard_answer, str) else list(standard_answer or []),
+        "standard_answer": (
+            standard_answer if isinstance(standard_answer, str) else list(standard_answer or [])
+        ),
         "matched_standard": grading["matched_standard"],
         "analysis": question.get("analysis", ""),
         "study_suggest": question.get("study_suggest", ""),
@@ -300,50 +348,71 @@ def check_answer(user_ans: str, standard_answers: list[str]) -> dict[str, Any]:
 if __name__ == "__main__":
     # ── 单元自测：选择题 / 填空题 / 同义匹配 / 相似度兜底 ──
     print("== 选择题：字母与文本均判对 ==")
-    q1 = exercise_pipeline({
-        "question_id": "c01", "question_type": "choice",
-        "knowledge_point": "示教器操作",
-        "user_answer": "b", "standard_answer": "B",
-        "options": {"A": "在线仿真模式", "B": "JOG手动模式"},
-        "analysis": "JOG 是机器人手动示教模式。",
-        "study_suggest": "复习示教器操作手册",
-        "reference_url": "https://kb.example/jog",
-    })
+    q1 = exercise_pipeline(
+        {
+            "question_id": "c01",
+            "question_type": "choice",
+            "knowledge_point": "示教器操作",
+            "user_answer": "b",
+            "standard_answer": "B",
+            "options": {"A": "在线仿真模式", "B": "JOG手动模式"},
+            "analysis": "JOG 是机器人手动示教模式。",
+            "study_suggest": "复习示教器操作手册",
+            "reference_url": "https://kb.example/jog",
+        }
+    )
     print("choice 对错:", q1["grading"]["is_correct"], "| match:", q1["grading"]["match_type"])
 
     print("== 填空题：同义匹配（用户答『示教盒』对照『示教器』） ==")
-    q2 = exercise_pipeline({
-        "question_id": "f02", "question_type": "fill",
-        "knowledge_point": "示教器操作",
-        "user_answer": "示教盒", "standard_answer": ["示教器"],
-        "analysis": "示教器即 Teach Pendant。",
-        "study_suggest": "认识示教器面板",
-        "reference_url": "https://kb.example/tp",
-    })
+    q2 = exercise_pipeline(
+        {
+            "question_id": "f02",
+            "question_type": "fill",
+            "knowledge_point": "示教器操作",
+            "user_answer": "示教盒",
+            "standard_answer": ["示教器"],
+            "analysis": "示教器即 Teach Pendant。",
+            "study_suggest": "认识示教器面板",
+            "reference_url": "https://kb.example/tp",
+        }
+    )
     print("fill 同义对错:", q2["grading"]["is_correct"], "| match:", q2["grading"]["match_type"])
     assert q2["grading"]["is_correct"] is True
     assert q2["grading"]["match_type"] == "synonym"
 
     print("== 填空题：相似度兜底（『点动』 vs 标准『JOG模式』未入组场景） ==")
-    q3 = exercise_pipeline({
-        "question_id": "f03", "question_type": "fill",
-        "knowledge_point": "示教器操作",
-        "user_answer": "手动", "standard_answer": ["手动模式"],
-        "analysis": "手动模式即 JOG。",
-        "study_suggest": "略",
-        "reference_url": "https://kb.example",
-    })
-    print("fill 包含匹配对错:", q3["grading"]["is_correct"], "| match:", q3["grading"]["match_type"])
+    q3 = exercise_pipeline(
+        {
+            "question_id": "f03",
+            "question_type": "fill",
+            "knowledge_point": "示教器操作",
+            "user_answer": "手动",
+            "standard_answer": ["手动模式"],
+            "analysis": "手动模式即 JOG。",
+            "study_suggest": "略",
+            "reference_url": "https://kb.example",
+        }
+    )
+    print(
+        "fill 包含匹配对错:",
+        q3["grading"]["is_correct"],
+        "| match:",
+        q3["grading"]["match_type"],
+    )
 
     print("== 填空题：答错（完全不相似） ==")
-    q4 = exercise_pipeline({
-        "question_id": "f04", "question_type": "fill",
-        "knowledge_point": "TCP标定",
-        "user_answer": "法兰盘", "standard_answer": ["TCP", "工具中心点"],
-        "analysis": "TCP 定义工具坐标系原点。",
-        "study_suggest": "复习 TCP 标定流程",
-        "reference_url": "https://kb.example/tcp",
-    })
+    q4 = exercise_pipeline(
+        {
+            "question_id": "f04",
+            "question_type": "fill",
+            "knowledge_point": "TCP标定",
+            "user_answer": "法兰盘",
+            "standard_answer": ["TCP", "工具中心点"],
+            "analysis": "TCP 定义工具坐标系原点。",
+            "study_suggest": "复习 TCP 标定流程",
+            "reference_url": "https://kb.example/tcp",
+        }
+    )
     print("fill 答错:", q4["grading"]["is_correct"], "| score:", q4["grading"]["score"])
     assert q4["grading"]["is_correct"] is False
 

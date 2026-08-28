@@ -111,6 +111,34 @@ VALID_RESOURCE = {
     "key_takeaways": ["理解 StateGraph", "掌握节点与边"],
 }
 
+#: 通过 quiz 契约校验的有效题库内容（5 题，含 A-D 选项 / 答案 / 解析）
+VALID_QUIZ_CONTENT = "\n\n".join(
+    "\n".join(
+        [
+            f"Question {n}: Before task {n}, which operating setting keeps the equipment safe?",
+            "A. Run at full speed",
+            "B. Use the approved safe setting",
+            "C. Disable the protection",
+            "D. Ignore the warning",
+            "Answer: B",
+            "Explanation: The approved setting keeps the operation within the "
+            "documented safety limits.",
+        ]
+    )
+    for n in range(1, 6)
+)
+
+#: 知识生成所需的 KB 素材（空 KB 生成关闭守卫要求至少 1 条有效 chunk 才进入生成）
+GEN_KB_CHUNKS = [
+    {
+        "doc_id": "langgraph_intro.md",
+        "doc_title": "LangGraph 入门",
+        "chunk_index": 0,
+        "content": "LangGraph is a library built by the LangChain team for stateful agents.",
+        "relevance_score": 0.95,
+    },
+]
+
 #: 保真修正的正常 mock 返回（含 _infos_applied 控制 info 采纳数量）
 CORRECTED_OK = {
     "title": "LangGraph 入门讲义（修正）",
@@ -243,8 +271,10 @@ class TestDiagnosisAgent:
 
         # process 流程：输出已写入 state
         assert result["diagnosis_completed"] is True
-        assert result["diagnosis_result"]["recommended_difficulty"] == "beginner"
-        assert result["diagnosis_result"]["learning_style"] == "practice_first"
+        # 确定性兜底以客观前置测试为准：80/100=80% → advanced；岗位「初级后端工程师」
+        # 非专家/非直接操作岗 → theory_first（覆盖 mock 的 "beginner"/"practice_first"）
+        assert result["diagnosis_result"]["recommended_difficulty"] == "advanced"
+        assert result["diagnosis_result"]["learning_style"] == "theory_first"
         # 生命周期日志以 complete 结尾
         assert result["agent_log"][-1]["stage"] == "complete"
         # 未进入错误分支
@@ -426,7 +456,7 @@ class TestGenerationAgent:
     def test_normal_generates_3(self):
         """正常输入：默认 3 种资源类型 → 产出 3 条资源，字段齐全。"""
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS)},
+            {"diagnosis_result": dict(VALID_DIAGNOSIS), "retrieved_chunks": GEN_KB_CHUNKS},
             {"return_value": dict(VALID_RESOURCE)},
         )
         resources = result["generated_resources"]
@@ -443,7 +473,11 @@ class TestGenerationAgent:
     def test_single_resource_type(self):
         """边界：只请求 1 种类型 → 产出 1 条 lecture 资源。"""
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS), "resource_types": ["lecture"]},
+            {
+                "diagnosis_result": dict(VALID_DIAGNOSIS),
+                "resource_types": ["lecture"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"return_value": dict(VALID_RESOURCE)},
         )
         assert len(result["generated_resources"]) == 1
@@ -455,6 +489,7 @@ class TestGenerationAgent:
             {
                 "diagnosis_result": dict(VALID_DIAGNOSIS),
                 "resource_types": ["lecture", "guide", "quiz", "project"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
             },
             {"return_value": dict(VALID_RESOURCE)},
         )
@@ -463,7 +498,11 @@ class TestGenerationAgent:
     def test_empty_diagnosis_still_generates(self):
         """边界：诊断结果为空 dict → 缺省值兜底，仍能生成 1 条资源。"""
         result, _ = self._run(
-            {"diagnosis_result": {}, "resource_types": ["guide"]},
+            {
+                "diagnosis_result": {},
+                "resource_types": ["guide"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"return_value": dict(VALID_RESOURCE)},
         )
         assert len(result["generated_resources"]) == 1
@@ -493,7 +532,11 @@ class TestGenerationAgent:
             "summary": "学习目标",
         }
         result, m = self._run(
-            {"diagnosis_result": diagnosis, "resource_types": ["quiz"]},
+            {
+                "diagnosis_result": diagnosis,
+                "resource_types": ["lecture"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"return_value": dict(VALID_RESOURCE)},
         )
         assert len(result["generated_resources"]) == 1
@@ -506,7 +549,11 @@ class TestGenerationAgent:
     def test_llm_invalid_json_skipped(self):
         """异常②返回非法 JSON：解析失败 → 该类型资源跳过，记录 json_parse_failed，不崩溃。"""
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS), "resource_types": ["lecture"]},
+            {
+                "diagnosis_result": dict(VALID_DIAGNOSIS),
+                "resource_types": ["lecture"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"return_value": {"_parse_error": True, "raw": "not json"}},
         )
         _no_crash(result)
@@ -517,7 +564,11 @@ class TestGenerationAgent:
     def test_llm_empty_content_skipped(self):
         """异常③返回空内容：call_llm_json 返回 {} → 该类型资源跳过，不崩溃。"""
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS), "resource_types": ["lecture"]},
+            {
+                "diagnosis_result": dict(VALID_DIAGNOSIS),
+                "resource_types": ["lecture"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"return_value": {}},
         )
         _no_crash(result)
@@ -531,7 +582,11 @@ class TestGenerationAgent:
         记录到 generation_errors；单资源失败不置 status="error"。
         """
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS), "resource_types": ["lecture"]},
+            {
+                "diagnosis_result": dict(VALID_DIAGNOSIS),
+                "resource_types": ["lecture"],
+                "retrieved_chunks": GEN_KB_CHUNKS,
+            },
             {"side_effect": asyncio.TimeoutError("LLM 调用超时")},
         )
         _no_crash(result)
@@ -545,10 +600,10 @@ class TestGenerationAgent:
         payloads = [
             dict(VALID_RESOURCE),
             {"_parse_error": True, "raw": "not json"},
-            dict(VALID_RESOURCE),
+            {"content": VALID_QUIZ_CONTENT},
         ]
         result, _ = self._run(
-            {"diagnosis_result": dict(VALID_DIAGNOSIS)},
+            {"diagnosis_result": dict(VALID_DIAGNOSIS), "retrieved_chunks": GEN_KB_CHUNKS},
             {"side_effect": payloads},
         )
         assert len(result["generated_resources"]) == 2
@@ -564,7 +619,7 @@ class TestGenerationAgent:
         agent = GenerationAgent()
 
         # 空 chunk → 无资料提示文案
-        assert "无可用知识库资料" in agent._fmt_knowledge_base([])
+        assert "无可用知识库素材" in agent._fmt_knowledge_base([])
 
         # 同 doc_title 去重（保留第一个）+ 上限 6 条
         chunks = [{"doc_title": f"doc-{i % 3}", "content": "c" * 50} for i in range(10)]

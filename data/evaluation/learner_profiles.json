@@ -1,14 +1,19 @@
 {
   "meta": {
     "name": "Phase 3 外部真值学习者画像",
-    "version": "3.0",
+    "version": "4.0",
     "profile_count": 10,
     "truth_policy": "expected_profile 由测试方案预先定义，评测时禁止从模型诊断输出回填。",
     "provenance": [
       "docs/TESTING_PLAN.md#4.2",
       "docs/PHASE3_PLAN.md#4.4",
       "data/evaluation/pretest_questions.json"
-    ]
+    ],
+    "gold_derivation": {
+      "knowledge_map": "topic_scores 为 0-100 百分制掌握度（backend/src/evaluation/pretest.py score_pretest 定义），知识点掌握度 level = topic_score / 100，四舍五入 2 位。",
+      "skill_gaps": "level < 0.65 的主题即知识短板；优先级按得分率定档：<0.30 critical / <0.50 high / 其余 medium；全主题 ≥0.65 时 expected_skill_gaps 为空数组。",
+      "summary": "总结须自洽地包含客观难度与学习风格两个关键事实（must_include_*），不得与前置测试证据冲突。"
+    }
   },
   "profiles": [
     {
@@ -47,7 +52,45 @@
         "expected_difficulty": "beginner",
         "expected_learning_style": "visual",
         "difficulty_rationale": "无任何工业/电气/机械背景，前置测试仅 5/120，需从最基础的概念与直观认识起步。",
-        "style_rationale": "零基础学习者最需要图像、视频、动画等可视化手段建立直观认识。"
+        "style_rationale": "零基础学习者最需要图像、视频、动画等可视化手段建立直观认识。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.05,
+          "运动指令": 0.05,
+          "RobotStudio仿真": 0.0,
+          "ROS2/Gazebo仿真": 0.0,
+          "SRVO-068数据传输故障": 0.0,
+          "安全急停链路": 0.1
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "critical"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "critical"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "critical"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "critical"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "beginner",
+          "must_include_style": "visual"
+        }
       }
     },
     {
@@ -90,7 +133,45 @@
         "expected_difficulty": "beginner",
         "expected_learning_style": "theory_first",
         "difficulty_rationale": "有电气基础但机器人领域仅听说过概念，前置测试 15/120，仍需从入门开始。",
-        "style_rationale": "有技术背景的学习者适合先建立概念框架，再进入实操。"
+        "style_rationale": "有技术背景的学习者适合先建立概念框架，再进入实操。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.15,
+          "运动指令": 0.1,
+          "RobotStudio仿真": 0.0,
+          "ROS2/Gazebo仿真": 0.0,
+          "SRVO-068数据传输故障": 0.15,
+          "安全急停链路": 0.4
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "critical"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "critical"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "critical"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "high"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "beginner",
+          "must_include_style": "theory_first"
+        }
       }
     },
     {
@@ -134,7 +215,37 @@
         "expected_difficulty": "intermediate",
         "expected_learning_style": "theory_first",
         "difficulty_rationale": "理论掌握良好但零实操，前置测试 55/120，理论题高分、实操题低分，适合中级内容补实操。",
-        "style_rationale": "理论型学习者应先巩固原理，再引入实操案例验证。"
+        "style_rationale": "理论型学习者应先巩固原理，再引入实操案例验证。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.85,
+          "运动指令": 0.7,
+          "RobotStudio仿真": 0.45,
+          "ROS2/Gazebo仿真": 0.5,
+          "SRVO-068数据传输故障": 0.15,
+          "安全急停链路": 0.3
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "critical"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "high"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "high"
+          },
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "medium"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "intermediate",
+          "must_include_style": "theory_first"
+        }
       }
     },
     {
@@ -177,7 +288,41 @@
         "expected_difficulty": "intermediate",
         "expected_learning_style": "practice_first",
         "difficulty_rationale": "会日常操作但不理解原理，前置测试 50/120，实操题高分、理论题低分，需补理论但不从零开始。",
-        "style_rationale": "已有操作经验，通过实操场景反向补理论最有效。"
+        "style_rationale": "已有操作经验，通过实操场景反向补理论最有效。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.2,
+          "运动指令": 0.35,
+          "RobotStudio仿真": 0.15,
+          "ROS2/Gazebo仿真": 0.1,
+          "SRVO-068数据传输故障": 0.6,
+          "安全急停链路": 0.8
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "critical"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "high"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "medium"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "intermediate",
+          "must_include_style": "practice_first"
+        }
       }
     },
     {
@@ -222,7 +367,45 @@
         "expected_difficulty": "intermediate",
         "expected_learning_style": "theory_first",
         "difficulty_rationale": "理论和实操都有基础但都不深入，前置测试 65/120，全面中等无短板，适合中级系统化提升。",
-        "style_rationale": "实操已有积累、理论不系统，先梳理理论框架再带动实操。"
+        "style_rationale": "实操已有积累、理论不系统，先梳理理论框架再带动实操。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.5,
+          "运动指令": 0.55,
+          "RobotStudio仿真": 0.4,
+          "ROS2/Gazebo仿真": 0.4,
+          "SRVO-068数据传输故障": 0.5,
+          "安全急停链路": 0.55
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "high"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "high"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "medium"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "medium"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "medium"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "medium"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "intermediate",
+          "must_include_style": "theory_first"
+        }
       }
     },
     {
@@ -266,7 +449,25 @@
         "expected_difficulty": "advanced",
         "expected_learning_style": "practice_first",
         "difficulty_rationale": "日常编程调试排故熟练，前置测试 88/120，全面均衡偏高，适合进阶内容。",
-        "style_rationale": "熟练工程师以真实任务和排故路径承载进阶概念。"
+        "style_rationale": "熟练工程师以真实任务和排故路径承载进阶概念。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.85,
+          "运动指令": 0.9,
+          "RobotStudio仿真": 0.7,
+          "ROS2/Gazebo仿真": 0.6,
+          "SRVO-068数据传输故障": 0.85,
+          "安全急停链路": 0.9
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "medium"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "advanced",
+          "must_include_style": "practice_first"
+        }
       }
     },
     {
@@ -311,7 +512,20 @@
         "expected_difficulty": "advanced",
         "expected_learning_style": "project_based",
         "difficulty_rationale": "12 年多品牌精通，前置测试 115/120，全面顶级，需权威级内容。",
-        "style_rationale": "权威专家以任务/项目驱动，用真实项目沉淀方法论。"
+        "style_rationale": "权威专家以任务/项目驱动，用真实项目沉淀方法论。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.98,
+          "运动指令": 1.0,
+          "RobotStudio仿真": 0.95,
+          "ROS2/Gazebo仿真": 0.95,
+          "SRVO-068数据传输故障": 1.0,
+          "安全急停链路": 1.0
+        },
+        "expected_skill_gaps": [],
+        "expected_summary": {
+          "must_include_difficulty": "advanced",
+          "must_include_style": "project_based"
+        }
       }
     },
     {
@@ -356,7 +570,45 @@
         "expected_difficulty": "beginner",
         "expected_learning_style": "practice_first",
         "difficulty_rationale": "前置测试仅 20/120 是直接证据，压倒自述的十年经历与专家头衔，应从入门起步。",
-        "style_rationale": "自称实操专家，若按其实操导向应给步骤化内容，但难度必须对齐真实水平。"
+        "style_rationale": "自称实操专家，若按其实操导向应给步骤化内容，但难度必须对齐真实水平。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.2,
+          "运动指令": 0.15,
+          "RobotStudio仿真": 0.05,
+          "ROS2/Gazebo仿真": 0.0,
+          "SRVO-068数据传输故障": 0.1,
+          "安全急停链路": 0.25
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "critical"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "critical"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "critical"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "critical"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "beginner",
+          "must_include_style": "practice_first"
+        }
       }
     },
     {
@@ -399,7 +651,41 @@
         "expected_difficulty": "intermediate",
         "expected_learning_style": "theory_first",
         "difficulty_rationale": "PLC工程师有工程基础，但目标域（RobotStudio仿真）前置 0 分，整体中级、该域从零，不能因目标激进判高级。",
-        "style_rationale": "工程背景学习者适合先建立仿真原理框架再进入实操。"
+        "style_rationale": "工程背景学习者适合先建立仿真原理框架再进入实操。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.7,
+          "运动指令": 0.6,
+          "RobotStudio仿真": 0.0,
+          "ROS2/Gazebo仿真": 0.1,
+          "SRVO-068数据传输故障": 0.5,
+          "安全急停链路": 0.55
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "medium"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "medium"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "medium"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "intermediate",
+          "must_include_style": "theory_first"
+        }
       }
     },
     {
@@ -441,7 +727,45 @@
         "expected_difficulty": "beginner",
         "expected_learning_style": "practice_first",
         "difficulty_rationale": "技能列表实习生级 + 前置测试 25/120 双重证据指向入门，work_years=10 与岗位/技能矛盾，应取技能与测试证据侧。",
-        "style_rationale": "操作工出身，步骤化实操最匹配。"
+        "style_rationale": "操作工出身，步骤化实操最匹配。",
+        "expected_knowledge_map": {
+          "机器人坐标系": 0.2,
+          "运动指令": 0.25,
+          "RobotStudio仿真": 0.05,
+          "ROS2/Gazebo仿真": 0.0,
+          "SRVO-068数据传输故障": 0.15,
+          "安全急停链路": 0.3
+        },
+        "expected_skill_gaps": [
+          {
+            "topic": "ROS2/Gazebo仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "RobotStudio仿真",
+            "priority": "critical"
+          },
+          {
+            "topic": "SRVO-068数据传输故障",
+            "priority": "critical"
+          },
+          {
+            "topic": "机器人坐标系",
+            "priority": "critical"
+          },
+          {
+            "topic": "运动指令",
+            "priority": "critical"
+          },
+          {
+            "topic": "安全急停链路",
+            "priority": "high"
+          }
+        ],
+        "expected_summary": {
+          "must_include_difficulty": "beginner",
+          "must_include_style": "practice_first"
+        }
       }
     }
   ]

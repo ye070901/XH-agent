@@ -15,7 +15,6 @@ from backend.src.agents.k1_exam_pipeline import (
 from backend.src.agents.k1_post_feedback import post_feedback_pipeline
 from backend.src.persistence.profile_store import ProfileStore, profile_store
 
-
 router = APIRouter(prefix="/api/exams", tags=["exams"])
 
 
@@ -84,11 +83,7 @@ def _is_correct(question: ExamQuestion, submitted: str) -> bool:
 
 def _build_advice(details: list[dict[str, object]], topic: str) -> list[str]:
     weak_topics = sorted(
-        {
-            str(detail["knowledge_id"])
-            for detail in details
-            if not bool(detail["correct"])
-        }
+        {str(detail["knowledge_id"]) for detail in details if not bool(detail["correct"])}
     )
     if not weak_topics:
         return [
@@ -108,9 +103,7 @@ async def _save_quiz_profile(
     details: list[dict[str, object]],
     score: float,
 ) -> str:
-    previous_page = await store.list_profiles(
-        learner_id=submission.learner_id, limit=1, offset=0
-    )
+    previous_page = await store.list_profiles(learner_id=submission.learner_id, limit=1, offset=0)
     previous_items = list(previous_page.get("items") or [])
     profile = dict(previous_items[0].get("profile") or {}) if previous_items else {}
     knowledge_map = dict(profile.get("knowledge_map") or {})
@@ -208,17 +201,21 @@ def _build_adaptive_feedback(
             "user_answer": detail["submitted_answer"],
             "standard_answer": question.standard_answer,
         }
-        feedback_items.append(post_feedback_pipeline(
-            grading,
-            topic_mastery=float(topic_mastery.get(knowledge_id, 0.0)) / 100.0,
-        ))
+        feedback_items.append(
+            post_feedback_pipeline(
+                grading,
+                topic_mastery=float(topic_mastery.get(knowledge_id, 0.0)) / 100.0,
+            )
+        )
 
     def topic_items(correct: bool) -> list[dict[str, object]]:
-        topic_ids = sorted({
-            str(detail["knowledge_id"])
-            for detail in details
-            if bool(detail["correct"]) is correct
-        })
+        topic_ids = sorted(
+            {
+                str(detail["knowledge_id"])
+                for detail in details
+                if bool(detail["correct"]) is correct
+            }
+        )
         return [
             {"topic": topic_id, "mastery": float(topic_mastery.get(topic_id, 0.0))}
             for topic_id in topic_ids

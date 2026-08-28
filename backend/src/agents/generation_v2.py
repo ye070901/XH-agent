@@ -164,12 +164,16 @@ class GenerationAgent(BaseAgent):
                 # resource_type 由本层补全，target_skill_gaps 从诊断结果推导
                 quiz_validation_error = result.pop("_quiz_validation_error", None)
                 if quiz_validation_error:
-                    self.log("Quiz generation requires review before it can be automatically scored.")
-                    errors.append({
-                        "resource_type": rtype,
-                        "error": "invalid_quiz_contract",
-                        "detail": quiz_validation_error,
-                    })
+                    self.log(
+                        "Quiz generation requires review before it can be automatically scored."
+                    )
+                    errors.append(
+                        {
+                            "resource_type": rtype,
+                            "error": "invalid_quiz_contract",
+                            "detail": quiz_validation_error,
+                        }
+                    )
                     result["quiz_validation_status"] = "needs_review"
                     result["quiz_validation_error"] = quiz_validation_error
                 result["resource_type"] = rtype
@@ -286,7 +290,8 @@ For a multiple-choice question, include exactly four options labelled A-D,
 then include `\u7b54\u6848\uff1a<letter>` and `\u89e3\u6790\uff1a<reason>` immediately after
 that question. A short-answer question has no A-D options, but must still have
 one `\u7b54\u6848\uff1a<expected answer>` and one `\u89e3\u6790\uff1a<reason>` line.
-Never place more than one A-D option group under one question heading. Include a mix of recall, scenario, and application questions that is
+Never place more than one A-D option group under one question heading. Include a
+mix of recall, scenario, and application questions that is
 relevant to the learner profile and the retrieved knowledge.
 """
 
@@ -297,26 +302,6 @@ relevant to the learner profile and the retrieved knowledge.
 
         # A quiz without an answer key cannot be submitted, reviewed, or exported
         # as a self-study resource. Ask once more before it reaches the UI.
-        repair_prompt = f"""Repair this quiz resource. Keep it grounded in the
-learner profile and knowledge context below, but return a complete JSON object
-with the same fields as the original response.
-
-{kb_context}
-
-Original quiz JSON:
-{result}
-
-Requirements:
-- Create at least 5 numbered questions.
-- Every question stem must be a complete, standalone question. Do not use a
-  chapter heading, topic name, or a short label as a question.
-- Every question must have one answer line written exactly as `Answer: ...`
-  (or `标准答案：...`) and one non-empty explanation line written exactly as
-  `Explanation: ...` (or `解析：...`).
-- Multiple-choice questions must have exactly four A-D options, and the answer
-  must be the matching option letter.
-- Do not omit answers or explanations for any question.
-"""
         # Keep valid question blocks intact. Only malformed questions are
         # regenerated, so a single bad item does not invalidate the whole quiz.
         repaired = await self._repair_quiz_questions(result, kb_context)
@@ -330,6 +315,7 @@ Requirements:
             "content": str(repaired or ""),
             "_quiz_validation_error": failure or "\u9898\u76ee\u7ed3\u6784\u65e0\u6cd5\u89e3\u6790",
         }
+
     @staticmethod
     def _quiz_question_blocks(content: str) -> list[str]:
         """Split quiz content into independently repairable question blocks."""
@@ -338,7 +324,11 @@ Requirements:
         )
         matches = list(pattern.finditer(content))
         return [
-            content[match.start(): matches[index + 1].start() if index + 1 < len(matches) else len(content)].strip()
+            content[
+                match.start() : (
+                    matches[index + 1].start() if index + 1 < len(matches) else len(content)
+                )
+            ].strip()
             for index, match in enumerate(matches)
         ]
 
@@ -370,7 +360,11 @@ Requirements:
             r"(?:\u4ee5\u4e0b|\u54ea(?:\u4e2a|\u9879|\u79cd)|\u4ec0\u4e48|\u5982\u4f55|\u4e3a\u4ec0\u4e48|\u662f\u5426|\u8bf7(?:\u9009\u62e9|\u5224\u65ad|\u8bf4\u660e|\u5199\u51fa|\u5217\u51fa|\u56de\u7b54)|\u5e94(?:\u8be5|\u5f53)|\u6b63\u786e|\u9519\u8bef|\u6b65\u9aa4|\u539f\u56e0|\u64cd\u4f5c|\u5904\u7406|\u5224\u65ad)",
             re.IGNORECASE,
         )
-        return not heading_pattern.fullmatch(stem) and not question_type_label.fullmatch(stem) and bool(task_signal.search(stem))
+        return (
+            not heading_pattern.fullmatch(stem)
+            and not question_type_label.fullmatch(stem)
+            and bool(task_signal.search(stem))
+        )
 
     @staticmethod
     def _quiz_block_failure(block: str) -> str | None:
@@ -541,7 +535,7 @@ Knowledge context:
     def _quiz_contract_failure(result: dict | None) -> str | None:
         """Return a user-facing reason when a quiz cannot be safely scored."""
         if not isinstance(result, dict):
-            return "\u751f\u6210\u7ed3\u679c\u4e0d\u662f\u6709\u6548\u7684\u7ed3\u6784\u5316\u5185\u5bb9"
+            return "生成结果不是有效的结构化内容"
 
         content = str(result.get("content", ""))
         if not content.strip():
@@ -551,7 +545,7 @@ Knowledge context:
         )
         matches = list(question_pattern.finditer(content))
         if len(matches) < 5:
-            return f"\u9898\u76ee\u6570\u91cf\u4e0d\u8db3\uff1a\u4ec5\u751f\u6210 {len(matches)} \u9898"
+            return f"题目数量不足：仅生成 {len(matches)} 题"
 
         option_pattern = re.compile(
             r"(?im)^\s*(?:[-*]\s*)?(?:[\(\uFF08]\s*)?([A-D])\s*(?:[\)\uFF09]\s*|[.\uFF0E\u3001:\uFF1A\]]\s*)\S.+$"
@@ -567,11 +561,11 @@ Knowledge context:
         for index, match in enumerate(matches):
             question_number = index + 1
             block_end = matches[index + 1].start() if index + 1 < len(matches) else len(content)
-            block = content[match.start():block_end]
+            block = content[match.start() : block_end]
             stem = match.group("stem").strip()
             normalized_stem = re.sub(r"\s+", "", stem).lower()
             if not GenerationAgent._is_clear_quiz_stem(stem):
-                return f"\u7b2c {question_number} \u9898\u9898\u5e72\u66f4\u50cf\u6807\u9898\uff0c\u65e0\u6cd5\u786e\u8ba4\u4f5c\u7b54\u4efb\u52a1"
+                return f"第 {question_number} 题题干更像标题，无法确认作答任务"
             if normalized_stem in seen_stems:
                 return f"\u7b2c {question_number} \u9898\u4e0e\u524d\u9762\u9898\u76ee\u91cd\u590d"
             seen_stems.add(normalized_stem)
@@ -581,7 +575,7 @@ Knowledge context:
             if not answers:
                 return f"\u7b2c {question_number} \u9898\u7f3a\u5c11\u6807\u51c6\u7b54\u6848"
             if len(answers) > 1:
-                return f"\u7b2c {question_number} \u9898\u5305\u542b\u591a\u4e2a\u6807\u51c6\u7b54\u6848"
+                return f"第 {question_number} 题包含多个标准答案"
             if not explanations:
                 return f"\u7b2c {question_number} \u9898\u7f3a\u5c11\u89e3\u6790"
             if len(explanations) > 1:
@@ -590,9 +584,9 @@ Knowledge context:
             option_ids = option_pattern.findall(block)
             if option_ids:
                 if option_ids != ["A", "B", "C", "D"]:
-                    return f"\u7b2c {question_number} \u9898\u7684\u9009\u9879\u5fc5\u987b\u5b8c\u6574\u6807\u4e3a A-D"
+                    return f"第 {question_number} 题的选项必须完整标为 A-D"
                 if answers[0].strip().upper() not in {"A", "B", "C", "D"}:
-                    return f"\u7b2c {question_number} \u9898\u7684\u6807\u51c6\u7b54\u6848\u672a\u5339\u914d\u9009\u9879"
+                    return f"第 {question_number} 题的标准答案未匹配选项"
 
         return None
 

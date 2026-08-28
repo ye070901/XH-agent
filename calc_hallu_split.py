@@ -1,5 +1,5 @@
-import json
 import csv
+import json
 
 data_path = r"./data/evaluation/runs/phase3_raw_outputs.json"
 
@@ -45,20 +45,31 @@ for idx, case in enumerate(cases):
         sum_case_hallu_rate += hallu_rate
         valid_case_rate += 1
 
-    csv_rows.append({
-        "case_idx": idx,
-        "hallucination_count": hallu_cnt,
-        "unverifiable_count": unveri_cnt,
-        "partially_supported_count": partially_cnt,
-        "hallucination_rate": hallu_rate
-    })
-    #打印前10个case调试，case0现在应该输出 hallu_cnt=1, unveri=1, rate=0.25
+    csv_rows.append(
+        {
+            "case_idx": idx,
+            "hallucination_count": hallu_cnt,
+            "unverifiable_count": unveri_cnt,
+            "partially_supported_count": partially_cnt,
+            "hallucination_rate": hallu_rate,
+        }
+    )
+    # 打印前10个case调试，case0现在应该输出 hallu_cnt=1, unveri=1, rate=0.25
     if idx < 10:
         print(f"case[{idx}]: hallu_cnt={hallu_cnt}, unveri={unveri_cnt}, partially={partially_cnt}, rate={hallu_rate}")
 
 out_csv = "hallucination_stats.csv"
 with open(out_csv, "w", encoding="utf-8", newline="") as fcsv:
-    writer = csv.DictWriter(fcsv, fieldnames=["case_idx","hallucination_count","unverifiable_count","partially_supported_count","hallucination_rate"])
+    writer = csv.DictWriter(
+        fcsv,
+        fieldnames=[
+            "case_idx",
+            "hallucination_count",
+            "unverifiable_count",
+            "partially_supported_count",
+            "hallucination_rate",
+        ],
+    )
     writer.writeheader()
     writer.writerows(csv_rows)
 print(f"\n✅已导出全部case明细到文件: {out_csv}")

@@ -27,9 +27,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent
 RAW_DOCS_DIR = REPO_ROOT / "data" / "raw"
-DEFAULT_OUTPUTS = (
-    REPO_ROOT / "data" / "evaluation" / "runs" / "phase3_raw_outputs.json"
-)
+DEFAULT_OUTPUTS = REPO_ROOT / "data" / "evaluation" / "runs" / "phase3_raw_outputs.json"
 DETAIL_OUT = REPO_ROOT / "data" / "evaluation" / "runs" / "unverifiable_classification.json"
 
 
@@ -54,12 +52,14 @@ def load_raw_docs(doc_dir: Path) -> list[dict[str, Any]]:
             content = md.read_text(encoding="utf-8")
         except Exception:
             continue
-        docs.append({
-            "doc_id": md.stem,
-            "path": str(md),
-            "text": normalize(content),
-            "terms": set(tokenize(content)),
-        })
+        docs.append(
+            {
+                "doc_id": md.stem,
+                "path": str(md),
+                "text": normalize(content),
+                "terms": set(tokenize(content)),
+            }
+        )
     return docs
 
 
@@ -91,9 +91,7 @@ def find_evidence(
     best_doc: dict[str, Any] | None = None
     best_cov = 0.0
     for doc in docs:
-        numerator = sum(
-            idf_weight(t, idf, n) for t in claim_terms if t in doc["terms"]
-        )
+        numerator = sum(idf_weight(t, idf, n) for t in claim_terms if t in doc["terms"])
         cov = numerator / denominator
         if cov > best_cov:
             best_cov = cov
@@ -128,8 +126,9 @@ def iter_unverifiable_items(records: list[dict[str, Any]]) -> list[dict[str, Any
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--threshold", type=float, default=0.40,
-                        help="IDF 加权覆盖率阈值，≥ 此值判 KB 存在（B 类）")
+    parser.add_argument(
+        "--threshold", type=float, default=0.40, help="IDF 加权覆盖率阈值，≥ 此值判 KB 存在（B 类）"
+    )
     parser.add_argument("outputs", nargs="?", type=Path, default=DEFAULT_OUTPUTS)
     args = parser.parse_args()
 
@@ -163,13 +162,15 @@ def main() -> int:
         else:
             klass = "A"
             a_count += 1
-        rows.append({
-            "case_id": case_id,
-            "claim": claim,
-            "class": klass,
-            "coverage": round(cov, 4),
-            "matched_doc": best_doc.get("doc_id") if best_doc else None,
-        })
+        rows.append(
+            {
+                "case_id": case_id,
+                "claim": claim,
+                "class": klass,
+                "coverage": round(cov, 4),
+                "matched_doc": best_doc.get("doc_id") if best_doc else None,
+            }
+        )
 
     total = len(rows)
     print(f"共读取 {len(records)} 个 case，{n} 篇 KB 文档")
@@ -190,10 +191,18 @@ def main() -> int:
     DETAIL_OUT.parent.mkdir(parents=True, exist_ok=True)
     DETAIL_OUT.write_text(
         json.dumps(
-            {"threshold": args.threshold, "total": total,
-             "A": a_count, "B": b_count, "unknown": unknown, "rows": rows},
-            ensure_ascii=False, indent=2,
-        ) + "\n",
+            {
+                "threshold": args.threshold,
+                "total": total,
+                "A": a_count,
+                "B": b_count,
+                "unknown": unknown,
+                "rows": rows,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
         encoding="utf-8",
     )
     print(f"\n✅ 明细已写入: {DETAIL_OUT}")

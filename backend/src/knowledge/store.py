@@ -432,7 +432,7 @@ class KnowledgeBase:
                 merged[key] = result
         ranked = sorted(
             merged.values(),
-            key=lambda r: (r.get("relevance_score") or 0.0),
+            key=lambda r: r.get("relevance_score") or 0.0,
             reverse=True,
         )
         return ranked[:top_k]
@@ -528,18 +528,12 @@ class KnowledgeBase:
         scores: list[tuple[float, dict]] = []
         for idx, doc in enumerate(self._docs):
             dl = doc_len[idx]
-            norm = (
-                1.0 - self._BM25_B + self._BM25_B * (dl / avgdl)
-                if avgdl > 0
-                else 1.0
-            )
+            norm = 1.0 - self._BM25_B + self._BM25_B * (dl / avgdl) if avgdl > 0 else 1.0
             score = 0.0
             for term in q_unique:
                 tf = postings.get(term, {}).get(idx, 0)
                 if tf:
-                    score += idf[term] * (
-                        tf * (self._BM25_K1 + 1.0) / (tf + self._BM25_K1 * norm)
-                    )
+                    score += idf[term] * (tf * (self._BM25_K1 + 1.0) / (tf + self._BM25_K1 * norm))
             if score > 0.0:
                 scores.append((score, doc))
 

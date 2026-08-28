@@ -681,11 +681,17 @@ async def test_agent2_all_parse_fail_returns_empty() -> None:
         }
     )
 
-    assert result.get("generated_resources") == [], (
-        f"有 KB 但全部解析失败应返回空列表，实际 {result.get('generated_resources')}"
+    resources = result.get("generated_resources") or []
+    # 软闸门：lecture/guide 解析失败被丢弃；quiz 解析失败不再静默丢弃，
+    # 而是以 needs_review 状态保留（无法自动评分，须人工复核）。
+    assert all(r.get("quiz_validation_status") == "needs_review" for r in resources), (
+        f"有 KB 但解析失败时，仅应保留 needs_review 的 quiz，实际 {resources}"
+    )
+    assert not any(str(r.get("content") or "").strip() for r in resources), (
+        f"解析失败时不应产生可自动评分的实质内容，实际 {resources}"
     )
 
-    print("  [PASS] 有 KB 但解析失败 → generated_resources=[]")
+    print("  [PASS] 有 KB 但解析失败 → lecture/guide 丢弃，quiz 转 needs_review")
 
 
 async def main() -> None:

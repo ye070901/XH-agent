@@ -30,16 +30,16 @@ from typing import Any
 # 决策阈值（纯规则，不调 LLM —— 轻量判断用规则）
 # ═══════════════════════════════════════════════════════════
 
-ADVANCE_MASTERY = 0.75    # 掌握度 ≥ 此值 → 推进到进阶挑战
-LOW_DIM_MASTERY = 0.35    # 掌握度 < 此值 → 直接降维，避免“拔苗助长”
+ADVANCE_MASTERY = 0.75  # 掌握度 ≥ 此值 → 推进到进阶挑战
+LOW_DIM_MASTERY = 0.35  # 掌握度 < 此值 → 直接降维，避免“拔苗助长”
 REEXPLAIN_MASTERY = 0.65  # 掌握度 < 此值且非混淆 → 重申讲解
-WRONG_RETRY_LIMIT = 2     # 同题连错 ≥ 此值 → 强制降维 + 调低目标层级
+WRONG_RETRY_LIMIT = 2  # 同题连错 ≥ 此值 → 强制降维 + 调低目标层级
 
 # 错因分类（多智能体决策的分支依据）
-MISTAKE_CONCEPT_GAP = "concept_gap"   # 概念缺失：答空/完全无关
-MISTAKE_CONFUSION = "confusion"       # 概念混淆：误选近似干扰项 / 部分命中
-MISTAKE_CARELESS = "careless"         # 粗心：思路正确但描述偏差
-MISTAKE_NONE = "none"                 # 未错题
+MISTAKE_CONCEPT_GAP = "concept_gap"  # 概念缺失：答空/完全无关
+MISTAKE_CONFUSION = "confusion"  # 概念混淆：误选近似干扰项 / 部分命中
+MISTAKE_CARELESS = "careless"  # 粗心：思路正确但描述偏差
+MISTAKE_NONE = "none"  # 未错题
 
 
 def classify_mistake(
@@ -223,9 +223,7 @@ _FEEDBACK_PROMPTS: dict[str, str] = {
         "为知识点「{kp}」生成一道进阶挑战题：贴近真实工业现场场景，"
         "难度上调一档，并附解析与可查资料来源。"
     ),
-    "reinforce": (
-        "为知识点「{kp}」生成一道同难度巩固题（防遗忘间隔练习），附解析。"
-    ),
+    "reinforce": ("为知识点「{kp}」生成一道同难度巩固题（防遗忘间隔练习），附解析。"),
 }
 
 
@@ -297,8 +295,10 @@ def post_feedback_pipeline(
           feedback    —— 面向前端的结果文案与动作建议
     """
     decision = decide_feedback(
-        grading_result, question=question,
-        topic_mastery=topic_mastery, history=history,
+        grading_result,
+        question=question,
+        topic_mastery=topic_mastery,
+        history=history,
     )
     retry_hint = build_retry_hint(decision, grading_result, question)
 
@@ -312,15 +312,19 @@ def post_feedback_pipeline(
         "re_explain": f"「{kp}」答错了，已为你重申讲解并标出易错点。",
         "contrast_explain": f"「{kp}」概念被混淆了，已为你生成干扰项对比辨析。",
         "advance_challenge": f"回答正确，掌握达标，已为你推送「{kp}」的进阶挑战。",
-        "reinforce": f"回答正确，为你推送一道同难度巩固题，帮助记忆巩固。",
+        "reinforce": "回答正确，为你推送一道同难度巩固题，帮助记忆巩固。",
     }
     feedback = {
         "is_correct": is_correct,
-        "feedback_type": "right" if is_correct and mode in ("advance_challenge", "reinforce") else "wrong",
+        "feedback_type": (
+            "right" if is_correct and mode in ("advance_challenge", "reinforce") else "wrong"
+        ),
         "mode": mode,
         "tip": tip_map.get(mode, "反馈已生成。"),
         "show_explain": True,
-        "next_action": "advance_challenge" if mode == "advance_challenge" else "review_knowledge_point",
+        "next_action": (
+            "advance_challenge" if mode == "advance_challenge" else "review_knowledge_point"
+        ),
         "explain_target": kp,
     }
     return {
@@ -351,22 +355,32 @@ if __name__ == "__main__":
         dict(base_grading),
         topic_mastery=0.2,
     )
-    print("mode:", out1["decision"]["mode"], "| retry:", out1["retry_hint"]["retry"],
-          "| level_adjust:", out1["retry_hint"]["level_adjust"])
+    print(
+        "mode:",
+        out1["decision"]["mode"],
+        "| retry:",
+        out1["retry_hint"]["retry"],
+        "| level_adjust:",
+        out1["retry_hint"]["level_adjust"],
+    )
     assert out1["retry_hint"]["mode"] == "low_dim_explain"
     assert out1["retry_hint"]["regenerate"] is True
     assert out1["retry_hint"]["source_module"] == "k1_post_feedback"
 
     print("== 分支2：答错（概念混淆 + 误选干扰项）→ 对比辨析 ==")
     q = {"distractors": ["增量指令"]}
-    g2 = dict(base_grading); g2["user_answer"] = "增量指令"
+    g2 = dict(base_grading)
+    g2["user_answer"] = "增量指令"
     out2 = post_feedback_pipeline(g2, question=q, topic_mastery=0.5)
-    print("mistake_type:", out2["decision"].get("mistake_type"),
-          "| mode:", out2["decision"]["mode"])
+    print(
+        "mistake_type:", out2["decision"].get("mistake_type"), "| mode:", out2["decision"]["mode"]
+    )
     assert out2["decision"]["mode"] == "contrast_explain"
 
     print("== 分支3：答对（掌握度达标）→ 进阶挑战 ==")
-    g3 = dict(base_grading); g3["is_correct"] = True; g3["score"] = 1.0
+    g3 = dict(base_grading)
+    g3["is_correct"] = True
+    g3["score"] = 1.0
     out3 = post_feedback_pipeline(g3, topic_mastery=0.85)
     print("mode:", out3["decision"]["mode"], "| feedback_type:", out3["feedback"]["feedback_type"])
     assert out3["decision"]["mode"] == "advance_challenge"

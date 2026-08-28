@@ -38,6 +38,11 @@ SYSTEM_PROMPT = """你是一个专业的学情诊断专家。你的任务是：
 
 【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
 
+# topic_scores 是 0-100 百分制掌握度（见 evaluation/pretest.py score_pretest 与
+# data/evaluation/pretest_questions.json meta.scoring），知识点掌握度 level = score/100；
+# 与 total_score/max_score（原始总分，满分 120）是两套独立刻度，勿混用。
+_TOPIC_MASTERY_SCALE = 100.0
+
 
 class DiagnosisAgent(BaseAgent):
     """学情诊断 Agent — 角色4 在此实现"""
@@ -98,6 +103,11 @@ class DiagnosisAgent(BaseAgent):
         # 客观证据校正（前置测试优先）：在置信度规整之前执行，
         # 保证 recommended_difficulty 与 knowledge_map 不被自述/头衔带偏。
         normalized = self._enforce_pretest_evidence(normalized, learner_data)
+        normalized = self._enforce_style_evidence(normalized, learner_data)
+        # 画像中此前仍靠 LLM 自由生成的三块，补上确定性兜底（客观证据优先）：
+        normalized = self._enforce_knowledge_map_evidence(normalized, learner_data)
+        normalized = self._enforce_skill_gaps_evidence(normalized, learner_data)
+        normalized = self._enforce_summary_evidence(normalized, learner_data)
         normalized["overall_confidence"] = self._calc_overall_confidence(normalized, learner_data)
         return normalized
 
@@ -197,13 +207,21 @@ class DiagnosisAgent(BaseAgent):
             return "intermediate"
         return "advanced"
 
+    @staticmethod
+    def _topic_mastery(score) -> float | None:
+        """topic_scores 分项为 0-100 百分制 → 掌握度 0-1（level）。"""
+        try:
+            return float(score) / _TOPIC_MASTERY_SCALE
+        except (ValueError, TypeError, ZeroDivisionError):
+            return None
+
     def _enforce_pretest_evidence(self, diag: dict, learner_data: dict) -> dict:
         """前置测试客观证据校正（确定性，双向）。
 
         1. recommended_difficulty：有前置测试时，一律按得分率重定难度，
            使"客观测试证据"压倒工作年限/头衔/自述目标（过度自信/自卑样本都兜住）。
-        2. knowledge_map：测试分项直接命中的知识点，掌握度 level 不得超过
-           分项得分折算值（防 LLM 把 20/120 的点位虚标到 0.9）。
+        2. knowledge_map：测试分项直接命中的知识点，掌握度 level 一律对齐到
+           分项得分折算值（双向：既防虚标高掌握度，也防低估强主题）。
 
         无前置测试时原样返回，保持 LLM 诊断结果。
         """
@@ -237,44 +255,338 @@ class DiagnosisAgent(BaseAgent):
             # 一致时也确保难度字段客观一致（覆盖 LLM 无自述但乱标的情况）
             normalized["recommended_difficulty"] = evidence_difficulty
 
-        # ── 2. knowledge_map 客观 clamp（只下调，不上调）──
-        normalized["knowledge_map"] = self._clamp_knowledge_map(
-            normalized.get("knowledge_map", {}), topic_scores, max_score
+        # ── 2. knowledge_map 客观对齐（双向，以测试实测为准）──
+        normalized["knowledge_map"] = self._align_knowledge_map(
+            normalized.get("knowledge_map", {}), topic_scores
         )
         return normalized
 
-    def _clamp_knowledge_map(
-        self, knowledge_map: dict, topic_scores: dict, max_score: float
-    ) -> dict:
-        """将 knowledge_map 中与前置测试分项直接命中的点位，掌握度下调到测试折算值。"""
+    def _enforce_style_evidence(self, diag: dict, learner_data: dict) -> dict:
+        """学习风格客观证据校正（确定性，双向）。
+
+        学习风格是画像中唯一完全交给 LLM 判定的字段。实测真实 LLM 对
+        「普通技术背景」画像系统性偏向 practice_first（10 画像仅 5/10 命中），
+        而难度已有 _enforce_pretest_evidence 确定性兜底、风格却没有。
+
+        这里与难度校正同理：按可观测背景信号给出确定性风格（规则与演示模式
+        llm/client.py 的 _infer_style 完全一致），压倒 LLM 的随意判定：
+          - 零基础（无使用技能）→ visual
+          - 专家/负责人/方案/总监 且 证据难度 advanced → project_based
+          - 直接操作/调试/示教/上下料岗位 → practice_first
+          - 其余 → theory_first
+        """
+        if not isinstance(diag, dict):
+            return diag
+        normalized = dict(diag)
+        evidence_style = self._style_from_evidence(
+            learner_data, str(normalized.get("recommended_difficulty", "") or "")
+        )
+        current = normalized.get("learning_style", "")
+        if current != evidence_style:
+            self.log(f"客观证据校正学习风格: {current or '未给出'} -> {evidence_style}")
+            note = f"（客观证据校正：学习风格由 {current or '未给出'} 校正为 {evidence_style}）"
+            summary = str(normalized.get("summary", "") or "")
+            if "学习风格由" not in summary:
+                normalized["summary"] = summary + note
+        # 一致时也确保风格字段客观一致（覆盖 LLM 无自述但乱标的情况）
+        normalized["learning_style"] = evidence_style
+        return normalized
+
+    @staticmethod
+    def _style_from_evidence(learner_data: dict, difficulty: str) -> str:
+        """按可观测背景信号推断学习风格（与演示模式 _infer_style 对齐）。"""
+        skills = learner_data.get("skills_used", [])
+        positions = learner_data.get("positions", [])
+        if not isinstance(skills, list):
+            skills = []
+        if not isinstance(positions, list):
+            positions = []
+        if not skills:
+            return "visual"
+        if difficulty == "advanced" and any(
+            keyword in position
+            for position in positions
+            for keyword in ("专家", "负责人", "方案", "总监")
+        ):
+            return "project_based"
+        if any(
+            keyword in position
+            for position in positions
+            for keyword in ("操作工", "调试", "示教", "上下料")
+        ):
+            return "practice_first"
+        return "theory_first"
+
+    def _enforce_knowledge_map_evidence(self, diag: dict, learner_data: dict) -> dict:
+        """知识缺口图客观证据兜底（确定性）。
+
+        前置测试是硬证据：每个被测试主题都应以客观掌握度进入 knowledge_map
+        （LLM 漏掉的补入；已有条目已在 _enforce_pretest_evidence 中对齐到实测值）。
+        图谱有效条目仍不足 5 个时，用「使用技能」补位（推断级，置信度更低）。
+        空图 / 非 dict 时同样走重建，保证闸门与下游拿到结构化完整图谱。
+        """
+        if not isinstance(diag, dict):
+            return diag
+        normalized = dict(diag)
+        km = normalized.get("knowledge_map")
+        result = (
+            {k: dict(v) for k, v in km.items() if isinstance(v, dict)}
+            if isinstance(km, dict)
+            else {}
+        )
+
+        _, max_score, topic_scores = self._extract_pretest(learner_data)
+
+        # 1) 前置测试客观证据：每个测试主题都应有客观掌握度
+        if max_score and topic_scores:
+            for topic, score in topic_scores.items():
+                ratio = self._topic_mastery(score)
+                if ratio is None:
+                    continue
+                if self._fuzzy_find_key(str(topic), result) is None:
+                    result[str(topic)] = {
+                        "level": round(ratio, 2),
+                        "confidence": 0.9,
+                        "evidence": (
+                            f"前置测试实测「{topic}」掌握度 {float(score):.0f}%"
+                            f"（0-100 百分制），为客观掌握度"
+                        ),
+                    }
+
+        # 2) 兜底：仍不足 5 个知识点 → 用使用技能补位（推断级，置信度更低）
+        skills = learner_data.get("skills_used", [])
+        if not isinstance(skills, list):
+            skills = []
+        for skill in skills:
+            if sum(1 for v in result.values() if isinstance(v, dict)) >= 5:
+                break
+            if self._fuzzy_find_key(str(skill), result) is None:
+                result[str(skill)] = {
+                    "level": 0.5,
+                    "confidence": 0.5,
+                    "evidence": "由工作经历中的使用技能推断（无前置测试直接证据）",
+                }
+
+        normalized["knowledge_map"] = result
+        return normalized
+
+    def _enforce_skill_gaps_evidence(self, diag: dict, learner_data: dict) -> dict:
+        """技能短板客观证据兜底（确定性收口）。
+
+        有前置测试时，得分率 < 0.65 的主题必然是知识短板：最终 skill_gaps 只保留
+        这些客观短板（current_level / priority 由得分率确定性定档），LLM 对同一主题
+        的输出只贡献 reason 叙事，非客观主题一律剔除（客观证据优先，压低误报）。
+        无客观短板时（专家画像）用「相对最薄弱」兜底保证非空（闸门
+        GATE2_MIN_SKILL_GAPS=1 契约，该兜底为唯一系统性误报）。
+        无前置测试时，无客观证据可校，保留 LLM 从自述背景推断的短板（兜底非空）。
+        """
+        if not isinstance(diag, dict):
+            return diag
+        normalized = dict(diag)
+        gaps = normalized.get("skill_gaps")
+        existing = [dict(g) for g in gaps if isinstance(g, dict)] if isinstance(gaps, list) else []
+
+        _, max_score, topic_scores = self._extract_pretest(learner_data)
+
+        if not (max_score and topic_scores):
+            # 无客观证据：保留 LLM 短板，仅兜底非空
+            normalized["skill_gaps"] = existing or [
+                {
+                    "topic": "基础前置知识",
+                    "current_level": 0.0,
+                    "target_level": 0.5,
+                    "priority": "critical",
+                    "reason": "缺乏前置测试与背景信号，默认标记为基础薄弱",
+                }
+            ]
+            return normalized
+
+        objective: dict[str, dict] = {}
+        for topic, score in topic_scores.items():
+            ratio = self._topic_mastery(score)
+            if ratio is None or ratio >= 0.65:
+                continue
+            objective[str(topic)] = {
+                "topic": str(topic),
+                "current_level": round(ratio, 2),
+                "target_level": 0.65,
+                "priority": self._gap_priority(ratio),
+                "reason": (
+                    f"前置测试「{topic}」实测得分率 {ratio:.0%}，未达中级掌握线（0.65），需优先补强"
+                ),
+            }
+
+        # LLM 对客观主题已有的 reason 叙事并入（不影响客观 current_level / priority）
+        for g in existing:
+            key = self._fuzzy_find_key(str(g.get("topic", "")), objective)
+            if key is None:
+                continue
+            extra = str(g.get("reason", "")).strip()
+            if extra:
+                og = objective[key]
+                og["reason"] = f"{og['reason']}；{extra}".rstrip("；")
+
+        # 只保留客观短板，按掌握度升序（critical→high→medium）确定性排序
+        merged = sorted(
+            objective.values(),
+            key=lambda g: (g["current_level"], g["topic"]),
+        )
+        if not merged:
+            # 专家画像：全部主题 ≥0.65，无客观短板 → 兜底最薄弱主题保证非空
+            weakest_topic, weakest_ratio = self._weakest_topic(topic_scores)
+            merged.append(
+                {
+                    "topic": weakest_topic,
+                    "current_level": round(weakest_ratio, 2),
+                    "target_level": 0.65,
+                    "priority": "low",
+                    "reason": (
+                        f"前置测试无中级以下短板，相对最薄弱主题为「{weakest_topic}」"
+                        f"（得分率 {weakest_ratio:.0%}）"
+                    ),
+                }
+            )
+        normalized["skill_gaps"] = merged
+        return normalized
+
+    def _enforce_summary_evidence(self, diag: dict, learner_data: dict) -> dict:
+        """用户总结兜底（确定性）。
+
+        两层保证：
+          1. summary 缺失 / 仅剩客观证据校正注记时，用确定性结论（得分率 / 难度 /
+             风格 / 短板数）拼出模板总结，保证画像自洽；LLM 已生成的实际 prose 保留。
+          2. 无论 prose 是否存在，末尾都确保「客观结论」在场——难度/风格规范值
+             与结构化字段 recommended_difficulty / learning_style 一致（客观证据
+             优先铁律：散文不得与前置测试/背景证据冲突）。
+        """
+        if not isinstance(diag, dict):
+            return diag
+        normalized = dict(diag)
+        summary = normalized.get("summary")
+        if not (isinstance(summary, str) and self._has_real_summary(summary)):
+            total, max_score, _ = self._extract_pretest(learner_data)
+            difficulty = str(normalized.get("recommended_difficulty") or "beginner")
+            style = str(normalized.get("learning_style") or "theory_first")
+            gaps = normalized.get("skill_gaps", [])
+            gap_list = [g for g in gaps if isinstance(g, dict)]
+            top = "、".join(str(g.get("topic", "")) for g in gap_list[:3] if g.get("topic")) or "无"
+            if max_score:
+                ratio_pct = f"{float(total) / float(max_score):.0%}"
+                ratio_txt = f"{float(total):.0f}/{float(max_score):.0f}（{ratio_pct}）"
+            else:
+                ratio_txt = "无前置测试"
+            template = (
+                f"该学习者前置测试得分率为 {ratio_txt}，客观判定难度为「{difficulty}」，"
+                f"学习风格为「{style}」。当前识别出 {len(gap_list)} 个知识短板，"
+                f"优先补强：{top}。"
+            )
+            # 保留难度/风格校正注记（可追溯），拼在模板之后
+            trailing = str(summary).strip() if isinstance(summary, str) else ""
+            summary = template + trailing
+        summary = self._ensure_objective_conclusion(
+            str(summary or ""),
+            str(normalized.get("recommended_difficulty") or ""),
+            str(normalized.get("learning_style") or ""),
+        )
+        normalized["summary"] = summary
+        return normalized
+
+    @staticmethod
+    def _ensure_objective_conclusion(summary: str, difficulty: str, style: str) -> str:
+        """确保 summary 末尾含客观结论（难度/风格规范值），缺则兜底追加。
+
+        客观证据优先铁律：散文不得与前置测试/背景证据冲突；即便 LLM 散文没有
+        显式写出难度/风格，也补一条确定性结论，供评测与下游直接引用。
+        """
+        missing: list[str] = []
+        if difficulty and difficulty not in summary:
+            missing.append(f"难度 {difficulty}")
+        if style and style not in summary:
+            missing.append(f"学习风格 {style}")
+        if not missing:
+            return summary
+        return f"{summary}（客观结论：{'、'.join(missing)}）"
+
+    @staticmethod
+    def _has_real_summary(summary: str) -> bool:
+        """总结里是否存在「客观证据校正注记之前」的实际 prose。
+
+        难度/风格校正把注记追加在 summary 末尾；若开头就是校正注记，
+        说明 LLM 原本没给实质总结，只有注记。
+        """
+        idx = summary.find("（客观证据校正")
+        head = summary[:idx] if idx != -1 else summary
+        return bool(head.strip())
+
+    @staticmethod
+    def _fuzzy_find_key(topic: str, mapping: dict) -> str | None:
+        """在 mapping 键中模糊查找与 topic 互相包含的键，返回实际键名。"""
+        norm = "".join(str(topic).split())
+        if not norm:
+            return None
+        if norm in mapping:
+            return norm
+        for key in mapping:
+            key_norm = "".join(str(key).split())
+            if key_norm and (key_norm in norm or norm in key_norm):
+                return key
+        return None
+
+    @staticmethod
+    def _gap_priority(ratio: float) -> str:
+        """按得分率确定性定短板优先级（仅对 ratio < 0.65 的短板调用）。"""
+        if ratio < 0.30:
+            return "critical"
+        if ratio < 0.50:
+            return "high"
+        return "medium"
+
+    def _weakest_topic(self, topic_scores: dict) -> tuple[str | None, float | None]:
+        """返回掌握度（0-1）最低的主题及其掌握度（无有效主题时返回 (None, None)）。"""
+        best_topic: str | None = None
+        best_ratio: float | None = None
+        for topic, score in topic_scores.items():
+            ratio = self._topic_mastery(score)
+            if ratio is None:
+                continue
+            if best_ratio is None or ratio < best_ratio:
+                best_topic, best_ratio = str(topic), ratio
+        return best_topic, best_ratio
+
+    def _align_knowledge_map(self, knowledge_map: dict, topic_scores: dict) -> dict:
+        """将 knowledge_map 中与前置测试分项直接命中的点位，掌握度对齐到测试实测值。
+
+        双向校正（客观证据优先铁律）：前置测试是硬证据，掌握度 level 一律等于
+        topic_score/100，既防 LLM 虚标高掌握度，也防 LLM 低估强主题。
+        """
         if not isinstance(knowledge_map, dict) or not topic_scores:
             return knowledge_map
-        clamped = dict(knowledge_map)
-        for key, val in list(clamped.items()):
+        aligned = dict(knowledge_map)
+        for key, val in list(aligned.items()):
             if not isinstance(val, dict):
                 continue
             topic = self._match_topic(key, topic_scores)
             if topic is None:
                 continue
-            try:
-                objective = float(topic_scores[topic]) / float(max_score)
-            except (ValueError, TypeError, ZeroDivisionError):
+            objective = self._topic_mastery(topic_scores[topic])
+            if objective is None:
                 continue
             try:
                 level = float(val.get("level", 0.0))
             except (ValueError, TypeError):
                 continue
-            if level > objective:
+            if abs(level - objective) > 1e-9:
                 item = dict(val)
                 old_evidence = str(item.get("evidence", "") or "")
                 item["level"] = round(objective, 2)
                 item["evidence"] = old_evidence + (
-                    f"（客观测试校正：{topic} 实测 {float(topic_scores[topic]):.0f}/"
-                    f"{max_score:.0f}，掌握度由 {level:.2f} 下调至 {objective:.2f}）"
+                    f"（客观测试校正：{topic} 实测掌握度 "
+                    f"{float(topic_scores[topic]):.0f}%（0-100 百分制），"
+                    f"掌握度由 {level:.2f} 校正为 {objective:.2f}）"
                 )
-                clamped[key] = item
+                aligned[key] = item
                 self.log(f"客观证据校正知识点 {key}: level {level:.2f} -> {objective:.2f}")
-        return clamped
+        return aligned
 
     @staticmethod
     def _match_topic(key: str, topic_scores: dict) -> str | None:
