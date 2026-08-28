@@ -475,8 +475,8 @@
             "3D视觉"
           ],
           "source_documents": [
-            "data/raw/K1_20260826_工业相机与镜头选型_072.md",
-            "data/raw/K1_20260826_2D视觉系统组成与成像链路_070.md"
+            "data/raw/K1_robot_base/K1_20260826_工业相机与镜头选型_072.md",
+            "data/raw/K1_robot_base/K1_20260826_2D视觉系统组成与成像链路_070.md"
           ]
         },
         {
@@ -490,8 +490,8 @@
             "九点标定"
           ],
           "source_documents": [
-            "data/raw/K1_20260826_手眼标定原理与数学模型_086.md",
-            "data/raw/K1_20260826_九点标定法_087.md"
+            "data/raw/K1_robot_base/K1_20260826_手眼标定原理与数学模型_086.md",
+            "data/raw/K1_robot_base/K1_20260826_九点标定法_087.md"
           ]
         },
         {
@@ -505,7 +505,7 @@
             "相机标定"
           ],
           "source_documents": [
-            "data/raw/K1_20260826_相机内参标定与畸变校正_073.md"
+            "data/raw/K1_robot_base/K1_20260826_相机内参标定与畸变校正_073.md"
           ]
         },
         {
@@ -519,8 +519,8 @@
             "点云预处理"
           ],
           "source_documents": [
-            "data/raw/K1_20260826_点云获取与预处理_082.md",
-            "data/raw/K1_20260826_点云配准ICP_083.md"
+            "data/raw/K1_robot_base/K1_20260826_点云获取与预处理_082.md",
+            "data/raw/K1_robot_base/K1_20260826_点云配准ICP_083.md"
           ]
         }
       ]
