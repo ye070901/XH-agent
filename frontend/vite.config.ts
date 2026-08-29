@@ -7,7 +7,6 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: "index.html",
         "option-b": "option-b.html",
       },
     },
