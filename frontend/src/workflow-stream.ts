@@ -19,6 +19,16 @@ export function initialWorkflowEvents(): WorkflowEvent[] {
   return workflowStages.map((stage) => ({ agent: stage.agent, status: "pending" }));
 }
 
+// 后端 API 基地址：优先 localStorage 覆盖，否则用当前页面域名（部署后自动指向后端同源）。
+export function getApiBase(): string {
+  const override = window.localStorage.getItem("xh-agent-api-base");
+  if (override) return override;
+  if (typeof window !== "undefined" && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+  return "http://localhost:8000";
+}
+
 export function mergeWorkflowEvent(events: WorkflowEvent[], incoming: WorkflowEvent): WorkflowEvent[] {
   const hasStage = events.some((event) => event.agent === incoming.agent);
   if (!hasStage) return [...events, incoming];
@@ -26,7 +36,7 @@ export function mergeWorkflowEvent(events: WorkflowEvent[], incoming: WorkflowEv
 }
 
 export function websocketUrl(taskId: string) {
-  const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+  const apiBase = getApiBase();
   const url = new URL(apiBase);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = "/ws/task/" + encodeURIComponent(taskId);

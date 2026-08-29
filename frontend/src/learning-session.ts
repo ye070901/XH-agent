@@ -1,3 +1,5 @@
+import { getApiBase } from "./workflow-stream";
+
 export type ClarificationQuestion = {
   id: "scope" | "outcome" | "timeline";
   label: string;
@@ -127,7 +129,7 @@ export async function submitQuiz(
   topic: string,
   resourceId?: string,
 ): Promise<QuizSubmissionResult> {
-  const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+  const apiBase = getApiBase();
   const response = await fetch(apiBase + "/api/exams/submit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -160,7 +162,7 @@ export async function resolveQuizAnswerKey(
   topic: string,
   resourceContext = "",
 ): Promise<Quiz> {
-  const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+  const apiBase = getApiBase();
   const response = await fetch(apiBase + "/api/quizzes/answer-key", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -206,7 +208,7 @@ const broadGoalPatterns = [
 
 export async function assessLearningGoal(goal: string): Promise<GoalAssessment> {
   {
-    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    const apiBase = getApiBase();
     try {
       const response = await fetch(`${apiBase}/api/goals/assess`, {
         method: "POST",
@@ -317,7 +319,7 @@ function isTemplateLearningAnswer(answer: string) {
 }
 
 export async function askStudyQuestion(question: string, topic: string, resourceContext = ""): Promise<LearnerQuestionResponse> {
-  const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+  const apiBase = getApiBase();
   const response = await fetch(apiBase + "/api/learning-questions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

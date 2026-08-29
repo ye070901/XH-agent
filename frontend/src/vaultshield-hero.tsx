@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, u
 import { ArrowRightCircle, ArrowUp, BrainCircuit, Download, Maximize2, Menu, Minimize2, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, resolveQuizAnswerKey, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
-import { initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
+import { getApiBase, initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
 
 type Variant = "a" | "b";
 
@@ -1207,7 +1207,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     }));
   };
   const generateAdaptiveQuiz = async (submission: QuizSubmissionResult) => {
-    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    const apiBase = getApiBase();
     const knowledgeMap = submission.adaptive_profile?.knowledge_map ?? {};
     const topicScores = Object.fromEntries(
       Object.entries(knowledgeMap).map(([knowledgeId, record]) => [knowledgeId, Number(record.mastery ?? 50)]),
@@ -1415,7 +1415,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     let result: GenerationResult;
     try {
       if (demoMode) throw new Error("demo mode");
-      const response = await fetch("http://localhost:8000/api/generate", {
+      const response = await fetch(`${getApiBase()}/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1462,7 +1462,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       setConfirmedGoal(goalForGeneration);
     }
 
-    const apiBase = window.localStorage.getItem("xh-agent-api-base") || "http://localhost:8000";
+    const apiBase = getApiBase();
     const payload = {
       learning_goal: goalForGeneration,
       education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
