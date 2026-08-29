@@ -7,6 +7,7 @@
       "accurate",
       "hallucination",
       "unverifiable",
+      "partially_supported",
       "skip"
     ],
     "source_report": "data/evaluation/runs/phase3_report.json",

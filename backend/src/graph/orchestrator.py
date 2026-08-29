@@ -28,9 +28,11 @@ from ..agents.agent4 import CorrectionAgent  # Agent 4 标准入口（→ correc
 from ..agents.audit import AuditAgent
 from ..agents.diagnosis import DiagnosisAgent
 from ..agents.generation_v2 import GenerationAgent as GenerationAgent
+from ..config import settings
 from ..debate.engine import debate_engine
 from ..event_broadcast import EventType, event_bus
 from ..knowledge import knowledge_base
+from ..knowledge.demo_fallback import DEMO_FALLBACK_CHUNKS
 
 
 class AgentWorkflow:
@@ -306,8 +308,11 @@ class AgentWorkflow:
     async def _retrieve_knowledge(self, learner_data: dict, diagnosis: dict) -> list[dict]:
         """知识库检索：用学习目标 + 关键盲区构造查询，检索 data/raw 语料。
 
-        检索失败或知识库为空时返回空列表（优雅降级），生成/修正 Agent 会
-        在 retrieved_chunks 为空时回退到 LLM 自身知识生成。
+        空知识库时的双分支行为（与生成 Agent 的空 KB 硬拦截配套）：
+        - 正式模式（is_demo_mode=False）：检索失败 / 空库 / 无查询词 → 返回空列表，
+          生成 Agent 触发 `no_knowledge_base_chunks` 硬拦截，知识库无素材绝不生成。
+        - 演示模式（is_demo_mode=True）：上述空库场景 → 注入人工预置兜底知识块，
+          生成 Agent 照常基于素材生成，防幻觉护栏不绕过、不凭空生成。
         """
         query_parts = [learner_data.get("learning_goal", "")]
         gaps = diagnosis.get("skill_gaps", [])
@@ -319,15 +324,27 @@ class AgentWorkflow:
 
         if not query:
             logger.info("[工作流] 知识库检索：无查询词，跳过")
-            return []
+            return self._empty_kb_fallback()
 
         try:
             chunks = await knowledge_base.search(query=query, top_k=6)
             logger.info(f"[工作流] 知识库检索：命中 {len(chunks)} 条")
-            return chunks
+            if chunks:
+                return chunks
+            return self._empty_kb_fallback()
         except Exception as e:
-            logger.warning(f"[工作流] 知识库检索失败（降级为无 KB 约束）: {e}")
-            return []
+            logger.warning(f"[工作流] 知识库检索失败（空 KB 降级）: {e}")
+            return self._empty_kb_fallback()
+
+    def _empty_kb_fallback(self) -> list[dict]:
+        """空知识库降级出口：演示模式注入预置兜底块，正式模式返回空列表。
+
+        返回兜底块的副本，避免调用方就地修改模块级常量。
+        """
+        if settings.is_demo_mode:
+            logger.info("[工作流] 演示模式：知识库为空，注入人工预置演示知识块")
+            return list(DEMO_FALLBACK_CHUNKS)
+        return []
 
 
 workflow_engine = AgentWorkflow()

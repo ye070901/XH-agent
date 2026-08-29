@@ -540,9 +540,7 @@ class AuditAgent(BaseAgent):
             return "partial"
         return "none"
 
-    def _backfill_contradict(
-        self, claim: str, evidence_pool: list[dict], item: dict
-    ) -> dict:
+    def _backfill_contradict(self, claim: str, evidence_pool: list[dict], item: dict) -> dict:
         """兜底修正反驳证据槽：LLM 未填 contradict 但规则判定原文反驳时补齐。
 
         仅当四个证据槽全空（LLM 既没填支撑也没填反驳，只在 explanation 里说明）

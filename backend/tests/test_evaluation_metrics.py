@@ -72,6 +72,7 @@ class TestHallucinationMetric:
             "pass": True,
             "hallucination_count": 1,
             "unverifiable_count": 1,
+            "partially_supported_count": 0,
             "accurate_count": 2,
             "skip_count": 0,
             "invalid_verdict_count": 0,

@@ -40,6 +40,8 @@ class KnowledgeBase:
         # BM25 索引惰性缓存（语料变化时按签名重建）
         self._bm25_index: Optional[tuple] = None
         self._bm25_sig: Optional[tuple] = None
+        # 切片版本（供 ChromaDB 增量同步判断，随 _CHUNK_VERSION 升级触发重切）
+        self._CHUNK_VERSION = _CHUNK_VERSION
 
     # ════ Embedding / 初始化 ════
 

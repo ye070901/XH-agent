@@ -203,10 +203,8 @@ class GeneratedResource(BaseModel):
 class FactCheckItem(BaseModel):
     claim: str = Field(description="从生成内容中提取的断言")
     citation_ref: Optional[str] = Field(default=None, description="对应的 Citation.doc_id")
-    verdict: Literal[
-        "accurate", "hallucination", "unverifiable", "partially_supported", "skip"
-    ] = Field(
-        description="四态事实核验结果；非事实性表述使用 skip"
+    verdict: Literal["accurate", "hallucination", "unverifiable", "partially_supported", "skip"] = (
+        Field(description="四态事实核验结果；非事实性表述使用 skip")
     )
     is_accurate: Optional[bool] = Field(
         default=None,

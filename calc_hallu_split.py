@@ -56,7 +56,10 @@ for idx, case in enumerate(cases):
     )
     # 打印前10个case调试，case0现在应该输出 hallu_cnt=1, unveri=1, rate=0.25
     if idx < 10:
-        print(f"case[{idx}]: hallu_cnt={hallu_cnt}, unveri={unveri_cnt}, partially={partially_cnt}, rate={hallu_rate}")
+        print(
+            f"case[{idx}]: hallu_cnt={hallu_cnt}, unveri={unveri_cnt}, "
+            f"partially={partially_cnt}, rate={hallu_rate}"
+        )
 
 out_csv = "hallucination_stats.csv"
 with open(out_csv, "w", encoding="utf-8", newline="") as fcsv:
