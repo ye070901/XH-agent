@@ -129,6 +129,9 @@ SYSTEM_PROMPT = """你是一个严格的内容审核专家，负责把学习资�
 你输出时必须把"支撑证据"和"反驳证据"分别归入 A 级、B 级四类字段（无则填 null），
 并额外给出 support_complete 与 missing_detail 两个字段，代码会按 A>B 规则做最终裁决。
 切勿把 A 级证据错填到 B 级字段。
+若知识库原文明确反驳断言（如"并非/不是/不支持/与...无关/错误"），必须把反驳原文
+填入 contradict 槽（contradict_a/contradict_b），严禁只写进 explanation；有反驳时
+support 槽必须为 null。
 
 输出必须为严格的 JSON 格式。"""
 
@@ -382,7 +385,10 @@ class AuditAgent(BaseAgent):
             ):
                 raw = self._fallback_classify(claim, evidence_pool)
 
-            verdict = self._resolve_verdict(raw)
+            # 兜底修正：LLM 仅写 explanation 未填反驳槽时，规则补齐 contradict 证据
+            raw = self._backfill_contradict(claim, evidence_pool, raw)
+
+            verdict = self._resolve_verdict(claim, evidence_pool, raw)
             item = self._build_item(claim, verdict, raw)
             resolved.append(item)
             self.log(
@@ -417,6 +423,11 @@ class AuditAgent(BaseAgent):
   core = 核心业务事实无原文依据；minor = 仅次要修饰/参数/同义转述细节未逐字匹配
 硬性底线：核心事实已被原文覆盖时，缺失的只能标 minor，禁止整体判 unverifiable；
 只有核心事实无原文依据时才标 core。
+注意：表述/用词未逐字一致、原文未逐字写出相同句式，都不算 core 缺失；只要核心
+业务事实能在知识库原文片段中找到依据（含跨多个片段拼接），就视为 core 已覆盖。
+若某条断言被知识库原文明确反驳（如"并非/不是/不支持/与...无关/错误"），必须把
+反驳原文填入 contradict_a/contradict_b，严禁只写进 explanation；此时 support 槽
+必须为 null，support_complete=false、missing_detail="core"。
 
 仅输出纯 JSON（不要 markdown 代码块）：
 {{"claims": [
@@ -437,7 +448,8 @@ class AuditAgent(BaseAgent):
 - 只摘录原文，不要改写；确实无证据的字段填 null
 - 同一条 KB 原文不能同时填进支撑与反驳
 - A 级证据必须来自标注 [A] 的原文，B 级同理，严禁混淆
-- 无任何支撑证据时 support_complete=false 且 missing_detail="core"""
+- 无任何支撑证据时 support_complete=false 且 missing_detail="core"
+- 有反驳证据时严禁只写进 explanation，必须填入 contradict 槽"""
 
         try:
             result = await self.call_llm_json(prompt)
@@ -459,7 +471,7 @@ class AuditAgent(BaseAgent):
 
     # ── 权威裁决（纯代码规则，不调 LLM）──
 
-    def _resolve_verdict(self, item: dict) -> str:
+    def _resolve_verdict(self, claim: str, evidence_pool: list[dict], item: dict) -> str:
         """按权威等级 A>B + 完整度两级降级裁决四态。
 
         对应 D3：冲突取更高权威，同权威反驳优先；有支撑证据时按
@@ -474,19 +486,24 @@ class AuditAgent(BaseAgent):
         if contradict_a:  # A 级一手原文反驳 → 最高权威，直接判幻觉
             return "hallucination"
         if support_a:  # A 级一手原文支持 → 进入完整度两级降级
-            return self._resolve_support_grade(item)
+            return self._resolve_support_grade(claim, evidence_pool, item)
         if contradict_b:  # B 级反驳（无 A 级覆盖）
             return "hallucination"
         if support_b:  # B 级支持 → 进入完整度两级降级
-            return self._resolve_support_grade(item)
+            return self._resolve_support_grade(claim, evidence_pool, item)
         return "unverifiable"  # 无任何覆盖
 
-    def _resolve_support_grade(self, item: dict) -> str:
+    def _resolve_support_grade(self, claim: str, evidence_pool: list[dict], item: dict) -> str:
         """有支撑证据时的两级降级：core 缺失 → unverifiable；minor 缺失 → partially_supported。
 
         硬性底线：只要核心事实被原文覆盖，最多降到 partially_supported，
         禁止一步降到 unverifiable。向后兼容：LLM 未返回 support_complete /
         missing_detail 新字段时，有支撑证据即判 accurate，保持旧行为，不误伤。
+
+        跨 chunk 合并覆盖兜底：LLM 标 missing_detail="core"（核心缺失）时，
+        不直接落 unverifiable，先用规则对全证据池做跨 chunk 合并覆盖率判定——
+        若跨块合并后覆盖率达标（core 已被拼接支撑），说明是单块切散导致的漏判，
+        降级为 partially_supported 而非 unverifiable。
         """
         support_complete = item.get("support_complete")
         missing_detail = str(item.get("missing_detail") or "").strip().lower()
@@ -495,10 +512,57 @@ class AuditAgent(BaseAgent):
                 return "accurate"
             # support_complete=False：按缺失级别降级，仅核心事实缺失才落 unverifiable
             if missing_detail == "core":
+                # 兜底：规则跨 chunk 合并覆盖判定，缓解"片段切散→误判 core 缺失"
+                if self._rule_support_level_merged(claim, evidence_pool) == "partial":
+                    return "partially_supported"
                 return "unverifiable"
             return "partially_supported"
         # LLM 未返回新字段 → 向后兼容：有支撑证据即 accurate
         return "accurate"
+
+    def _rule_support_level_merged(self, claim: str, evidence_pool: list[dict]) -> str:
+        """跨 chunk 合并覆盖率判定：允许跨多个证据片段拼接支撑核心事实。
+
+        单块覆盖率可能因切片把一段事实切散而不足阈值；合并后按"关键词去重命中数 /
+        关键词总数"计算整体覆盖率，缓解单块 cut 导致的 core 误判。
+        """
+        tokens = self._extract_tokens(claim)
+        if not tokens:
+            return "none"
+        merged_text = self._normalize(
+            " ".join(str(ev.get("content") or "") for ev in evidence_pool)
+        )
+        hits = sum(1 for t in tokens if t in merged_text)
+        ratio = hits / len(tokens)
+        if ratio >= _RULE_COMPLETE_THRESHOLD:
+            return "full"
+        if ratio >= _RULE_SUPPORT_THRESHOLD:
+            return "partial"
+        return "none"
+
+    def _backfill_contradict(
+        self, claim: str, evidence_pool: list[dict], item: dict
+    ) -> dict:
+        """兜底修正反驳证据槽：LLM 未填 contradict 但规则判定原文反驳时补齐。
+
+        仅当四个证据槽全空（LLM 既没填支撑也没填反驳，只在 explanation 里说明）
+        时才触发；用规则在证据池里找同时含 claim 关键词与否定词的原文填进反驳槽，
+        避免"明确被反驳却因证据槽未填而误判 unverifiable"的边缘 case。
+        """
+        out = dict(item or {})
+        if any(out.get(k) for k in ("support_a", "support_b", "contradict_a", "contradict_b")):
+            return out  # LLM 已填证据槽，不覆盖
+        for ev in evidence_pool:
+            text = str(ev.get("content") or "")
+            if self._rule_contradict(claim, text):
+                auth = ev.get("authority") or AUTHORITY_B
+                slot = "contradict_a" if auth == AUTHORITY_A else "contradict_b"
+                if not out.get(slot):
+                    out[slot] = text[:300]
+                    out["support_complete"] = False
+                    out["missing_detail"] = "core"
+                    out["explanation"] = "证据槽补齐：原文明确反驳（规则兜底）"
+        return out
 
     def _build_item(self, claim: str, verdict: str, raw: dict) -> dict:
         """构建单条断言的比对结果。"""
@@ -559,6 +623,22 @@ class AuditAgent(BaseAgent):
                 slot = "contradict_a" if auth == AUTHORITY_A else "contradict_b"
             if slot and not out[slot]:
                 out[slot] = text[:300]
+        # 单块均低于支持阈值时，跨 chunk 合并覆盖兜底（缓解"片段切散→单块覆盖率不足"）
+        merged_level = self._rule_support_level_merged(claim, evidence_pool)
+        if best_level == "none" and merged_level == "partial":
+            best_level = "partial"
+            # 拼接近邻几块作为合并支撑证据（取权威最高块填充）
+            merged_slot = None
+            for ev in evidence_pool:
+                auth = ev.get("authority") or AUTHORITY_B
+                slot = "support_a" if auth == AUTHORITY_A else "support_b"
+                if slot not in out or not out.get(slot):
+                    out[slot] = str(ev.get("content") or "")[:300]
+                    merged_slot = slot
+                    break
+            if merged_slot:
+                out["explanation"] = "规则兜底比对（跨 chunk 合并覆盖）"
+
         # 按最高覆盖等级设置完整度字段，供两级降级使用
         if best_level == "full":
             out["support_complete"] = True

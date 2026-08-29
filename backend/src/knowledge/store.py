@@ -21,6 +21,11 @@ from .kb_utils import evaluate_search_quality, import_seed_documents, verify_per
 # 兼容 Markdown 加粗写法「**权威等级**：A」与普通写法「权威等级：A」
 _SOURCE_LEVEL_RE = re.compile(r"权威等级\**\s*[：:]\s*\**([AB])")
 
+# 切片版本：切片策略升级（语义块切分 + 18% 重叠）后，旧向量必须重新入库。
+# ChromaDB 增量同步按 source_sha256 判断是否重写，但切分逻辑变了而源文本未变时
+# sha256 不变，会跳过重切——故把版本号写入 metadata 参与跳过判断。
+_CHUNK_VERSION = "v2-semantic-block-overlap18"
+
 
 class KnowledgeBase:
     """领域知识库存储引擎 — ChromaDB 向量检索 / 文件降级双模式。"""
@@ -229,7 +234,9 @@ class KnowledgeBase:
                 existing = self._collection.get(where={"doc_id": doc_id}, include=["metadatas"])
                 metadatas = existing.get("metadatas") or []
                 if metadatas and all(
-                    metadata.get("source_sha256") == source_sha256 for metadata in metadatas
+                    metadata.get("source_sha256") == source_sha256
+                    and metadata.get("chunk_version") == self._CHUNK_VERSION
+                    for metadata in metadatas
                 ):
                     skipped += 1
                     continue
@@ -252,47 +259,99 @@ class KnowledgeBase:
 
     # ════ 文本切分 + 入库 ════
 
-    def _chunk_text(self, text: str, chunk_size: int = 512, overlap: int = 64) -> list[str]:
-        """按换行分段累积至 chunk_size，overlap 滑动窗口切分超长段落。"""
-        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-        if not paragraphs:
-            if not text.strip():
-                return []
-            text_stripped = text.strip()
-            if len(text_stripped) <= chunk_size:
-                return [text_stripped]
-            result: list[str] = []
-            start = 0
-            while start < len(text_stripped):
-                result.append(text_stripped[start : start + chunk_size])
-                start += chunk_size - overlap
-            return result
+    def _chunk_text(
+        self,
+        text: str,
+        chunk_size: int = 512,
+        overlap: Optional[int] = None,
+        overlap_ratio: float = 0.18,
+    ) -> list[str]:
+        """语义块切分：优先按 Markdown 标题分块，段落实为原子单元（不跨块切断）。
 
-        # 预处理超长段落：滑动窗口拆分为 chunk_size 子段
-        expanded: list[str] = []
-        for p in paragraphs:
-            if len(p) <= chunk_size:
-                expanded.append(p)
-            else:
-                start = 0
-                while start < len(p):
-                    expanded.append(p[start : start + chunk_size])
-                    start += chunk_size - overlap
-        paragraphs = expanded
+        相邻 chunk 按 overlap_ratio（默认 18%，落在 15%-20% 区间）携带前块尾部
+        完整段落，避免跨段事实被切散。仅当单个段落超过 chunk_size 时才滑动切分
+        （同样带 overlap），正常段落始终保持完整。
+
+        兼容旧签名：overlap 显式传入时使用字符级 overlap（测试用例用），否则按
+        overlap_ratio 换算。
+        """
+        if overlap is None:
+            overlap = max(1, int(chunk_size * overlap_ratio))
+        units = self._split_semantic_units(text)
+        if not units:
+            return []
 
         chunks: list[str] = []
-        current = ""
-        for p in paragraphs:
-            if len(current) + len(p) < chunk_size:
-                current += p + "\n\n"
+        buffer: list[str] = []
+        buf_len = 0
+        for unit in units:
+            # 超长段落：滑动窗口切分，带 overlap，避免长事实被硬切断
+            if len(unit) > chunk_size:
+                if buffer:
+                    chunks.append("\n\n".join(buffer).strip())
+                    buffer, buf_len = self._carry_overlap_units(buffer, overlap)
+                start = 0
+                while start < len(unit):
+                    chunks.append(unit[start : start + chunk_size])
+                    start += chunk_size - overlap
+                continue
+            if buf_len + len(unit) + 2 <= chunk_size:
+                buffer.append(unit)
+                buf_len += len(unit) + 2
             else:
-                if current.strip():
-                    chunks.append(current.strip())
-                tail = current.strip()[-overlap:] if len(current.strip()) > overlap else ""
-                current = (tail + "\n\n" + p + "\n\n") if tail else (p + "\n\n")
-        if current.strip():
-            chunks.append(current.strip())
-        return chunks or [text[:chunk_size]]
+                chunks.append("\n\n".join(buffer).strip())
+                buffer, buf_len = self._carry_overlap_units(buffer, overlap)
+                buffer.append(unit)
+                buf_len += len(unit) + 2
+        if buffer:
+            chunks.append("\n\n".join(buffer).strip())
+        return [c for c in chunks if c.strip()] or [text[:chunk_size]]
+
+    @staticmethod
+    def _split_semantic_units(text: str) -> list[str]:
+        """按 Markdown 标题切分语义大块，再按空行切成段落单元。
+
+        标题行与其后内容保持同一单元；段落实为原子（不跨块切断），
+        避免跨段事实被切散。
+        """
+        lines = text.split("\n")
+        blocks: list[str] = []
+        current: list[str] = []
+        for line in lines:
+            if re.match(r"^\s*#{1,6}\s+", line):
+                if current:
+                    blocks.append("\n".join(current))
+                    current = []
+            current.append(line)
+        if current:
+            blocks.append("\n".join(current))
+
+        units: list[str] = []
+        for block in blocks:
+            for para in block.split("\n\n"):
+                para = para.strip()
+                if para:
+                    units.append(para)
+        return units
+
+    @staticmethod
+    def _carry_overlap_units(buffer: list[str], overlap: int) -> tuple[list[str], int]:
+        """取 buffer 尾部总长 ≥ overlap 的完整段落作下一块开头。
+
+        缓冲整体长度 ≤ overlap（如首个短段落）时不携带，保持与旧行为一致。
+        返回 (新buffer, 新buffer总长)。
+        """
+        total = sum(len(u) + 2 for u in buffer)
+        if total <= overlap:
+            return [], 0
+        tail: list[str] = []
+        tail_len = 0
+        for u in reversed(buffer):
+            tail.insert(0, u)
+            tail_len += len(u) + 2
+            if tail_len >= overlap:
+                break
+        return tail, tail_len
 
     async def add_document(
         self,
@@ -337,6 +396,7 @@ class KnowledgeBase:
                         "doc_title": title,
                         "chunk_index": i,
                         "source_level": source_level,
+                        "chunk_version": self._CHUNK_VERSION,
                     }
                     if source_sha256:
                         metadata["source_sha256"] = source_sha256
