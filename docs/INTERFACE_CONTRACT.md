@@ -30,7 +30,7 @@
 | `industry` | string | ❌ | 所在行业 |
 | `positions` | array | ❌ | 做过哪些岗位 |
 | `pretest_results` | array | ❌ | 前置测试成绩，空数组也可以 |
-| `resource_types` | array | ✅ | 从 `lecture` `guide` `quiz` 中选 |
+| `resource_types` | array | ✅ | 从 `lecture` `guide` `quiz` `project` 中选（默认 `lecture` `guide` `quiz`） |
 
 ### 调后端的代码
 
@@ -306,7 +306,14 @@ learner_data = {
             "content": "Markdown 格式内容",
             "difficulty_level": "beginner",
             "estimated_duration_minutes": 20,
-            "key_takeaways": ["要点"]
+            "key_takeaways": ["要点"],
+            "risk_level": "high_risk",
+            "safety_warnings": ["操作前确认安全门关闭", "点动前确认工作区间无人员"],
+            "robot_metadata": {
+                "brand": "FANUC",
+                "controller_version": "R-30iB",
+                "applicable_model": "未标注"
+            }
         },
         {
             "resource_type": "quiz",
@@ -320,13 +327,24 @@ learner_data = {
 }
 ```
 
-**三种资源的 content 结构：**
+**四种资源的 content 结构：**
 
 | 类型 | 结构 |
 |------|------|
 | lecture | 引言 → 3-4 小节（每节：概念 + 代码示例）→ 总结 |
 | guide | 概述 → 前置准备 → 步骤1/2/3（命令 + 代码 + 预期输出）→ 常见问题 |
 | quiz | 基础题2道（选择题 + 选项 + 答案✓ + 解析）→ 进阶题1道 → 挑战题1道 |
+| project | 项目背景与目标 → 工作站拆解 → 全流程方案 → 分步调试步骤 → 验收标准与风险点 |
+
+**安全字段（Agent 2 确定性打标，非 LLM 产出）：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `risk_level` | string | `theory` / `low_risk` / `high_risk`。lecture/quiz 恒 `theory`；guide/project 按正文命中运动类/软件类标记分级 |
+| `safety_warnings` | string[] | 从正文 `> ⚠️ 安全提示：…` 引用块确定性提取，逐步安全提示 |
+| `robot_metadata` | object | `{brand, controller_version, applicable_model}`，仅机器人领域实操类资源，从知识库 doc_id/doc_title 溯源派生；KB 无权威来源时标注「未标注」 |
+
+high_risk 的 guide/project 正文开头须含「安全操作确认清单」章节，每个运动步骤前须有独立 `> ⚠️ 安全提示` 引用块（不满足会被 A档结构校验丢弃）。
 
 ### Agent 3（人7）读什么、写什么
 

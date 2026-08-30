@@ -18,6 +18,7 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
 import json
 import re
 import uuid
+from pathlib import Path
 
 from .base import BaseAgent
 
@@ -65,6 +66,8 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
 - lecture（定制讲义）：系统性理论讲解，含代码示例
 - guide（实操指南）：分步操作手册，含真实命令行和完整代码
 - quiz（分阶测试题）：选择题/填空题/实操题，分基础/进阶/挑战三级
+- project（工业场景项目实战）：真实工业工作站全流程项目方案 + 调试步骤 + 阶段验收标准
+- pitfall_guide（新手避坑指南）：整理常见操作误区、错误后果与规避方法
 
 ## 难度矩阵（唯一有效标准，禁止使用其他旧标准）
 - beginner：零基础入门。多用生活类比与比喻，术语首次出现必须给白话解释，每行代码加注释。
@@ -85,7 +88,313 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
 
 输出必须为严格的 JSON 格式。
 
-【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
+## 主题锁定铁律（最高优先级，不可违反）
+- 必须严格忠实于学习者输入的学习目标与课题主题，严禁篡改、替换、偷换课题主题。
+- 知识库检索召回的参考资料若与当前学习课题无关，直接丢弃该批片段，
+  禁止复用历史其他课题的课件模板与结构。
+- 禁止把任务漂移到工业机器人、库卡（KUKA）、机器视觉、FANUC、ABB 示教器等与当前课题无关的领域。
+- 生成的资源标题、核心知识点、代码示例、测试题必须全部围绕当前学习课题展开。
+
+## 工业机器人领域质量约束（仅当课题属于工业机器人领域时生效）
+- 品牌锚定：涉及具体操作/指令时声明适用品牌（FANUC / KUKA / ABB）；
+  未明确品牌版本时标注「通用原理，具体以对应品牌官方手册为准」。
+- 安全红线：实操类内容前置独立「安全」章节；运动/示教步骤附带安全提示，
+  严禁描述违反安全规程的操作。
+- 版本适配：区分控制器代际差异（KUKA C4/C5、FANUC 30iB/Plus）；
+  未指定版本时避免生成特定版本专属指令，标注「以官方手册为准」。
+- 难度层级：入门级严禁引入视觉集成、离线编程、外部轴等高级主题。
+- AI 融合边界：AI 相关内容符合工业落地实际，明确适用场景、技术依赖与局限性，
+  不脱离工业总线/通信协议夸大自动化程度。"""
+
+
+# 工业机器人领域强标记（主题漂移检测 / 无关片段过滤用）。
+# 只收录机器人领域高特异词汇，避免误伤数控机床等相邻领域——
+# 例如「坐标系」「伺服」「G代码」在 CNC 中同样常见，故不收录。
+_ROBOT_DRIFT_MARKERS: tuple[str, ...] = (
+    "机器人",
+    "工业机器人",
+    "库卡",
+    "KUKA",
+    "示教器",
+    "机器视觉",
+    "机械臂",
+    "六轴",
+    "码垛",
+    "焊接机器人",
+    "搬运机器人",
+)
+
+# 无知识库素材自生成时的免责声明（代码层面硬拼接，禁止 LLM 改写润色）。
+# 主题仍被主题锁定铁律 + _topic_drift_failure 兜底约束，仅声明「非权威、不保证真实」。
+NO_KB_DISCLAIMER = (
+    "【提示：以下内容由模型基于通用知识生成，未依据本地知识库，"
+    "系统不保证其真实性与工业实操准确性，仅供学习参考】"
+)
+
+# ── 工业机器人领域质量约束（B档生成硬约束 + A档确定性结构后置校验）──
+# 词表均从 data/raw 语料溯源（FANUC/KUKA/ABB/RAPID/KRL/IRC5/R-30iB 等真实出现），
+# 仅用于结构性/存在性判定，不做内容正确性审查（正确性交下游 Agent3，见 CLAUDE.md §6.1）。
+
+#: 品牌声明标记：讲义/指南须命中其一，或命中 _GENERIC_BRAND_MARKERS（通用原理）
+_ROBOT_BRAND_MARKERS: tuple[str, ...] = (
+    "FANUC",
+    "发那科",
+    "KUKA",
+    "库卡",
+    "ABB",
+    "RAPID",
+    "KRL",
+    "KRC4",
+    "IRC5",
+    "R-30iB",
+    "30iB",
+)
+
+#: 未明确品牌版本时的「通用原理」类声明标记
+_GENERIC_BRAND_MARKERS: tuple[str, ...] = (
+    "通用原理",
+    "品牌通用",
+    "行业通用",
+    "通用流程",
+    "以官方手册为准",
+)
+
+#: 品牌「名称」声明标记（仅品牌名/中文别名，不含专属术语）：用于品牌混淆判定时
+#: 区分「显式声明了哪个品牌」与「用了哪个品牌的术语」两个概念。
+#: 注意：与 _ROBOT_BRAND_MARKERS（含 RAPID/KRL/IRC5 等术语作声明）职责不同，勿混用。
+_BRAND_NAME_MARKERS: dict[str, tuple[str, ...]] = {
+    "FANUC": ("FANUC", "发那科"),
+    "KUKA": ("KUKA", "库卡"),
+    "ABB": ("ABB",),
+}
+
+#: 品牌专属术语词表路径（data/brand-lexicon.json，由盘点脚本/人工维护，只读）
+_BRAND_LEXICON_PATH = (
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "brand-lexicon.json"
+)
+
+#: 词表惰性缓存：文件缺失或解析失败时缓存空 dict，不阻断主流程
+_brand_lexicon_cache: dict[str, list[str]] | None = None
+
+
+def _load_brand_lexicon() -> dict[str, list[str]]:
+    """读取 data/brand-lexicon.json 的品牌专属术语词表（确定性、只读、容错）。
+
+    返回 {品牌: [专属术语]}；文件缺失/解析失败返回空 dict（本项校验降级为不拦截），
+    绝不因词表问题阻断生成主流程。
+    """
+    global _brand_lexicon_cache
+    if _brand_lexicon_cache is None:
+        _brand_lexicon_cache = {}
+        try:
+            data = json.loads(_BRAND_LEXICON_PATH.read_text(encoding="utf-8"))
+            brands = data.get("brands", {})
+            _brand_lexicon_cache = {
+                str(brand): [str(t) for t in terms]
+                for brand, terms in brands.items()
+                if isinstance(terms, list)
+            }
+        except Exception:
+            _brand_lexicon_cache = {}
+    return _brand_lexicon_cache
+
+
+# ── 二期-2 速查链接接线（指令速查手册 + 报警排查库，确定性，不调 LLM）──
+# 索引由 scripts/build_lookup_indexes.py 生成、main.py::_load_index 已消费；
+# 此处复用同一批 JSON，仅做「生成内容识别 + 跳转链接字段」接线，不重复造索引。
+
+#: 三品牌白名单：与二期-1 _BRAND_NAME_MARKERS 边界一致，排除索引里的 UR/Yaskawa
+_THREE_BRANDS: frozenset[str] = frozenset({"FANUC", "KUKA", "ABB"})
+
+#: 分品牌指令速查索引路径（data/instruction_index.json，只读）
+_INSTRUCTION_INDEX_PATH = (
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "instruction_index.json"
+)
+
+#: 高频报警排查索引路径（data/alarm_index.json，只读）
+_ALARM_INDEX_PATH = (
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "alarm_index.json"
+)
+
+#: 索引惰性缓存：文件缺失/解析失败缓存空列表，不阻断主流程
+_instruction_index_cache: list[dict] | None = None
+_alarm_index_cache: list[dict] | None = None
+
+
+def _load_lookup_index(path: Path) -> list[dict]:
+    """读取单个速查索引 JSON 并按三品牌过滤（供下方两个 loader 复用）。
+
+    文件缺失/解析失败/非列表结构返回空列表；仅保留 brand ∈ {FANUC, KUKA, ABB}
+    的条目，排除索引里混入的 UR/Yaskawa 等第 4/5 品牌。
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [
+        {str(k): v for k, v in entry.items()}
+        for entry in data
+        if isinstance(entry, dict) and entry.get("brand") in _THREE_BRANDS
+    ]
+
+
+def _load_instruction_index() -> list[dict]:
+    """读取 instruction_index.json 的三品牌指令条目（惰性缓存、fail-open）。"""
+    global _instruction_index_cache
+    if _instruction_index_cache is None:
+        _instruction_index_cache = _load_lookup_index(_INSTRUCTION_INDEX_PATH)
+    return _instruction_index_cache
+
+
+def _load_alarm_index() -> list[dict]:
+    """读取 alarm_index.json 的三品牌报警条目（惰性缓存、fail-open）。"""
+    global _alarm_index_cache
+    if _alarm_index_cache is None:
+        _alarm_index_cache = _load_lookup_index(_ALARM_INDEX_PATH)
+    return _alarm_index_cache
+
+
+#: 入门级超纲标记：beginner 内容命中即判超纲（视觉/离线/外部轴等高级主题）
+_BEGINNER_ADVANCED_MARKERS: tuple[str, ...] = (
+    "视觉集成",
+    "视觉引导",
+    "机器视觉",
+    "离线编程",
+    "离线仿真",
+    "数字孪生",
+    "外部轴",
+    "轨迹规划",
+    "深度学习",
+    "强化学习",
+)
+
+#: quiz 安全规范类题目标记：用于安全题占比 ≥20% 统计
+_QUIZ_SAFETY_MARKERS: tuple[str, ...] = (
+    "安全",
+    "急停",
+    "使能",
+    "限速",
+    "安全门",
+    "Deadman",
+    "E-Stop",
+    "光栅",
+)
+
+#: pitfall_guide「常见误区」标记：避坑指南正文须命中其一（误区/错误做法/易错等）。
+#: 注意：不含「避坑」——「避坑指南」是资源类型名，正文标题几乎必含该词，会导致校验恒真。
+_PITFALL_MARKERS: tuple[str, ...] = (
+    "误区",
+    "常见错误",
+    "错误做法",
+    "易错",
+    "踩坑",
+)
+
+#: pitfall_guide「原因/成因」标记：避坑指南正文须命中其一（讲清误区背后的机理）
+_CAUSE_MARKERS: tuple[str, ...] = (
+    "原因",
+    "成因",
+    "根因",
+)
+
+#: pitfall_guide「规避/正确做法」标记：避坑指南正文须命中其一，与 _PITFALL_MARKERS 成对校验
+_AVOIDANCE_MARKERS: tuple[str, ...] = (
+    "规避",
+    "避免",
+    "正确做法",
+    "改进",
+    "预防",
+    "建议",
+)
+
+#: guide 结构存在性正则：独立「安全」标题章节 / 「异常与排错」对照模块
+_GUIDE_SAFETY_HEADING_RE = re.compile(r"^\s*#{1,6}\s*[^\n]*安全[^\n]*$", re.MULTILINE)
+_GUIDE_TROUBLESHOOT_HEADING_RE = re.compile(
+    r"^\s*#{1,6}\s*[^\n]*(故障|异常|排错|报警)[^\n]*$", re.MULTILINE
+)
+
+# ── 工业实操安全分级（确定性，不调 LLM；危险 ≠ 难度）──
+# 运动类/软件类标记从用户安全规范与 data/raw 语料溯源，仅做存在性判定。
+
+#: 运动类高危操作标记：命中即判 high_risk（示教/点动/运行/IO调试等带动机械臂的操作）
+_HIGH_RISK_MOTION_MARKERS: tuple[str, ...] = (
+    "示教",
+    "点动",
+    "运行程序",
+    "程序运行",
+    "自动运行",
+    "手动运行",
+    "连续运行",
+    "单步运行",
+    "单步执行",
+    "试运行",
+    "轨迹运行",
+    "使能",
+    "手动模式",
+    "手动移动",
+    "移动机器人",
+    "移动机械臂",
+    "IO调试",
+    "I/O调试",
+    "信号调试",
+    "倍率",
+    "校准",
+    "标定",
+    "回零",
+    "搬运",
+    "码垛",
+    "焊接",
+)
+
+#: 软件类低危操作标记：仅在未命中运动类标记时判 low_risk
+_LOW_RISK_SOFTWARE_MARKERS: tuple[str, ...] = (
+    "参数查看",
+    "查看参数",
+    "参数设置",
+    "程序编辑",
+    "编辑程序",
+    "离线编程",
+    "离线仿真",
+    "仿真",
+    "备份",
+    "还原",
+    "变量",
+    "监控",
+)
+
+#: 逐步安全提示引用块：`> ⚠️ 安全提示：…`（容忍有无 ⚠️）
+_SAFETY_WARNING_RE = re.compile(r"^\s*>\s*(?:⚠️\s*)?安全提示[:：]\s*(?P<text>.+)$", re.MULTILINE)
+
+#: high_risk 实操须含的「安全操作确认清单」标题
+_CHECKLIST_HEADING_RE = re.compile(
+    r"^\s*#{1,6}\s*[^\n]*(安全操作确认清单|安全确认清单)[^\n]*$", re.MULTILINE
+)
+
+#: 品牌/控制器/机型 token → 展示名（纯子串匹配；token 未出现即永不命中，不杜撰）。
+#: 词表溯源自 data/raw 文件名真实出现的 token（fanuc/kuka/abb/yaskawa/yrc1000/irc5/
+#: profisafe/crx），另附常见控制器代际，仅在正文/标题真实出现时命中。
+_BRAND_TOKEN_MAP: tuple[tuple[str, str], ...] = (
+    ("fanuc", "FANUC"),
+    ("发那科", "FANUC"),
+    ("kuka", "KUKA"),
+    ("库卡", "KUKA"),
+    ("abb", "ABB"),
+    ("yaskawa", "Yaskawa"),
+    ("安川", "Yaskawa"),
+)
+_CONTROLLER_TOKEN_MAP: tuple[tuple[str, str], ...] = (
+    ("yrc1000", "YRC1000"),
+    ("irc5", "IRC5"),
+    ("profisafe", "PROFIsafe"),
+    ("r-30ib", "R-30iB"),
+    ("krc4", "KRC4"),
+    ("krc5", "KRC5"),
+    ("s4c", "S4C"),
+    ("dx200", "DX200"),
+)
+_MODEL_TOKEN_MAP: tuple[tuple[str, str], ...] = (("crx", "CRX"),)
 
 
 class GenerationAgent(BaseAgent):
@@ -111,6 +420,9 @@ class GenerationAgent(BaseAgent):
     # 资源数量上限，防止 token 过度消耗
     MAX_RESOURCES = 3
 
+    # 主题漂移时的最大重试次数（不含首次生成）
+    MAX_TOPIC_RETRIES = 2
+
     def __init__(self):
         super().__init__(
             name="知识生成Agent",
@@ -129,18 +441,19 @@ class GenerationAgent(BaseAgent):
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
         retrieved_chunks = state.get("retrieved_chunks", [])
 
-        # ── 空 KB 生成关闭：无有效知识库 chunk 时禁止凭空生成（杜绝兜底路径幻觉）──
+        # ── 主题对齐：丢弃与原始学习课题无关的检索片段（如非机器人课题丢弃机器人素材）──
+        original_topic = str(learner_data.get("learning_goal", "") or "").strip()
+        retrieved_chunks = self._filter_relevant_chunks(retrieved_chunks, original_topic)
+
+        # ── 有效素材判定：无有效 KB chunk 时进入「无素材自生成」降级模式 ──
+        # 主题锁定铁律 + _topic_drift_failure 兜底在两种模式下都生效，杜绝漂移到无关领域；
+        # 无素材时允许模型凭通用知识生成，但必须打免责标记（系统不保证真实有效）。
         valid_chunks = [
             c for c in retrieved_chunks if isinstance(c, dict) and str(c.get("content", "")).strip()
         ]
-        if not valid_chunks:
-            self.log("⚠️ 无有效知识库素材，禁止凭空生成，返回空资源集合")
-            return {
-                "generated_resources": [],
-                "generation_errors": [
-                    {"resource_type": "ALL", "error": "no_knowledge_base_chunks"}
-                ],
-            }
+        no_kb_mode = len(valid_chunks) == 0
+        if no_kb_mode:
+            self.log("⚠️ 无有效知识库素材，进入无素材自生成降级模式（主题锁定 + 免责标记）")
 
         # 安全上限：防止请求过多类型导致 token 爆炸
         resource_types = resource_types[: self.MAX_RESOURCES]
@@ -159,6 +472,26 @@ class GenerationAgent(BaseAgent):
                 if not result or result.get("_parse_error"):
                     self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
                     errors.append({"resource_type": rtype, "error": "json_parse_failed"})
+                    continue
+                # 主题漂移自检兜底：重试仍无法对齐原始课题 → 丢弃，绝不把跑偏内容返回前端
+                drift_error = result.get("_topic_drift_error")
+                if drift_error:
+                    self.log(f"⚠️ {rtype} 类型资源主题漂移，丢弃: {drift_error}")
+                    errors.append(
+                        {"resource_type": rtype, "error": "topic_drift", "detail": drift_error}
+                    )
+                    continue
+                # A档结构后置校验兜底：机器人领域资源未通过确定性结构校验 → 丢弃
+                structure_error = result.get("_structure_validation_error")
+                if structure_error:
+                    self.log(f"⚠️ {rtype} 类型资源结构校验未通过，丢弃: {structure_error}")
+                    errors.append(
+                        {
+                            "resource_type": rtype,
+                            "error": "structure_validation",
+                            "detail": structure_error,
+                        }
+                    )
                     continue
                 # 与 schemas.GeneratedResource 对齐：resource_id / learner_id /
                 # resource_type 由本层补全，target_skill_gaps 从诊断结果推导
@@ -180,11 +513,46 @@ class GenerationAgent(BaseAgent):
                 result["resource_id"] = str(uuid.uuid4())
                 result["learner_id"] = learner_id
                 result.setdefault("target_skill_gaps", target_skill_gaps)
+                # ── 工业实操安全打标（确定性，不调 LLM）──
+                # 风险分级 + 逐步安全提示抽取对所有资源生效；品牌/控制器/机型元数据
+                # 仅机器人领域实操类资源派生（从知识库 chunk 溯源，非 LLM 杜撰）。
+                result["risk_level"] = self._classify_risk_level(
+                    rtype, str(result.get("content", "") or "")
+                )
+                result["safety_warnings"] = self._extract_safety_warnings(
+                    str(result.get("content", "") or "")
+                )
+                if self._contains_any(original_topic, _ROBOT_DRIFT_MARKERS) and rtype in (
+                    "lecture",
+                    "guide",
+                    "project",
+                ):
+                    result["robot_metadata"] = self._derive_robot_metadata(retrieved_chunks)
+                # ── 二期-2 速查链接注入（确定性，不调 LLM）──
+                # 仅机器人领域讲义/指南识别正文指令名、报警编号，注入跳转链接字段；
+                # quiz 无指令速查价值，project 不在二期-2 范围。
+                if self._contains_any(original_topic, _ROBOT_DRIFT_MARKERS) and rtype in (
+                    "lecture",
+                    "guide",
+                ):
+                    result["instruction_links"] = self._extract_instruction_links(
+                        str(result.get("content", "") or "")
+                    )
+                    result["alarm_links"] = self._extract_alarm_links(
+                        str(result.get("content", "") or "")
+                    )
                 resources.append(result)
             except Exception as e:
                 # 单个资源生成失败不阻断其他资源
                 self.log(f"⚠️ {rtype} 类型资源生成失败: {e}")
                 errors.append({"resource_type": rtype, "error": str(e)})
+
+        # ── 无素材自生成后处理：打免责标记（citations 置空 + 内容头部声明非权威）──
+        if no_kb_mode:
+            for r in resources:
+                r["citations"] = []
+                r["content"] = NO_KB_DISCLAIMER + "\n\n" + str(r.get("content", ""))
+            self.log(f"⚠️ 无素材自生成 {len(resources)} 个资源，已打免责标记（系统不保证真实有效）")
 
         self.log(
             f"生成完成: {len(resources)}/{len(resource_types)} 个资源"
@@ -193,6 +561,7 @@ class GenerationAgent(BaseAgent):
         return {
             "generated_resources": resources,
             **({"generation_errors": errors} if errors else {}),
+            **({"downgrade_mode": True} if no_kb_mode else {}),
         }
 
     async def _generate_one(
@@ -218,6 +587,12 @@ class GenerationAgent(BaseAgent):
         difficulty = diagnosis.get("recommended_difficulty", "beginner")
         learning_style = diagnosis.get("learning_style", "unknown")
         learning_goal = diagnosis.get("summary", "")
+        # 原始学习课题（权威主题锚点）：优先取用户原始输入，诊断总结作为兜底
+        original_topic = str((learner_data or {}).get("learning_goal", "") or "").strip()
+        if not original_topic:
+            original_topic = learning_goal
+        # 课题是否属于机器人领域：决定是否注入机器人领域质量约束 + 结构后置校验
+        is_robot_topic = self._contains_any(original_topic, _ROBOT_DRIFT_MARKERS)
         # 画像标签：优先取诊断显式字段，否则按 (难度, 风格, 背景) 纯规则推导
         profile_tag = diagnosis.get("profile_tag") or derive_profile_tag(
             learner_data or {}, difficulty, learning_style
@@ -230,8 +605,61 @@ class GenerationAgent(BaseAgent):
             "profile_tag": profile_tag,
         }
 
-        # ── 构建知识库上下文（RAG 约束生成）──
-        kb_context = self._fmt_knowledge_base(retrieved_chunks or [])
+        # ── 丢弃与课题无关的检索片段，再构建知识库上下文（RAG 约束生成）──
+        relevant_chunks = self._filter_relevant_chunks(retrieved_chunks or [], original_topic)
+        no_kb = not relevant_chunks
+        kb_context = self._fmt_knowledge_base(relevant_chunks)
+
+        # 有 KB 素材 → 权威生成（严禁引入幻觉）；无 KB 素材 → 通用知识自生成（免责标记）
+        if no_kb:
+            kb_section = (
+                "## 知识库素材状态\n"
+                "（知识库暂无与当前课题匹配的权威素材，本次生成依赖模型的通用知识，"
+                "对不确定的具体参数、型号、菜单路径、报警代码、操作顺序须明确标注，"
+                "严禁编造精确数值、菜单路径、报警代码、操作顺序或官方原文）"
+            )
+            task_instruction = "知识库暂无该课题的权威素材，请基于你的通用专业知识生成一份"
+            req2 = (
+                "2. **无权威素材，可用通用知识生成**：不确定的具体参数、型号、步骤、"
+                "菜单路径、报警代码、操作顺序须标注「不确定」，"
+                "严禁编造精确数值、菜单路径、报警代码、操作顺序或官方原文"
+            )
+            req8 = "8. citations 留空数组（本次无知识库溯源，内容已标注为非权威）"
+        else:
+            kb_section = kb_context
+            task_instruction = "请**严格基于上述知识库参考资料**，生成一份"
+            req2 = (
+                "2. **内容必须基于上方知识库参考资料**，不得编造知识库中没有的技术细节；"
+                "菜单路径、报警代码、参数值、操作顺序必须与资料一致，不确定处标注「以官方手册为准」"
+            )
+            req8 = "8. citations 中至少引用 2 条知识库原文片段"
+
+        # ── 机器人领域硬约束块：仅当课题属于机器人领域时注入（非机器人课题如数控机床不注入）──
+        robot_req_block = ""
+        if is_robot_topic:
+            robot_req_block = """
+
+## 工业机器人领域硬约束（本课题属于机器人领域，必须遵守）
+1. **品牌锚定**：涉及具体操作/指令时必须声明适用品牌（FANUC / KUKA / ABB），
+   未明确品牌版本时标注「通用原理，具体以对应品牌官方手册为准」。
+2. **安全红线**：实操类内容必须前置独立「安全」章节；运动/示教步骤附带安全提示，
+   严禁描述违反安全规程的操作。
+3. **版本适配**：涉及控制器代际差异（KUKA C4/C5、FANUC 30iB/Plus）须区分说明；
+   未指定版本时不得生成特定版本专属指令，标注「以官方手册为准」。
+4. **难度层级**：入门级严禁引入视觉集成、离线编程、外部轴、数字孪生等高级主题。
+5. **AI 融合边界**：涉及 AI 的内容须符合工业落地实际，明确适用场景、技术依赖与局限性，
+   不脱离工业总线/通信协议夸大自动化程度。
+6. **结构要求**（后置校验会确定性检查，不满足将被丢弃）：
+   - guide 必须含独立「安全」章节 + 「常见异常与排错」对照模块；
+   - lecture/guide/project/pitfall_guide 必须声明品牌（FANUC/KUKA/ABB）或标注「通用原理」；
+   - quiz 安全规范类题目占比不低于 20%；
+   - pitfall_guide 必须含「常见误区」与「规避/正确做法」两类内容。
+7. **高危实操安全清单**：涉及示教/点动/运行程序/IO调试等运动操作的 guide/project，
+   正文开头须生成「安全操作确认清单」章节（含：安全门状态确认 / 急停按钮位置确认 /
+   使能键使用规范 / 工作区间无人员确认 / 减速模式开启要求）；
+   每个运动类操作步骤前，须输出独立引用块 `> ⚠️ 安全提示：…`，不得与普通步骤文本合并。
+8. **事实准确（铁律）**：严禁编造菜单路径、报警代码、参数值、操作顺序；
+   报警编号/指令名必须来自知识库或速查索引，无法确认时标注「以官方手册为准」，不得杜撰。"""
 
         prompt = f"""## 结构化画像参数（权威，禁止改写）
 {json.dumps(profile_params, ensure_ascii=False)}
@@ -240,10 +668,14 @@ class GenerationAgent(BaseAgent):
 - 学习目标总结：{learning_goal}
 - 知识盲区（按优先级）：{self._fmt_gaps(gaps)}
 
-{kb_context}
+## 原始学习课题（主题锁定·最高优先级，严禁偏离）
+{original_topic}
+
+{kb_section}
+{robot_req_block}
 
 ## 生成任务
-请**严格基于上述知识库参考资料**，生成一份 {rtype} 类型的个性化学习资源。
+{task_instruction} {rtype} 类型的个性化学习资源。
 
 ## 输出 JSON
 {{
@@ -259,18 +691,23 @@ class GenerationAgent(BaseAgent):
 
 ## 硬性要求
 1. 内容必须准确——这是教育场景，教错了比不教更糟
-2. **内容必须基于上方知识库参考资料**，不得编造知识库中没有的技术细节
+{req2}
 3. 代码示例完整可运行，命令行标注操作系统（Windows/Linux/Mac）
 4. **难度锁定**：difficulty_level 必须严格等于结构化画像参数中的 difficulty（{difficulty}），
    禁止自行调整难度档位
 5. **风格锁定**：内容表达方式必须与结构化画像参数中的 learning_style（{learning_style}）
    一致，禁止混用其他风格或自行脑补新风格
-6. 三种资源固定内容结构：
+6. 五种资源固定内容结构：
    - lecture: 引言 → 3~4小节（概念+可运行代码）→ 总结
    - guide: 概述 → 前置准备 → 分步操作（命令+代码+预期输出）→ 常见问题
    - quiz: 基础选择题2道（含选项/标准答案/解析）→ 进阶题1道 → 挑战实操题1道
+   - project: 项目背景与目标 → 工作站拆解 → 全流程方案 → 分步调试步骤 → 验收标准与风险点
+   - pitfall_guide: 常见误区（错误做法）→ 原因 → 后果 → 规避方法（正确做法/改进建议）
 7. 优先覆盖 critical 和 high 优先级的知识盲区
-8. citations 中至少引用 2 条知识库原文片段"""
+{req8}
+9. **主题忠实**：全部内容（标题/知识点/示例/题目）必须围绕「原始学习课题」展开，
+   严禁漂移到工业机器人、库卡（KUKA）、机器视觉、示教器等与课题无关的领域；
+   与课题无关的知识库片段必须丢弃，禁止复用其他课题的课件模板"""
 
         if rtype == "quiz":
             prompt += """
@@ -295,26 +732,50 @@ mix of recall, scenario, and application questions that is
 relevant to the learner profile and the retrieved knowledge.
 """
 
+        # ── 生成 + 主题自检：明显跑偏则重试，重试仍跑偏则丢弃（不返回前端）──
         result = await self.call_llm_json(prompt)
-        failure = self._quiz_contract_failure(result)
-        if rtype != "quiz" or failure is None:
-            return result
+        drift_reason = self._topic_drift_failure(result, original_topic)
+        attempt = 0
+        while drift_reason is not None and attempt < self.MAX_TOPIC_RETRIES:
+            attempt += 1
+            self.log(f"⚠️ {rtype} 主题漂移，触发重新生成（第 {attempt} 次）: {drift_reason}")
+            result = await self.call_llm_json(
+                prompt + self._topic_reinforcement(original_topic, drift_reason)
+            )
+            drift_reason = self._topic_drift_failure(result, original_topic)
+        if drift_reason is not None:
+            self.log(f"❌ {rtype} 主题漂移无法纠正，丢弃结果: {drift_reason}")
+            return {"_topic_drift_error": drift_reason}
 
-        # A quiz without an answer key cannot be submitted, reviewed, or exported
-        # as a self-study resource. Ask once more before it reaches the UI.
-        # Keep valid question blocks intact. Only malformed questions are
-        # regenerated, so a single bad item does not invalidate the whole quiz.
-        repaired = await self._repair_quiz_questions(result, kb_context)
-        failure = self._quiz_contract_failure(repaired)
-        if failure is None:
-            return repaired
-        if isinstance(repaired, dict):
-            return {**repaired, "_quiz_validation_error": failure}
-        return {
-            "title": "Quiz requiring review",
-            "content": str(repaired or ""),
-            "_quiz_validation_error": failure or "\u9898\u76ee\u7ed3\u6784\u65e0\u6cd5\u89e3\u6790",
-        }
+        failure = self._quiz_contract_failure(result)
+        if rtype == "quiz" and failure is not None:
+            # A quiz without an answer key cannot be submitted, reviewed, or exported
+            # as a self-study resource. Ask once more before it reaches the UI.
+            # Keep valid question blocks intact. Only malformed questions are
+            # regenerated, so a single bad item does not invalidate the whole quiz.
+            repaired = await self._repair_quiz_questions(result, kb_context)
+            failure = self._quiz_contract_failure(repaired)
+            if failure is None:
+                result = repaired
+            elif isinstance(repaired, dict):
+                result = {**repaired, "_quiz_validation_error": failure}
+            else:
+                result = {
+                    "title": "Quiz requiring review",
+                    "content": str(repaired or ""),
+                    "_quiz_validation_error": failure or "题目结构无法解析",
+                }
+
+        # ── A档结构后置校验（确定性，不调 LLM）：仅机器人领域课题生效 ──
+        # 只做结构性/存在性判定（品牌声明、安全章节、排错模块、入门超纲、quiz 安全占比），
+        # 正确性审查交下游 Agent3，不在此新增 LLM 二次校验（CLAUDE.md §6.1）。
+        if is_robot_topic and "_quiz_validation_error" not in result:
+            structure_failures = self._structure_validation_failure(result, rtype, difficulty)
+            if structure_failures:
+                self.log(f"❌ {rtype} 结构校验未通过，丢弃: {structure_failures}")
+                return {"_structure_validation_error": structure_failures}
+
+        return result
 
     @staticmethod
     def _quiz_question_blocks(content: str) -> list[str]:
@@ -650,3 +1111,299 @@ Knowledge context:
             parts.append(f"\n### 资料 {i}：{title}\n{excerpt}")
 
         return "\n".join(parts)
+
+    @staticmethod
+    def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
+        """大小写不敏感地判断 text 是否命中任一标记。"""
+        lowered = str(text or "").lower()
+        return any(str(m).lower() in lowered for m in markers)
+
+    @staticmethod
+    def _classify_risk_level(rtype: str, content: str) -> str:
+        """确定性风险分级（不调 LLM；危险 ≠ 难度）。
+
+        lecture/quiz/pitfall_guide 属理论/警示类内容恒为 theory；guide/project 按正文
+        命中运动类/软件类标记分级：运动类 → high_risk，软件类 → low_risk，否则 theory。
+        """
+        if rtype in ("lecture", "quiz", "pitfall_guide"):
+            return "theory"
+        text = str(content or "")
+        if GenerationAgent._contains_any(text, _HIGH_RISK_MOTION_MARKERS):
+            return "high_risk"
+        if GenerationAgent._contains_any(text, _LOW_RISK_SOFTWARE_MARKERS):
+            return "low_risk"
+        return "theory"
+
+    @staticmethod
+    def _extract_safety_warnings(content: str) -> list[str]:
+        """从正文确定性提取 `> ⚠️ 安全提示：…` 引用块文本（不调 LLM）。
+
+        保持 content 扁平字符串不变，仅在生成后按固定格式抽取为结构化字段，
+        供前端渲染独立警示块；与普通步骤文本天然分离。
+        """
+        return [
+            m.group("text").strip()
+            for m in _SAFETY_WARNING_RE.finditer(str(content or ""))
+            if m.group("text")
+        ]
+
+    @staticmethod
+    def _strip_code_blocks(content: str) -> str:
+        """剔除 ``` 围栏代码块，返回可做关键词匹配的正文（不调 LLM）。
+
+        行内反引号 `code` 是讲解速查点（如 `MoveJ`），不剔除；仅整体剥离多行代码块，
+        避免把代码示例里的指令名/报警编号误判为「正文提到该速查点」。
+        """
+        return re.sub(r"```.*?```", "", str(content or ""), flags=re.DOTALL)
+
+    @staticmethod
+    def _extract_instruction_links(content: str) -> list[dict]:
+        """识别正文里的指令名，注入对应速查跳转链接（确定性，不调 LLM；二期-2）。
+
+        消费 instruction_index.json（仅三品牌），对每条指令名做「词边界 + 大小写敏感」
+        匹配（re.escape 防正则注入），跳过代码块；命中产 {brand,name,doc_id,doc_title}。
+        按 (brand, name) 去重保留首个 doc，避免同名多篇刷屏。
+        """
+        text = GenerationAgent._strip_code_blocks(content)
+        links: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for entry in _load_instruction_index():
+            name = str(entry.get("instruction", "") or "")
+            brand = str(entry.get("brand", "") or "")
+            if not name or (brand, name) in seen:
+                continue
+            if re.search(rf"\b{re.escape(name)}\b", text):
+                seen.add((brand, name))
+                links.append(
+                    {
+                        "brand": brand,
+                        "name": name,
+                        "doc_id": str(entry.get("doc_id", "") or ""),
+                        "doc_title": str(entry.get("doc_title", "") or ""),
+                    }
+                )
+        return links
+
+    @staticmethod
+    def _extract_alarm_links(content: str) -> list[dict]:
+        """识别正文里的报警编号，注入对应排查跳转链接（确定性，不调 LLM；二期-2）。
+
+        消费 alarm_index.json（仅三品牌），对每条 alarm_code 做词边界匹配，跳过代码块；
+        命中产 {brand,code,doc_id,doc_title,fault_name}。按 (brand, code) 去重。
+        """
+        text = GenerationAgent._strip_code_blocks(content)
+        links: list[dict] = []
+        seen: set[tuple[str, str]] = set()
+        for entry in _load_alarm_index():
+            code = str(entry.get("alarm_code", "") or "")
+            brand = str(entry.get("brand", "") or "")
+            if not code or (brand, code) in seen:
+                continue
+            if re.search(rf"\b{re.escape(code)}\b", text):
+                seen.add((brand, code))
+                links.append(
+                    {
+                        "brand": brand,
+                        "code": code,
+                        "doc_id": str(entry.get("doc_id", "") or ""),
+                        "doc_title": str(entry.get("doc_title", "") or ""),
+                        "fault_name": str(entry.get("fault_name", "") or ""),
+                    }
+                )
+        return links
+
+    @staticmethod
+    def _derive_robot_metadata(chunks: list) -> dict:
+        """从 retrieved_chunks 的 doc_id/doc_title 确定性派生品牌/控制器/机型元数据。
+
+        纯子串匹配，词表只收录 KB 真实出现过的 token；任一取不到 → 「未标注」，
+        绝不靠 LLM 杜撰具体型号（CLAUDE.md §6 防幻觉铁律）。
+        """
+        haystack = " ".join(
+            f"{str(c.get('doc_id', '') or '')} {str(c.get('doc_title', '') or '')}"
+            for c in (chunks or [])
+            if isinstance(c, dict)
+        ).lower()
+
+        def _pick(token_map: tuple[tuple[str, str], ...]) -> str:
+            for token, display in token_map:
+                if token.lower() in haystack:
+                    return display
+            return "未标注"
+
+        return {
+            "brand": _pick(_BRAND_TOKEN_MAP),
+            "controller_version": _pick(_CONTROLLER_TOKEN_MAP),
+            "applicable_model": _pick(_MODEL_TOKEN_MAP),
+        }
+
+    @staticmethod
+    def _filter_relevant_chunks(chunks: list, original_topic: str) -> list:
+        """丢弃与当前学习课题无关的检索片段（确定性规则）。
+
+        当前知识库语料以工业机器人（K1~K4）为主：若用户课题不属于机器人领域，
+        命中机器人强标记的片段一律视为无关素材直接丢弃，避免把任务漂移到无关领域；
+        课题本身属于机器人领域时不做过滤（保留全部片段）。
+        """
+        if not original_topic:
+            return list(chunks or [])
+        if GenerationAgent._contains_any(original_topic, _ROBOT_DRIFT_MARKERS):
+            return list(chunks or [])
+        kept: list[dict] = []
+        for c in chunks or []:
+            if not isinstance(c, dict):
+                continue
+            title = str(c.get("doc_title", "") or "")
+            content = str(c.get("content", "") or "")
+            if GenerationAgent._contains_any(f"{title} {content}", _ROBOT_DRIFT_MARKERS):
+                continue
+            kept.append(c)
+        return kept
+
+    @staticmethod
+    def _topic_drift_failure(result: dict, original_topic: str) -> str | None:
+        """生成后自检：输出大标题 / 核心知识点是否与原始学习课题对齐。
+
+        仅当可确定性地证明「明显跑偏」才返回原因——课题不属于机器人领域，
+        而输出标题 / 知识点却命中机器人强标记；其余情况返回 None（不做臆断），
+        交由下游审核 Agent 处理内容层面的问题。
+        """
+        if not isinstance(result, dict) or not str(original_topic or "").strip():
+            return None
+        # 课题本身就在机器人领域 → 输出含机器人词汇不构成漂移
+        if GenerationAgent._contains_any(original_topic, _ROBOT_DRIFT_MARKERS):
+            return None
+        title = str(result.get("title", "") or "")
+        takeaways = " ".join(str(t) for t in result.get("key_takeaways", []) or [] if t)
+        head = f"{title} {takeaways}"
+        for marker in _ROBOT_DRIFT_MARKERS:
+            if str(marker).lower() in head.lower():
+                return (
+                    f"生成内容漂移到工业机器人领域（标题/知识点含「{marker}」，"
+                    f"与原课题「{original_topic[:40]}」不符）"
+                )
+        return None
+
+    @staticmethod
+    def _topic_reinforcement(original_topic: str, drift_reason: str) -> str:
+        """主题漂移重试时追加的强约束文本。"""
+        return f"""
+
+## 主题锁定纠正（上次生成被判定跑偏，必须重做）
+上次生成被判定为主题漂移：{drift_reason}
+请严格围绕原始学习课题「{original_topic}」重新生成，标题与核心知识点中严禁出现
+机器人、库卡（KUKA）、机器视觉、示教器等与课题无关的领域词汇。
+若上方知识库参考资料与课题无关，宁可输出空内容也不得复用其他课题的模板。"""
+
+    @staticmethod
+    def _brand_confusion_failures(head: str) -> list[str]:
+        """品牌术语双向词表校验（确定性，不调 LLM；二期-1）。
+
+        规则：当内容显式声明了「恰好一个」品牌（FANUC/KUKA/ABB 名称），却命中
+        其他品牌的专属术语（来自 data/brand-lexicon.json）→ 判定品牌混淆，触发重生成。
+        - 多品牌（对比类内容，len(declared) > 1）或零品牌（由品牌锚定校验兜底）不判定混淆；
+        - 「通用原理」豁免由调用方（_structure_validation_failure）处理，本函数不感知。
+        每个「其他品牌」最多报一条，避免刷屏。
+        """
+        declared = {
+            brand
+            for brand, names in _BRAND_NAME_MARKERS.items()
+            if GenerationAgent._contains_any(head, names)
+        }
+        if len(declared) != 1:
+            return []
+        declared_brand = next(iter(declared))
+        failures: list[str] = []
+        for brand, terms in _load_brand_lexicon().items():
+            if brand == declared_brand:
+                continue
+            for term in terms:
+                if GenerationAgent._contains_any(head, (term,)):
+                    failures.append(
+                        f"品牌混淆：声明「{declared_brand}」但出现「{brand}」专属术语「{term}」"
+                    )
+                    break
+        return failures
+
+    @staticmethod
+    def _structure_validation_failure(result: dict, rtype: str, difficulty: str) -> list[str]:
+        """A档确定性结构后置校验（仅机器人领域课题调用，不调 LLM）。
+
+        只做结构性/存在性判定（品牌声明、安全章节、排错模块、入门超纲、
+        quiz 安全占比），不做内容正确性审查（正确性交下游 Agent3）。
+        返回失败原因列表；空列表表示通过。
+        """
+        failures: list[str] = []
+        if not isinstance(result, dict):
+            return ["生成结果不是结构化 dict"]
+        content = str(result.get("content", "") or "")
+        title = str(result.get("title", "") or "")
+        head = f"{title}\n{content}"
+
+        # 品牌锚定：讲义/指南/项目实战/避坑指南必须声明品牌（FANUC/KUKA/ABB）或标注「通用原理」
+        if rtype in ("lecture", "guide", "project", "pitfall_guide"):
+            has_brand = GenerationAgent._contains_any(head, _ROBOT_BRAND_MARKERS)
+            has_generic = GenerationAgent._contains_any(head, _GENERIC_BRAND_MARKERS)
+            if not (has_brand or has_generic):
+                failures.append("未声明品牌（FANUC/KUKA/ABB）或未标注「通用原理」")
+            # 品牌混淆：单一品牌声明 + 其他品牌专属术语 → 触发重生成（「通用原理」豁免）
+            if not has_generic:
+                failures.extend(GenerationAgent._brand_confusion_failures(head))
+
+        # 高危实操安全校验：high_risk 的 guide/project 须含「安全操作确认清单」+ 运动步骤安全提示
+        if GenerationAgent._classify_risk_level(rtype, content) == "high_risk" and rtype in (
+            "guide",
+            "project",
+        ):
+            if not _CHECKLIST_HEADING_RE.search(content):
+                failures.append("high_risk 实操缺少「安全操作确认清单」章节")
+            if not _SAFETY_WARNING_RE.search(content):
+                failures.append("high_risk 实操缺少运动步骤安全提示（> ⚠️ 安全提示）")
+
+        # 安全红线：guide 必须前置独立「安全」标题章节
+        if rtype == "guide" and not _GUIDE_SAFETY_HEADING_RE.search(content):
+            failures.append("guide 缺少独立「安全」标题章节")
+
+        # 实操真实性：guide 必须含「常见异常与排错」对照模块
+        if rtype == "guide" and not _GUIDE_TROUBLESHOOT_HEADING_RE.search(content):
+            failures.append("guide 缺少「常见异常与排错」对照模块")
+
+        # 难度层级：入门级不得出现高级主题
+        if difficulty == "beginner":
+            for marker in _BEGINNER_ADVANCED_MARKERS:
+                if GenerationAgent._contains_any(head, (marker,)):
+                    failures.append(f"入门级内容出现超纲主题「{marker}」")
+                    break
+
+        # quiz 安全规范类题目占比 ≥20%
+        if rtype == "quiz":
+            ratio_failure = GenerationAgent._quiz_safety_ratio_failure(content)
+            if ratio_failure:
+                failures.append(ratio_failure)
+
+        # 避坑指南必备要素：须含「常见误区」+「原因」+「规避/正确做法」三类内容
+        if rtype == "pitfall_guide":
+            if not GenerationAgent._contains_any(content, _PITFALL_MARKERS):
+                failures.append("pitfall_guide 缺少「常见误区」内容")
+            if not GenerationAgent._contains_any(content, _CAUSE_MARKERS):
+                failures.append("pitfall_guide 缺少「原因」内容")
+            if not GenerationAgent._contains_any(content, _AVOIDANCE_MARKERS):
+                failures.append("pitfall_guide 缺少「规避/正确做法」内容")
+
+        return failures
+
+    @staticmethod
+    def _quiz_safety_ratio_failure(content: str) -> str | None:
+        """quiz 安全规范类题目占比 ≥20% 的确定性校验（不调 LLM）。
+
+        题目数量不足由 _quiz_contract_failure 负责，此处只统计安全题占比。
+        """
+        blocks = GenerationAgent._quiz_question_blocks(content)
+        if len(blocks) < 5:
+            return None
+        safety_count = sum(
+            1 for b in blocks if GenerationAgent._contains_any(b, _QUIZ_SAFETY_MARKERS)
+        )
+        if safety_count / len(blocks) < 0.20:
+            return f"安全规范类题目占比不足：{safety_count}/{len(blocks)} < 20%"
+        return None

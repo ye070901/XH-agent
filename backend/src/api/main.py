@@ -9,6 +9,7 @@ if str(root_path) not in sys.path:
 
 # 1. 项目内部模块导入
 # 2. Python 标准库
+import json  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 # 3. 第三方依赖库
@@ -77,6 +78,25 @@ async def _get_kb_stats() -> dict:
             "total_chunks": 0,
             "collection_name": settings.CHROMA_COLLECTION_NAME,
         }
+
+
+_DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+
+
+def _load_index(name: str) -> list[dict]:
+    """读取 data/ 下的结构化速查索引（alarm_index.json / instruction_index.json）。
+
+    索引由 scripts/build_lookup_indexes.py 确定性生成，本函数只读不写；
+    文件缺失或解析失败返回空列表，不阻断主流程。
+    """
+    path = _DATA_DIR / name
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"[API] 加载索引 {name} 失败: {e}")
+        return []
 
 
 @app.get("/")
@@ -360,6 +380,99 @@ async def kb_search(q: str = "", top_k: int = 5):
     except Exception as e:
         logger.error(f"[API] 检索失败: {e}")
         raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
+
+
+# ═══════════════════════════════════════════════════════════
+# 速查 API —— 品牌报警故障排查库 + 分品牌指令速查手册（检索型，确定性直出）
+# ═══════════════════════════════════════════════════════════
+
+
+@app.get("/api/knowledge/alarms")
+async def kb_alarms(brand: str = ""):
+    """报警故障排查库索引。无参返回全部；?brand=FANUC 过滤指定品牌。"""
+    entries = _load_index("alarm_index.json")
+    if brand:
+        entries = [e for e in entries if e.get("brand") == brand]
+    return {"brand": brand, "entries": entries, "count": len(entries)}
+
+
+@app.get("/api/knowledge/alarms/{brand}/{code:path}")
+async def kb_alarm_detail(brand: str, code: str):
+    """按品牌+报警代码定位 → 返回整篇「原因-排查-解决-预防」文档 + 索引元数据。
+
+    例: /api/knowledge/alarms/FANUC/SRVO-068
+        /api/knowledge/alarms/FANUC/SRVO-230/231  （双代码，code 含斜杠）
+    """
+    entry = next(
+        (
+            e
+            for e in _load_index("alarm_index.json")
+            if e.get("brand") == brand and e.get("alarm_code") == code
+        ),
+        None,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"未找到 {brand} {code} 报警文档")
+    doc = knowledge_base.get_full_document(entry["doc_id"])
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"索引指向的文档缺失: {entry['doc_id']}")
+    return {**entry, "content": doc["content"]}
+
+
+@app.get("/api/knowledge/instructions")
+async def kb_instructions(brand: str = ""):
+    """分品牌指令速查索引。无参返回全部；?brand=ABB 过滤指定品牌。"""
+    entries = _load_index("instruction_index.json")
+    if brand:
+        entries = [e for e in entries if e.get("brand") == brand]
+    return {"brand": brand, "entries": entries, "count": len(entries)}
+
+
+@app.get("/api/knowledge/instructions/{brand}/{name:path}")
+async def kb_instruction_detail(brand: str, name: str):
+    """按品牌+指令名定位 → 返回整篇指令速查文档 + 索引元数据。
+
+    例: /api/knowledge/instructions/ABB/MoveJ
+    """
+    entry = next(
+        (
+            e
+            for e in _load_index("instruction_index.json")
+            if e.get("brand") == brand and e.get("instruction") == name
+        ),
+        None,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"未找到 {brand} {name} 指令文档")
+    doc = knowledge_base.get_full_document(entry["doc_id"])
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"索引指向的文档缺失: {entry['doc_id']}")
+    return {**entry, "content": doc["content"]}
+
+
+@app.get("/api/knowledge/core-map")
+async def kb_core_map():
+    """核心知识图谱（core_knowledge_map.json）——学习路径图谱的节点骨架，只读。
+
+    文件缺失或解析失败返回空 domains，不阻断主流程（前端据此静默隐藏图谱）。
+    """
+    path = _DATA_DIR / "core_knowledge_map.json"
+    if not path.exists():
+        return {"domains": []}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"[API] 加载 core_knowledge_map.json 失败: {e}")
+        return {"domains": []}
+
+
+@app.get("/api/knowledge/documents/{doc_id}")
+async def kb_document_detail(doc_id: str):
+    """按 doc_id 直读 data/raw 整篇文档（全局搜索知识库文档结果跳转目标）。"""
+    doc = knowledge_base.get_full_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"未找到文档 {doc_id}")
+    return doc
 
 
 @app.get("/api/knowledge/stats")

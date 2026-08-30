@@ -616,18 +616,23 @@ async def test_online_mode_fallback_external_retrieval_no_llm() -> None:
     print("  [PASS] 在线 FALLBACK 返回外部检索原始摘要，未调用 LLM")
 
 
-async def test_no_kb_generation_blocked_no_llm() -> None:
-    """Agent2 空 KB 生成关闭：无有效 chunk 时直接返回空资源，不调用 LLM。"""
-    print("\n── demo：Agent2 空 KB 禁止凭空生成 ──")
+async def test_no_kb_self_generation_marked_non_authoritative() -> None:
+    """Agent2 空 KB：不再硬拦截，改为无素材自生成 + 打免责标记（系统不保证真实有效）。"""
+    print("\n── demo：Agent2 空 KB 无素材自生成 + 免责标记 ──")
 
     agent = GenerationAgent()
-    llm_called = {"n": 0}
 
-    async def _forbid_llm_json(prompt, *, temperature=None):
-        llm_called["n"] += 1
-        raise AssertionError("空 KB 时 Agent2 不应调用 LLM")
+    async def _mock_llm_json(prompt, *, temperature=None):
+        return {
+            "title": "数控机床编程基础",
+            "content": "# 数控机床编程基础\n\nG 代码与加工流程……",
+            "citations": [],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": ["掌握 G 代码", "了解加工流程"],
+        }
 
-    agent.call_llm_json = _forbid_llm_json  # type: ignore[method-assign]
+    agent.call_llm_json = _mock_llm_json  # type: ignore[method-assign]
 
     result = await agent.process(
         {
@@ -637,16 +642,19 @@ async def test_no_kb_generation_blocked_no_llm() -> None:
                 "skill_gaps": [],
             },
             "retrieved_chunks": [],  # 无任何知识库 chunk
-            "resource_types": ["lecture", "guide", "quiz"],
+            "resource_types": ["lecture"],
         }
     )
 
-    assert result.get("generated_resources") == [], (
-        f"空 KB 应返回空资源列表，实际 {result.get('generated_resources')}"
+    resources = result.get("generated_resources", [])
+    assert len(resources) == 1, f"空 KB 应自生成 1 个资源，实际 {len(resources)}"
+    assert resources[0]["citations"] == [], "空 KB 自生成 citations 应为空"
+    assert resources[0]["content"].startswith("【提示：以下内容由模型基于通用知识生成"), (
+        "空 KB 自生成内容应打免责标记"
     )
-    assert llm_called["n"] == 0, f"空 KB 不应调用 LLM，实际调用 {llm_called['n']} 次"
+    assert result.get("downgrade_mode") is True, "空 KB 自生成应标记 downgrade_mode"
 
-    print("  [PASS] 空 KB → Agent2 返回空资源，未调用 LLM")
+    print("  [PASS] 空 KB → 无素材自生成 + 免责标记")
 
 
 async def test_agent2_all_parse_fail_returns_empty() -> None:
@@ -706,7 +714,7 @@ async def main() -> None:
     test_case_uneven_skill_local_ability_validation()
     await test_offline_mode_fallback_no_external_api()
     await test_online_mode_fallback_external_retrieval_no_llm()
-    await test_no_kb_generation_blocked_no_llm()
+    await test_no_kb_self_generation_marked_non_authoritative()
     await test_agent2_all_parse_fail_returns_empty()
     print("\n[PASS] 对抗画像 demo 测试全部通过")
 

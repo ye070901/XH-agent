@@ -261,8 +261,24 @@ class PipelineScheduler:
                     logger.warning(f"[Scheduler] {name} 重试已达上限 ({rc})，转 FALLBACK")
                     verdict = GateVerdict.FALLBACK.value
 
-            # ── FALLBACK → 终止 ──
+            # ── FALLBACK ──
             if verdict == GateVerdict.FALLBACK.value:
+                # RecallGate 兜底：知识库无匹配素材 → 不再终止，接续到 Agent2 无素材自生成
+                # （方案 B2）。清除兜底提示/引文跳过标记，保留 downgrade_mode 走无 KB 一致性检查。
+                if name == "RecallGate":
+                    state.pop("_offline_fallback_message", None)
+                    state.pop("_online_fallback_raw", None)
+                    state.pop("_online_fallback_sources", None)
+                    state.pop("_skip_kb_citation", None)
+                    state["downgrade_mode"] = True
+                    state["_no_kb_mode"] = True
+                    logger.info(
+                        f"[Scheduler] task_id={task_id[:8]}… "
+                        f"RecallGate 无素材，接续 Agent2 无素材自生成（downgrade_mode=True）"
+                    )
+                    idx += 1
+                    continue
+
                 state["_is_fallback"] = True
                 logger.warning(f"[Scheduler] FALLBACK triggered by {name}")
                 await self._broadcast(

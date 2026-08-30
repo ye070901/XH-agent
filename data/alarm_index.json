@@ -1,0 +1,407 @@
+[
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 24V_POWER_SUPPLY_FAULT",
+    "fault_name": "",
+    "symptom": "整理 ABB IRC5 DSQC 604 24V 供电异常的排查顺序，包括连接状态、DC 输出短路、逐路隔离、负载条件、LED 与输入电压核对。",
+    "doc_id": "K3_20260826_051_abb_irc5_24v_power_supply_fault",
+    "doc_title": "ABB IRC5 24V 电源故障诊断指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_051_abb_irc5_24v_power_supply_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 BRAKE_RELEASE_FAULT",
+    "fault_name": "",
+    "symptom": "整理 ABB IRC5 点动或启动时机器人制动器无法释放的常见原因和排查顺序，涵盖 K44、RUN 接触器、Motors ON 状态、24V BRAKE 和轴制动器。",
+    "doc_id": "K3_20260826_047_abb_irc5_brake_release_fault",
+    "doc_title": "ABB IRC5 制动器无法释放指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_047_abb_irc5_brake_release_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 COMMUNICATION_FAULT",
+    "fault_name": "",
+    "symptom": "整理 ABB IRC5 控制与驱动模块通信故障的基础定位方法，聚焦电缆收发、波特率、数据位宽和软件版本兼容性，并说明安全复机边界。",
+    "doc_id": "K3_20260826_052_abb_irc5_communication_fault",
+    "doc_title": "ABB IRC5 通讯故障排查指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_052_abb_irc5_communication_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 ERRATIC_EVENT_MESSAGES",
+    "fault_name": "",
+    "symptom": "处理 ABB IRC5 FlexPendant 持续出现与现场状态不符的事件消息，强调保留日志、检查维修后连接状态和避免在报警噪声下盲目更换部件。",
+    "doc_id": "K3_20260826_050_abb_irc5_erratic_event_messages",
+    "doc_title": "ABB IRC5 异常事件消息诊断指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_050_abb_irc5_erratic_event_messages.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 FIRMWARE_FLASH_FAULT",
+    "fault_name": "",
+    "symptom": "说明 ABB IRC5 自动刷新固件中断时的兼容性排查顺序，强调先识别失败单元和变更历史，再核对硬件、RobotWare 与固件版本。",
+    "doc_id": "K3_20260826_053_abb_irc5_firmware_flash_fault",
+    "doc_title": "ABB IRC5 固件刷新失败指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_053_abb_irc5_firmware_flash_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 FLEXPENDANT_CONNECTION_FAULT",
+    "fault_name": "",
+    "symptom": "解析 ABB IRC5 FlexPendant 已启动但无显示、无输入的连接故障，按电缆、连接、控制柜 LED、主计算机状态的顺序定位，避免盲目复位。",
+    "doc_id": "K3_20260826_049_abb_irc5_flexpendant_connection_fault",
+    "doc_title": "ABB IRC5 FlexPendant 黑屏故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_049_abb_irc5_flexpendant_connection_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 LIVE_TROUBLESHOOTING_SAFETY",
+    "fault_name": "",
+    "symptom": "整理 ABB IRC5 故障排查期间的带电、意外运动与安全回路旁路风险，给出开始诊断、实施测试和恢复生产前的安全控制流程。",
+    "doc_id": "K3_20260826_045_abb_irc5_live_troubleshooting_safety",
+    "doc_title": "ABB IRC5 带电排障安全指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_045_abb_irc5_live_troubleshooting_safety.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 OIL_LEAK_BRAKE_RISK",
+    "fault_name": "",
+    "symptom": "说明 ABB IRC5 电机或减速机周边油迹可能引起的制动风险，给出停机、检查密封件、油位和发热原因的安全排查流程。",
+    "doc_id": "K3_20260826_048_abb_irc5_oil_leak_brake_risk",
+    "doc_title": "ABB IRC5 油泄漏制动风险指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_048_abb_irc5_oil_leak_brake_risk.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 POWERDOWN_COLLAPSE_FAULT",
+    "fault_name": "",
+    "symptom": "解析 ABB IRC5 机器人掉电后机械臂下坠的制动相关故障，给出隔离、定位失效电机、检查制动供电与油液侵入的安全处理顺序。",
+    "doc_id": "K3_20260826_046_abb_irc5_powerdown_collapse_fault",
+    "doc_title": "ABB IRC5 断电坠落故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_046_abb_irc5_powerdown_collapse_fault.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "IRC5 SYSTEMATIC_FAULT_ISOLATION",
+    "fault_name": "",
+    "symptom": "基于 ABB IRC5 原厂手册整理“先建立可能原因、一次只替换一个部件、修复后复测”的系统化排障方法，适用于安全和运动相关的复杂间歇故障。",
+    "doc_id": "K3_20260826_054_abb_irc5_systematic_fault_isolation",
+    "doc_title": "ABB IRC5 系统化故障隔离指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_054_abb_irc5_systematic_fault_isolation.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "SF EDM_CONTACTOR_FEEDBACK_DIAGNOSTIC",
+    "fault_name": "",
+    "symptom": "解析 ABB AC500-S `SF_EDM` 外部设备监控的反馈逻辑、典型诊断码和排查顺序，适用于安全接触器无法使能或释放后反馈超时的现场问题。",
+    "doc_id": "K3_20260825_036_abb_sf_edm_contactor_feedback_diagnostic",
+    "doc_title": "ABB SF_EDM 接触器反馈诊断指南",
+    "source": "data/raw/K3_safety_fault/K3_20260825_036_abb_sf_edm_contactor_feedback_diagnostic.md"
+  },
+  {
+    "brand": "ABB",
+    "alarm_code": "SF ESTOP_RESET_DIAGNOSTIC",
+    "fault_name": "",
+    "symptom": "说明 ABB AC500-S `SF_EmergencyStop` 功能块的复位状态、静态 Reset 报错和安全输出判断，用于排查急停已释放但安全输出仍未使能的情况。",
+    "doc_id": "K3_20260825_035_abb_sf_estop_reset_diagnostic",
+    "doc_title": "ABB SF_EmergencyStop 复位诊断指南",
+    "source": "data/raw/K3_safety_fault/K3_20260825_035_abb_sf_estop_reset_diagnostic.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-001",
+    "fault_name": "Operator panel E-stop",
+    "symptom": "说明 FANUC SRVO-001（Operator panel E-stop）的触发条件、操作面板急停按钮、CRT27/CRS36 线束与急停板的检查顺序，强调急停报警必须在确认危险消除后才可复位。",
+    "doc_id": "K3_20260822_014_fanuc_srvo001_operator_estop_error_fix",
+    "doc_title": "FANUC SRVO-001 操作面板急停指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_014_fanuc_srvo001_operator_estop_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-002",
+    "fault_name": "Teach pendant E-stop",
+    "symptom": "说明 FANUC SRVO-002（Teach pendant E-stop）的含义与安全恢复步骤。该报警通常表示示教器急停已按下；复位前需确认危险消除，若持续报警则按手册处理示教器本体与连接问题。",
+    "doc_id": "K3_20260822_015_fanuc_srvo002_tp_estop_error_fix",
+    "doc_title": "FANUC SRVO-002 示教器急停指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_015_fanuc_srvo002_tp_estop_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-003",
+    "fault_name": "DEADMAN switch released",
+    "symptom": "解析 FANUC SRVO-003（DEADMAN switch released）在示教模式下的触发条件，说明三位置 Deadman 中间允许位置、示教器 Enable、模式开关及急停板的检查顺序。",
+    "doc_id": "K3_20260822_016_fanuc_srvo003_deadman_error_fix",
+    "doc_title": "FANUC SRVO-003 Deadman 开关故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_016_fanuc_srvo003_deadman_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-004",
+    "fault_name": "Fence open（安全围栏打开）",
+    "symptom": "说明 FANUC SRVO-004（Fence open，安全围栏打开）的安全含义、排查顺序和复机验证要求。重点是确认安全门/围栏双通道回路、模式开关及急停板状态，禁止以短接或旁路安全信号代替故障修复。",
+    "doc_id": "K3_20260812_005_fanuc_srvo004_fence_open_error_fix",
+    "doc_title": "FANUC SRVO-004 安全围栏报警处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260812_005_fanuc_srvo004_fence_open_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-007",
+    "fault_name": "External emergency stops",
+    "symptom": "说明 FANUC SRVO-007（External emergency stops）的外部急停双通道含义、EES 回路检查和安全复机流程。已配置外部急停的工作单元不得通过跨接或短接清除报警。",
+    "doc_id": "K3_20260822_017_fanuc_srvo007_external_estop_error_fix",
+    "doc_title": "FANUC SRVO-007 外部急停故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_017_fanuc_srvo007_external_estop_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-009",
+    "fault_name": "Pneumatic pressure alarm",
+    "symptom": "解析 FANUC SRVO-009（Pneumatic pressure alarm）的气源和末端执行器接口排查方法，覆盖实际气压、EE 接头、RP1 连接电缆和机械单元内部电缆检查。",
+    "doc_id": "K3_20260822_018_fanuc_srvo009_pneumatic_pressure_error_fix",
+    "doc_title": "FANUC SRVO-009 气压异常故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_018_fanuc_srvo009_pneumatic_pressure_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-014",
+    "fault_name": "Fan motor abnormal (n), CPU STOP",
+    "symptom": "说明 FANUC SRVO-014（Fan motor abnormal）的背板风扇停转风险、报警括号编号含义、风扇/线缆/背板/主板排查顺序，以及一分钟后控制器停止操作的复机注意事项。",
+    "doc_id": "K3_20260822_019_fanuc_srvo014_fan_motor_error_fix",
+    "doc_title": "FANUC SRVO-014 控制器风扇故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_019_fanuc_srvo014_fan_motor_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-015",
+    "fault_name": "System over heat",
+    "symptom": "解析 FANUC SRVO-015（System over heat）控制器过温的原因与处理，覆盖环境温度、风扇、热交换器、通风风道及主板温控异常；该报警发生后约一分钟控制器将停止操作。",
+    "doc_id": "K3_20260822_020_fanuc_srvo015_system_overheat_error_fix",
+    "doc_title": "FANUC SRVO-015 控制器过热故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_020_fanuc_srvo015_system_overheat_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-038",
+    "fault_name": "Pulse mismatch（脉冲不匹配）",
+    "symptom": "解析 FANUC 机器人常见故障代码 SRVO-038（Pulse mismatch，脉冲不匹配）的触发机制、诊断流程、重新标定要求与安全复机边界，适用于更换电池/脉冲编码器、恢复备份或断电后发现绝对位置异常的现场。",
+    "doc_id": "K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix",
+    "doc_title": "FANUC SRVO-038 故障代码解析与处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260807_003_fanuc_srvo038_pulse_mismatch_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-050",
+    "fault_name": "Collision Detect alarm",
+    "symptom": "解析 FANUC SRVO-050（Collision Detect）扰动转矩异常高的含义，给出碰撞、负载参数、抱闸、电压、放大器、电机和动力线的排查顺序，避免通过放宽碰撞保护继续生产。",
+    "doc_id": "K3_20260822_021_fanuc_srvo050_collision_detect_error_fix",
+    "doc_title": "FANUC SRVO-050 碰撞检测故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_021_fanuc_srvo050_collision_detect_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-055",
+    "fault_name": "FSSB com error 1",
+    "symptom": "说明 FANUC SRVO-055（FSSB com error 1）主板轴控卡与伺服放大器之间的光纤通讯故障，提供光纤、轴控卡和放大器的分层排查方法。",
+    "doc_id": "K3_20260822_022_fanuc_srvo055_fssb_com_error_fix",
+    "doc_title": "FANUC SRVO-055 FSSB 通讯故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_022_fanuc_srvo055_fssb_com_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-057",
+    "fault_name": "FSSB disconnect",
+    "symptom": "解析 FANUC SRVO-057（FSSB disconnect）主板与伺服放大器通讯中断的排查流程，覆盖电源 F4、放大器 FS1、光纤、RP1 编码器线、内部电缆及主板更换前备份要求。",
+    "doc_id": "K3_20260822_023_fanuc_srvo057_fssb_disconnect_error_fix",
+    "doc_title": "FANUC SRVO-057 FSSB 断线故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_023_fanuc_srvo057_fssb_disconnect_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-059",
+    "fault_name": "Servo amp init error",
+    "symptom": "说明 FANUC SRVO-059（Servo amp init error）伺服放大器初始化失败的排查逻辑，覆盖 FSSB 光纤、CRF8/RP1 编码器回路、P5V/P3.3V 指示灯、CP5/CXA2B 电源连接及部件更换。",
+    "doc_id": "K3_20260822_024_fanuc_srvo059_servo_amp_init_error_fix",
+    "doc_title": "FANUC SRVO-059 放大器初始化故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260822_024_fanuc_srvo059_servo_amp_init_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-062",
+    "fault_name": "BZAL（Battery Zero Alarm）",
+    "symptom": "解析 FANUC 机器人常见故障代码 SRVO-062（BZAL，脉冲编码器绝对位置备份电池报警）的含义、排查顺序、报警复位与重新标定要求，适用于一线维修和调试人员在绝对位置数据丢失后安全恢复设备。",
+    "doc_id": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+    "doc_title": "FANUC SRVO-062 故障代码解析与处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-068",
+    "fault_name": "DTERR alarm",
+    "symptom": "解析 FANUC 机器人常见故障代码 SRVO-068（DTERR，串行脉冲编码器数据无响应）的含义、诊断顺序、处理和复位边界，适用于一线调试工程师定位编码器通信链路故障。",
+    "doc_id": "K3_20260805_001_fanuc_srvo068_error_fix",
+    "doc_title": "FANUC SRVO-068 故障代码解析与处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260805_001_fanuc_srvo068_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-075",
+    "fault_name": "Pulse not established（脉冲未建立）",
+    "symptom": "说明 FANUC SRVO-075（Pulse not established，脉冲未建立）的含义和恢复操作。该报警表示控制器尚不能建立脉冲编码器绝对位置；应在安全条件下复位并以低速点动报警轴，若重复出现则停止复机并按关联报警和机型手册进一步检修。",
+    "doc_id": "K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix",
+    "doc_title": "FANUC SRVO-075 脉冲未建立处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260812_006_fanuc_srvo075_pulse_not_established_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-076",
+    "fault_name": "Tip Stick Detection",
+    "symptom": "解析 FANUC SRVO-076（Tip Stick Detection）的异常负载含义和排查顺序，覆盖碰撞、机械负载、负载参数、抱闸、输入电压、伺服放大器、电机及动力电缆检查，适用于焊接和搬运机器人启动或运动中停机诊断。",
+    "doc_id": "K3_20260819_011_fanuc_srvo076_tip_stick_error_fix",
+    "doc_title": "FANUC SRVO-076 异常负载故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260819_011_fanuc_srvo076_tip_stick_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-105",
+    "fault_name": "Door open or E-Stop（控制柜门打开或急停）",
+    "symptom": "解析 FANUC 机器人常见故障代码 SRVO-105（Door open or E-Stop）的含义、控制柜门开关与急停回路排查顺序、安全复位边界和产线恢复要求，适用于 R-30iB 控制器安全链路相关停机的现场诊断。",
+    "doc_id": "K3_20260807_004_fanuc_srvo105_door_estop_error_fix",
+    "doc_title": "FANUC SRVO-105 故障代码解析与处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260807_004_fanuc_srvo105_door_estop_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-134",
+    "fault_name": "DCLVAL alarm",
+    "symptom": "解析 FANUC SRVO-134（DCLVAL）主回路直流母线电压异常低的原因和处理顺序，覆盖瞬时掉电、输入电压、变压器设置、机器人与辅助轴同时加速以及急停单元/伺服放大器检查，适用于上电或运行中伺服掉电诊断。",
+    "doc_id": "K3_20260819_012_fanuc_srvo134_dclval_error_fix",
+    "doc_title": "FANUC SRVO-134 直流母线低压指南",
+    "source": "data/raw/K3_safety_fault/K3_20260819_012_fanuc_srvo134_dclval_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-156",
+    "fault_name": "IPMAL alarm",
+    "symptom": "解析 FANUC SRVO-156（IPMAL）伺服放大器主回路过流故障，给出断电隔离、断开动力电缆与抱闸电缆、防止轴意外下落、绝缘检查和 U/V/W 相间电阻判断流程，适用于伺服上电或运行瞬间过流停机。",
+    "doc_id": "K3_20260819_013_fanuc_srvo156_ipmal_error_fix",
+    "doc_title": "FANUC SRVO-156 伺服过流故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260819_013_fanuc_srvo156_ipmal_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-213",
+    "fault_name": "E-STOP Board FUSE2 blown",
+    "symptom": "解析 FANUC SRVO-213（E-STOP Board FUSE2 blown）的触发含义、24EXT 供电与短路定位步骤，以及更换急停板、示教器电缆等处理边界，帮助维修人员避免盲目换保险丝或旁路急停回路。",
+    "doc_id": "K3_20260818_008_fanuc_srvo213_estop_fuse2_error_fix",
+    "doc_title": "FANUC SRVO-213 急停板保险丝故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260818_008_fanuc_srvo213_estop_fuse2_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-230/231",
+    "fault_name": "Chain 1 abnormal / Chain 2 abnormal（安全链 1 / 2 异常）",
+    "symptom": "解析 FANUC SRVO-230/231（双通道安全链失配）的报警含义、伴随报警定位、根因修复和专用复位边界。该类报警意味着冗余安全信号状态不一致，必须先修复故障，再按控制器专用 Chain Error Reset 流程复位。",
+    "doc_id": "K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix",
+    "doc_title": "FANUC SRVO-230/231 安全链失配处理指南",
+    "source": "data/raw/K3_safety_fault/K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-233",
+    "fault_name": "TP OFF in T1, T2",
+    "symptom": "解析 FANUC SRVO-233（TP OFF in T1, T2）的触发条件，区分示教器未启用、控制柜门打开、模式开关和硬件链路问题，并给出 T1/T2 示教与 AUTO 自动模式下的安全检查和复机步骤。",
+    "doc_id": "K3_20260818_010_fanuc_srvo233_tp_off_t1_t2_error_fix",
+    "doc_title": "FANUC SRVO-233 示教器 T1/T2 报警指南",
+    "source": "data/raw/K3_safety_fault/K3_20260818_010_fanuc_srvo233_tp_off_t1_t2_error_fix.md"
+  },
+  {
+    "brand": "FANUC",
+    "alarm_code": "SRVO-280",
+    "fault_name": "SVOFF input",
+    "symptom": "解析 FANUC SRVO-280（SVOFF input）的含义与排查路径，覆盖 EGS1-EGS11/EGS2-EGS21 双通道伺服关闭输入、外部回路检查、急停板处理和安全复机要求，明确禁止在使用 SVOFF 安全功能的系统中旁路信号。",
+    "doc_id": "K3_20260818_009_fanuc_srvo280_svoff_input_error_fix",
+    "doc_title": "FANUC SRVO-280 SVOFF 输入故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260818_009_fanuc_srvo280_svoff_input_error_fix.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 0020/0021",
+    "fault_name": "",
+    "symptom": "整理 YRC1000 报警 0020“CPU Communication Error”和 0021“Communication Error (Servo)”的安全诊断顺序，避免在控制与伺服通讯未确认前反复使能机器人。",
+    "doc_id": "K3_20260826_057_yaskawa_yrc1000_alarm0020_0021_comm",
+    "doc_title": "安川 YRC1000 0020/0021 通讯故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_057_yaskawa_yrc1000_alarm0020_0021_comm.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 0060",
+    "fault_name": "",
+    "symptom": "解析 YRC1000 报警 0060“Communication Error (I/O Module)”的风险与排查流程，适用于 PLC 接口、普通 I/O 或工艺信号异常后出现的自动运行中断。",
+    "doc_id": "K3_20260826_058_yaskawa_yrc1000_alarm0060_io_comm",
+    "doc_title": "安川 YRC1000 0060 I/O 通讯故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_058_yaskawa_yrc1000_alarm0060_io_comm.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 0300",
+    "fault_name": "",
+    "symptom": "基于安川官方案例解析 YRC1000 报警 0300 的网络 IP 地址冲突可能性，给出隔离 LAN2/LAN3、验证复现和受控修改地址的排查流程。",
+    "doc_id": "K3_20260826_064_yaskawa_yrc1000_alarm0300_network_ip",
+    "doc_title": "安川 YRC1000 0300 网络 IP 故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_064_yaskawa_yrc1000_alarm0300_network_ip.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 1227",
+    "fault_name": "",
+    "symptom": "说明 YRC1000 报警 1227“Enable SW Diagnosis Error”的安全意义和排查边界，适用于示教模式下使能开关状态异常、无法点动或安全诊断不通过的情况。",
+    "doc_id": "K3_20260826_059_yaskawa_yrc1000_alarm1227_enable_switch",
+    "doc_title": "安川 YRC1000 1227 使能开关故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_059_yaskawa_yrc1000_alarm1227_enable_switch.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 1240",
+    "fault_name": "",
+    "symptom": "整理 YRC1000 报警 1240“Safety Fieldbus Setting Error”和 1241“Safety Fieldbus System Error”的诊断边界，适用于安全现场总线配置或系统状态异常。",
+    "doc_id": "K3_20260826_060_yaskawa_yrc1000_alarm1240_safety_fieldbus",
+    "doc_title": "安川 YRC1000 1240 安全总线故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_060_yaskawa_yrc1000_alarm1240_safety_fieldbus.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 1300/1301",
+    "fault_name": "",
+    "symptom": "解析 YRC1000 报警 1300“Servo CPU Synchronizing Error”和 1301“Communication Error (Servo)”的安全诊断顺序，面向伺服初始化、同步或内部通讯异常。",
+    "doc_id": "K3_20260826_061_yaskawa_yrc1000_alarm1300_1301_servo",
+    "doc_title": "安川 YRC1000 1300/1301 伺服故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_061_yaskawa_yrc1000_alarm1300_1301_servo.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 1306/1307",
+    "fault_name": "",
+    "symptom": "整理 YRC1000 报警 1306“Amplifier Type Mismatch”和 1307“Encoder Type Mismatch”的换件后排查流程，防止型号或项目数据不匹配时误使能机器人。",
+    "doc_id": "K3_20260826_062_yaskawa_yrc1000_alarm1306_1307_mismatch",
+    "doc_title": "安川 YRC1000 1306/1307 型号不匹配故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_062_yaskawa_yrc1000_alarm1306_1307_mismatch.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 4107",
+    "fault_name": "",
+    "symptom": "说明安川 YRC1000 报警 4107“Out of Range (ABSO DATA)”的绝对位置数据风险和排查流程，适用于电池、编码器或校准后出现位置可信度异常的场景。",
+    "doc_id": "K3_20260826_056_yaskawa_yrc1000_alarm4107_abso_data",
+    "doc_title": "安川 YRC1000 4107 绝对值数据故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_056_yaskawa_yrc1000_alarm4107_abso_data.md"
+  },
+  {
+    "brand": "Yaskawa",
+    "alarm_code": "ALARM 4311",
+    "fault_name": "",
+    "symptom": "解析安川 YRC1000 报警 4311“Encoder Backup Error”的风险与排查原则，强调保留当前位置与报警记录，按原厂流程检查备份/电池/绝对值数据后再校准和验证。",
+    "doc_id": "K3_20260826_055_yaskawa_yrc1000_alarm4311_encoder_backup",
+    "doc_title": "安川 YRC1000 4311 编码器备份故障指南",
+    "source": "data/raw/K3_safety_fault/K3_20260826_055_yaskawa_yrc1000_alarm4311_encoder_backup.md"
+  }
+]

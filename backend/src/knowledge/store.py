@@ -480,6 +480,30 @@ class KnowledgeBase:
             logger.warning(f"[知识库] ⚠️ 检索耗时超标: {elapsed_ms}ms ≥ 200ms基线")
         return result
 
+    def get_full_document(self, doc_id: str) -> Optional[dict]:
+        """按 doc_id（= 文件名 stem）直读 data/raw 下对应 .md 全文。
+
+        速查场景（报警故障排查 / 指令速查）需要整篇「原因-排查-解决-预防」，
+        chunk 因 18% 重叠无法无损重组，故直读源文件（确定性、无损失）。
+        找不到返回 None。
+        """
+        if not doc_id or any(c in doc_id for c in ("/", "\\", "..")):
+            return None
+        raw_dir = Path(__file__).parent.parent.parent.parent / "data" / "raw"
+        if not raw_dir.exists():
+            return None
+        matches = list(raw_dir.glob(f"**/{doc_id}.md"))
+        if not matches:
+            return None
+        text = matches[0].read_text(encoding="utf-8", errors="replace")
+        title = doc_id
+        for line in text.splitlines():
+            s = line.strip()
+            if s.startswith("# ") and not s.startswith("## "):
+                title = s[2:].strip()
+                break
+        return {"doc_id": doc_id, "title": title, "content": text}
+
     @staticmethod
     def _merge_search_results(
         vector_results: list[dict], keyword_results: list[dict], top_k: int

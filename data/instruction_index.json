@@ -1,0 +1,163 @@
+[
+  {
+    "brand": "ABB",
+    "instruction": "IF",
+    "doc_id": "K1_20260826_ABB RAPID IF条件分支_019",
+    "doc_title": "ABB RAPID IF条件分支",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID IF条件分支_019.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "MoveC",
+    "doc_id": "K1_20260826_ABB RAPID MoveC圆弧运动_029",
+    "doc_title": "ABB RAPID MoveC圆弧运动",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID MoveC圆弧运动_029.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "MoveJ",
+    "doc_id": "K1_20260826_ABB RAPID MoveJ关节运动_027",
+    "doc_title": "ABB RAPID MoveJ关节运动",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID MoveJ关节运动_027.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "MoveJ",
+    "doc_id": "K1_20260826_ABB RAPID MoveJ配置监督_037",
+    "doc_title": "ABB RAPID MoveJ配置监督",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID MoveJ配置监督_037.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "MoveL",
+    "doc_id": "K1_20260826_ABB RAPID MoveL直线运动_028",
+    "doc_title": "ABB RAPID MoveL直线运动",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID MoveL直线运动_028.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "MoveL",
+    "doc_id": "K1_20260826_ABB RAPID MoveL配置监督_038",
+    "doc_title": "ABB RAPID MoveL配置监督",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID MoveL配置监督_038.md"
+  },
+  {
+    "brand": "ABB",
+    "instruction": "TEST",
+    "doc_id": "K1_20260826_ABB RAPID TEST多分支选择_020",
+    "doc_title": "ABB RAPID TEST多分支选择",
+    "source": "data/raw/K1_robot_base/K1_20260826_ABB RAPID TEST多分支选择_020.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Assignment",
+    "doc_id": "K1_20260826_UR Assignment赋值节点_066",
+    "doc_title": "UR Assignment赋值节点",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Assignment赋值节点_066.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Freedrive",
+    "doc_id": "K1_20260826_UR Freedrive安全示教_044",
+    "doc_title": "UR Freedrive安全示教",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Freedrive安全示教_044.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Halt",
+    "doc_id": "K1_20260826_UR Halt停止节点与恢复_060",
+    "doc_title": "UR Halt停止节点与恢复",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Halt停止节点与恢复_060.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "If",
+    "doc_id": "K1_20260826_UR If Else分支互锁_067",
+    "doc_title": "UR If Else分支互锁",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR If Else分支互锁_067.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Loop",
+    "doc_id": "K1_20260826_UR Loop有限循环设置_064",
+    "doc_title": "UR Loop有限循环设置",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Loop有限循环设置_064.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "MoveJ",
+    "doc_id": "K1_20260826_UR MoveJ关节插补应用_052",
+    "doc_title": "UR MoveJ关节插补应用",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR MoveJ关节插补应用_052.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "MoveL",
+    "doc_id": "K1_20260826_UR MoveL直线路径应用_053",
+    "doc_title": "UR MoveL直线路径应用",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR MoveL直线路径应用_053.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "MoveP",
+    "doc_id": "K1_20260826_UR MoveP恒速过程路径_054",
+    "doc_title": "UR MoveP恒速过程路径",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR MoveP恒速过程路径_054.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "PolyScope",
+    "doc_id": "K1_20260826_UR PolyScope快速启动检查_042",
+    "doc_title": "UR PolyScope快速启动检查",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR PolyScope快速启动检查_042.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "PolyScope",
+    "doc_id": "K1_20260826_UR PolyScope界面与标签页_043",
+    "doc_title": "UR PolyScope界面与标签页",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR PolyScope界面与标签页_043.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "PolyScope",
+    "doc_id": "K1_20260826_UR PolyScope首个程序创建_047",
+    "doc_title": "UR PolyScope首个程序创建",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR PolyScope首个程序创建_047.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Popup",
+    "doc_id": "K1_20260826_UR Popup操作员确认提示_059",
+    "doc_title": "UR Popup操作员确认提示",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Popup操作员确认提示_059.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "SubProgram",
+    "doc_id": "K1_20260826_UR SubProgram子程序复用_065",
+    "doc_title": "UR SubProgram子程序复用",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR SubProgram子程序复用_065.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "TCP",
+    "doc_id": "K1_20260826_UR TCP多点标定与验证_068",
+    "doc_title": "UR TCP多点标定与验证",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR TCP多点标定与验证_068.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "TCP",
+    "doc_id": "K1_20260826_UR TCP笛卡尔点动验证_046",
+    "doc_title": "UR TCP笛卡尔点动验证",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR TCP笛卡尔点动验证_046.md"
+  },
+  {
+    "brand": "UR",
+    "instruction": "Wait",
+    "doc_id": "K1_20260826_UR Wait定时等待节点_056",
+    "doc_title": "UR Wait定时等待节点",
+    "source": "data/raw/K1_robot_base/K1_20260826_UR Wait定时等待节点_056.md"
+  }
+]

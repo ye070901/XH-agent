@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "name": "工业机器人三品牌专属术语词表",
+    "version": "1.0",
+    "domain": "FANUC / KUKA / ABB 工业机器人编程与调试",
+    "brands": ["FANUC", "KUKA", "ABB"],
+    "matching": "case-insensitive",
+    "source_policy": "词表全部从 data/raw/ 真实语料 grep 溯源，仅收录品牌「专属（独占）」术语；跨品牌通用词（示教器/急停/坐标系/使能键/TP/MoveJ/MoveL/PROFINET 等）一律不收录，避免误伤。词表可后续扩充，但新增术语须先在 data/raw/ 验证其品牌独占性。",
+    "usage": "generation_v2._structure_validation_failure 消费：单一品牌声明后命中其他品牌专属术语 → 判定品牌混淆，触发重生成；内容标注「通用原理」豁免。"
+  },
+  "brands": {
+    "FANUC": [
+      "SRVO",
+      "R-30iB",
+      "FSSB",
+      "ROBOGUIDE",
+      "KAREL"
+    ],
+    "KUKA": [
+      "KRL",
+      "KRC4",
+      "KRC5",
+      "smartPAD",
+      "WorkVisual",
+      "mxAutomation",
+      "SafeOperation",
+      "KSS"
+    ],
+    "ABB": [
+      "RAPID",
+      "IRC5",
+      "FlexPendant",
+      "RobotStudio",
+      "RobotWare",
+      "OmniCore",
+      "RW7",
+      "SafeMove",
+      "GoFa"
+    ]
+  }
+}

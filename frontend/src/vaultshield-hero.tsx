@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { ArrowRightCircle, ArrowUp, BrainCircuit, Download, Maximize2, Menu, Minimize2, ShieldCheck, Sparkles, X } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowRightCircle, ArrowUp, BrainCircuit, Download, Maximize2, Menu, Minimize2, Search, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { assessLearningGoal, askStudyQuestion, createDemoQuiz, refineLearningGoal, resolveQuizAnswerKey, submitQuiz, type ClarificationQuestion, type LearnerQuestionResponse, type Quiz, type QuizSubmissionResult } from "./learning-session";
 import { getApiBase, initialWorkflowEvents, mergeWorkflowEvent, simulateWorkflow, subscribeWorkflow, workflowStages, type WorkflowEvent } from "./workflow-stream";
@@ -59,6 +59,8 @@ const resourceOptions = [
   { id: "lecture", label: "讲义" },
   { id: "guide", label: "实操指南" },
   { id: "quiz", label: "测试题" },
+  { id: "project", label: "项目实战" },
+  { id: "pitfall_guide", label: "避坑指南" },
 ];
 
 type GeneratedResource = {
@@ -73,6 +75,11 @@ type GeneratedResource = {
   quiz_validation_status?: "needs_review";
   quiz_validation_error?: string;
   supplements?: Array<{ title: string; content: string }>;
+  risk_level?: "theory" | "low_risk" | "high_risk";
+  safety_warnings?: string[];
+  robot_metadata?: { brand?: string; controller_version?: string; applicable_model?: string };
+  instruction_links?: Array<{ brand?: string; name?: string; doc_id?: string; doc_title?: string }>;
+  alarm_links?: Array<{ brand?: string; code?: string; doc_id?: string; doc_title?: string; fault_name?: string }>;
 };
 
 function getResourceSupplements(resource: GeneratedResource) {
@@ -92,10 +99,45 @@ function getExportBaseContent(resource: GeneratedResource, supplements: Array<{ 
   return content;
 }
 
+type SkillGap = {
+  topic?: string;
+  current_level?: number;
+  target_level?: number;
+  priority?: string;
+  reason?: string;
+};
+
+type KnowledgePoint = {
+  id?: string;
+  topic?: string;
+  level?: string;
+  aliases?: string[];
+  source_documents?: string[];
+};
+
+type KnowledgeDomain = {
+  id?: string;
+  name?: string;
+  knowledge_points?: KnowledgePoint[];
+};
+
+type CoreMap = {
+  meta?: Record<string, unknown>;
+  domains?: KnowledgeDomain[];
+};
+
+type KnowledgePointView = KnowledgePoint & {
+  is_weak?: boolean;
+  mastery?: number;
+  target?: number;
+  priority?: string;
+  reason?: string;
+};
+
 type GenerationResult = {
   task_id?: string;
   status?: string;
-  diagnosis?: { summary?: string; learning_style?: string; recommended_difficulty?: string; skill_gaps?: Array<{ topic?: string; priority?: string }> };
+  diagnosis?: { summary?: string; learning_style?: string; recommended_difficulty?: string; skill_gaps?: SkillGap[] };
   resources?: GeneratedResource[];
   audit?: Array<{ resource_index?: number; resource_type?: string; verdict?: string; issues?: Array<{ detail?: string }> }>;
   agent_log?: Array<{ agent?: string; status?: string }>;
@@ -122,7 +164,27 @@ const createQuizAttempt = (): QuizAttempt => ({
 const quizAttemptKey = (resource: GeneratedResource) => resource.resource_id
   ?? `${resource.resource_type}:${resource.title}`;
 
+const safetyAckStorageKey = (key: string) => `xh-safety-ack:${key}`;
+
+const hasAcknowledgedSafety = (key: string) => {
+  try {
+    return localStorage.getItem(safetyAckStorageKey(key)) === "1";
+  } catch {
+    return false;
+  }
+};
+
+const acknowledgeSafety = (key: string) => {
+  try {
+    localStorage.setItem(safetyAckStorageKey(key), "1");
+  } catch {
+    // 私密窗口 / 浏览器禁用站点数据时写入会抛异常；仅内存态兜底，不阻断学习
+  }
+};
+
 const isQuizResourceType = (type?: string) => type === "quiz" || /^quiz_round_\d+$/.test(type ?? "");
+
+const isHandsOnResourceType = (type?: string) => type === "guide" || type === "project";
 
 const resourceLabel = (type: string) => {
   const round = type.match(/^quiz_round_(\d+)$/)?.[1];
@@ -137,6 +199,174 @@ const generationErrorMessage = (item: { resource_type?: string; error?: string; 
   }
   return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u672a\u751f\u6210\uff1a" + decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
 };
+
+// \u2500\u2500 \u4e09\u671f-2\uff1a\u8584\u5f31\u70b9\u8bca\u65ad\u589e\u5f3a + \u5b66\u4e60\u8def\u5f84\u56fe\u8c31\uff08\u786e\u5b9a\u6027\u89c4\u5219\uff0c\u4e0d\u8c03 LLM\uff09\u2500\u2500
+
+const priorityOrder = ["critical", "high", "medium", "low"];
+const priorityRank = (priority?: string) => {
+  const index = priorityOrder.indexOf((priority ?? "").toLowerCase());
+  return index < 0 ? priorityOrder.length : index;
+};
+
+const priorityBadge = (priority?: string) => {
+  switch ((priority ?? "").toLowerCase()) {
+    case "critical": return { label: "\u5173\u952e", className: "bg-red-500/90 text-white" };
+    case "high": return { label: "\u9ad8", className: "bg-orange-500/90 text-white" };
+    case "medium": return { label: "\u4e2d", className: "bg-amber-400/90 text-[#192837]" };
+    default: return { label: priority || "\u5f85\u5b9a", className: "bg-white/15 text-white/70" };
+  }
+};
+
+const levelWeight: Record<string, number> = { core: 0, high: 1, standard: 2 };
+const levelLabel = (level?: string) => {
+  switch ((level ?? "").toLowerCase()) {
+    case "core": return "\u6838\u5fc3";
+    case "high": return "\u8fdb\u9636";
+    case "standard": return "\u6807\u51c6";
+    default: return level || "\u77e5\u8bc6\u70b9";
+  }
+};
+
+const pct = (value?: number) => `${Math.round(Math.max(0, Math.min(1, value ?? 0)) * 100)}%`;
+
+const sourceDocLabel = (path: string) => {
+  const name = path.split("/").pop() ?? path;
+  return name.replace(/\.md$/i, "");
+};
+
+function annotatePoint(point: KnowledgePoint, gaps: SkillGap[]): KnowledgePointView {
+  const tokens = [point.topic ?? "", ...(point.aliases ?? [])]
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+  let matched: SkillGap | undefined;
+  for (const gap of gaps) {
+    const gapTopic = (gap.topic ?? "").trim().toLowerCase();
+    if (!gapTopic) continue;
+    const hit = tokens.some((token) => token && (token.includes(gapTopic) || gapTopic.includes(token)));
+    if (hit && (!matched || priorityRank(gap.priority) < priorityRank(matched.priority))) {
+      matched = gap;
+    }
+  }
+  if (!matched) return { ...point };
+  return {
+    ...point,
+    is_weak: true,
+    mastery: matched.current_level,
+    target: matched.target_level,
+    priority: matched.priority,
+    reason: matched.reason,
+  };
+}
+
+function buildLearningPath(
+  coreMap: CoreMap | null,
+  skillGaps: SkillGap[] | undefined,
+): Array<{ domain: KnowledgeDomain; points: KnowledgePointView[] }> {
+  const gaps = skillGaps ?? [];
+  return (coreMap?.domains ?? []).map((domain) => {
+    const points = (domain.knowledge_points ?? [])
+      .map((point) => annotatePoint(point, gaps))
+      .sort((a, b) => (levelWeight[a.level ?? ""] ?? 3) - (levelWeight[b.level ?? ""] ?? 3));
+    return { domain, points };
+  });
+}
+
+function SkillGapCards({ gaps, dark }: { gaps: SkillGap[]; dark?: boolean }) {
+  return (
+    <ul className="grid gap-2">
+      {gaps.map((gap, index) => {
+        const badge = priorityBadge(gap.priority);
+        const hasLevels = typeof gap.current_level === "number" || typeof gap.target_level === "number";
+        return (
+          <li key={`${gap.topic}-${index}`} className={`rounded-xl px-4 py-3 ${dark ? "bg-white/[0.08]" : "bg-white/70"}`}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className={`text-sm font-medium ${dark ? "text-white/90" : "text-[#192837]"}`}>{gap.topic || "\u5f85\u8865\u5145\u77e5\u8bc6\u70b9"}</span>
+              {gap.priority ? <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span> : null}
+            </div>
+            {hasLevels ? (
+              <div className="mt-2">
+                <div className={`flex items-center justify-between text-xs ${dark ? "text-white/55" : "text-[#192837]/55"}`}>
+                  <span>{"\u638c\u63e1\u5ea6"} {typeof gap.current_level === "number" ? pct(gap.current_level) : "\u2014"}</span>
+                  <span>{"\u76ee\u6807"} {typeof gap.target_level === "number" ? pct(gap.target_level) : "\u2014"}</span>
+                </div>
+                <div className={`mt-1 h-1.5 rounded-full ${dark ? "bg-white/10" : "bg-[#192837]/10"}`}>
+                  <div className="h-full rounded-full bg-[#7342E2]" style={{ width: typeof gap.current_level === "number" ? pct(gap.current_level) : "0%" }} />
+                </div>
+              </div>
+            ) : null}
+            {gap.reason ? <p className={`mt-2 text-xs leading-5 ${dark ? "text-white/55" : "text-[#192837]/55"}`}>{gap.reason}</p> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function LearningPathMap({ groups }: { groups: Array<{ domain: KnowledgeDomain; points: KnowledgePointView[] }> }) {
+  if (!groups.length) return null;
+  const total = groups.reduce((sum, group) => sum + group.points.length, 0);
+  return (
+    <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-white/70">{"\u5b66\u4e60\u8def\u5f84\u56fe\u8c31 \u00b7 \u6838\u5fc3\u77e5\u8bc6\u4f53\u7cfb"}</p>
+        <span className="text-xs text-white/45">{groups.length} {"\u9886\u57df"} {"\u00b7"} {total} {"\u77e5\u8bc6\u70b9"}</span>
+      </div>
+      <div className="mt-4 grid gap-5">
+        {groups.map(({ domain, points }) => (
+          <div key={domain.id ?? domain.name}>
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-[#7342E2]/25 px-2 py-0.5 text-xs font-semibold text-[#C7B3F5]">{domain.id}</span>
+              <ArrowRight size={13} strokeWidth={2} className="text-white/30" />
+              <span className="text-sm font-semibold text-white/85">{domain.name}</span>
+              <span className="text-xs text-white/40">{points.length}</span>
+            </div>
+            <div className="mt-2 flex flex-col gap-1.5 border-l border-white/15 pl-3">
+              {points.map((point, index) => {
+                const badge = priorityBadge(point.priority);
+                const isWeak = !!point.is_weak;
+                return (
+                  <div key={point.id ?? `${domain.id}-${index}`}>
+                    {index > 0 ? <div className="flex justify-center py-0.5 text-white/25"><ArrowDown size={14} strokeWidth={2} /></div> : null}
+                    <div className={`rounded-lg px-3 py-2 ${isWeak ? "border border-[#7342E2]/40 bg-[#7342E2]/10" : "bg-white/[0.05]"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-1.5">
+                        <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${levelWeight[point.level ?? ""] === 0 ? "bg-[#7342E2]/30 text-[#C7B3F5]" : levelWeight[point.level ?? ""] === 1 ? "bg-sky-400/20 text-sky-200" : "bg-white/10 text-white/60"}`}>{levelLabel(point.level)}</span>
+                        <span className="text-sm leading-5 text-white/90">{point.topic || "\u672a\u547d\u540d\u77e5\u8bc6\u70b9"}</span>
+                      </div>
+                      {isWeak && point.priority ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${badge.className}`}>{badge.label}</span> : null}
+                    </div>
+                    {isWeak ? (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs text-white/55">
+                          <span>{"\u638c\u63e1\u5ea6"} {typeof point.mastery === "number" ? pct(point.mastery) : "\u2014"}</span>
+                          <span>{"\u76ee\u6807"} {typeof point.target === "number" ? pct(point.target) : "\u2014"}</span>
+                        </div>
+                        <div className="mt-1 h-1.5 rounded-full bg-white/10">
+                          <div className="h-full rounded-full bg-[#7342E2]" style={{ width: typeof point.mastery === "number" ? pct(point.mastery) : "0%" }} />
+                        </div>
+                        {point.reason ? <p className="mt-1.5 text-xs leading-5 text-white/55">{point.reason}</p> : null}
+                      </div>
+                    ) : null}
+                    {point.source_documents && point.source_documents.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {point.source_documents.map((doc) => (
+                          <span key={doc} className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] text-white/45" title={doc}>
+                            {sourceDocLabel(doc)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const documentEntityMap: Record<string, string> = {
   "&": "&amp;",
@@ -205,6 +435,11 @@ const renderDocumentMarkdown = (value: string) => {
       return;
     }
     flushList();
+    const safetyWarning = line.match(/^>\s*(?:⚠️\s*)?安全提示[:：]\s*(.*)$/);
+    if (safetyWarning) {
+      output.push(`<p style="background:#fdecea;color:#b3261e;border-left:4pt solid #b3261e;margin:12pt 0;padding:9pt 12pt">⚠️ ${renderDocumentInline(safetyWarning[1])}</p>`);
+      return;
+    }
     if (line.startsWith(">")) {
       output.push(`<p style="background:#f5f5f5;color:#40505c;margin:12pt 0;padding:9pt 12pt">${renderDocumentInline(line.replace(/^>\s?/, ""))}</p>`);
       return;
@@ -510,6 +745,215 @@ function renderInlineMarkdown(value: string) {
   });
 }
 
+function LookupChips({ instruction_links, alarm_links }: {
+  instruction_links?: GeneratedResource["instruction_links"];
+  alarm_links?: GeneratedResource["alarm_links"];
+}) {
+  const instructionChips = (instruction_links ?? []).filter((l) => l?.name && l?.brand);
+  const alarmChips = (alarm_links ?? []).filter((l) => l?.code && l?.brand);
+  if (!instructionChips.length && !alarmChips.length) return null;
+  return (
+    <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70">
+      <span className="font-semibold text-white/85">关联速查</span>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {instructionChips.map((l, i) => (
+          <a
+            key={`ins-${i}`}
+            href={`/api/knowledge/instructions/${l.brand}/${encodeURIComponent(l.name!)}`}
+            target="_blank"
+            rel="noreferrer"
+            title={l.doc_title}
+            className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/85 transition hover:bg-white/[0.14]"
+          >
+            {l.name}（{l.brand}）
+          </a>
+        ))}
+        {alarmChips.map((l, i) => (
+          <a
+            key={`alm-${i}`}
+            href={`/api/knowledge/alarms/${l.brand}/${encodeURIComponent(l.code!)}`}
+            target="_blank"
+            rel="noreferrer"
+            title={l.doc_title}
+            className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/85 transition hover:bg-white/[0.14]"
+          >
+            {l.code}（{l.brand}）
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RiskBanner({ level }: { level?: string }) {
+  if (level === "high_risk") {
+    return (
+      <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-400/30 bg-red-400/15 px-4 py-3 text-sm leading-7 text-red-50">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+        <span>{"⚠️ 工业实操有风险，请勿未经培训操作真机。操作前请阅读并遵守本课程的「安全操作确认清单」。"}</span>
+      </div>
+    );
+  }
+  if (level === "low_risk") {
+    return (
+      <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/15 px-4 py-3 text-sm leading-7 text-amber-50">
+        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+        <span>{"⚠️ 本内容涉及软件操作与参数设置，操作前请确认已备份参数，避免误改影响生产运行。"}</span>
+      </div>
+    );
+  }
+  return null;
+}
+
+
+type GlobalAlarmHit = { brand?: string; alarm_code?: string; fault_name?: string; symptom?: string; doc_id?: string; doc_title?: string };
+type GlobalInstructionHit = { brand?: string; instruction?: string; doc_id?: string; doc_title?: string };
+type GlobalDocumentHit = { doc_id?: string; doc_title?: string; content?: string };
+
+function globalMatch(haystack: string, q: string): boolean {
+  return haystack.toLowerCase().includes(q.toLowerCase());
+}
+
+function GlobalSearch() {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [alarmIndex, setAlarmIndex] = useState<GlobalAlarmHit[]>([]);
+  const [instructionIndex, setInstructionIndex] = useState<GlobalInstructionHit[]>([]);
+  const [docHits, setDocHits] = useState<GlobalDocumentHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetch(`${getApiBase()}/api/knowledge/alarms`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${getApiBase()}/api/knowledge/instructions`).then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([alarms, instructions]) => {
+        if (cancelled) return;
+        setAlarmIndex(alarms?.entries ?? []);
+        setInstructionIndex(instructions?.entries ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setOpen(false);
+      setDocHits([]);
+      return;
+    }
+    setOpen(true);
+    const timer = window.setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`${getApiBase()}/api/knowledge/search?q=${encodeURIComponent(q)}&top_k=5`);
+        const data = res.ok ? await res.json() : null;
+        setDocHits(data?.results ?? []);
+      } catch {
+        setDocHits([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    function onDocClick(event: Event) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const q = query.trim();
+  const ql = q.toLowerCase();
+  const alarmHits = ql
+    ? alarmIndex
+        .filter((e) => globalMatch([e.brand, e.alarm_code, e.fault_name, e.symptom, e.doc_title].filter(Boolean).join(" "), ql))
+        .slice(0, 5)
+    : [];
+  const instructionHits = ql
+    ? instructionIndex
+        .filter((e) => globalMatch([e.brand, e.instruction, e.doc_title].filter(Boolean).join(" "), ql))
+        .slice(0, 5)
+    : [];
+  const hasResults = alarmHits.length > 0 || instructionHits.length > 0 || docHits.length > 0;
+
+  return (
+    <div ref={containerRef} className="relative mx-4 hidden w-full max-w-sm lg:block">
+      <div className="flex items-center gap-2 rounded-full bg-[#192837]/[0.06] px-4 py-2">
+        <Search className="h-4 w-4 shrink-0 text-[#192837]/50" />
+        <input
+          className="w-full bg-transparent text-sm text-[#192837] outline-none placeholder:text-[#192837]/45"
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => { if (query.trim()) setOpen(true); }}
+          placeholder="全局搜索：报警 / 指令 / 知识文档"
+          type="text"
+          value={query}
+        />
+        {query ? <button className="grid h-5 w-5 place-items-center rounded-full text-[#192837]/45 hover:bg-[#192837]/10" onClick={() => { setQuery(""); setOpen(false); }} type="button"><X size={14} strokeWidth={1.8} /></button> : null}
+      </div>
+      {open && q ? (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-[#192837]/10 bg-white p-2 shadow-[0_18px_60px_rgba(25,40,55,0.18)]">
+          {searching && !hasResults ? <p className="px-3 py-4 text-center text-sm text-[#192837]/55">{"搜索中…"}</p> : null}
+          {!searching && !hasResults ? <p className="px-3 py-4 text-center text-sm text-[#192837]/55">{"未找到匹配内容"}</p> : null}
+          {alarmHits.length ? (
+            <div className="mt-1">
+              <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"报警排查"}</p>
+              {alarmHits.map((e, i) => (
+                <a key={`alm-${i}`} href={`/api/knowledge/alarms/${e.brand}/${encodeURIComponent(e.alarm_code ?? "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                  <span className="rounded-full bg-red-400/15 px-2 py-0.5 text-xs font-semibold text-red-600">{e.brand ?? ""}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#192837]">{e.alarm_code}</span>
+                    <span className="block truncate text-xs text-[#192837]/55">{e.fault_name || e.symptom || e.doc_title}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          ) : null}
+          {instructionHits.length ? (
+            <div className="mt-2">
+              <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"指令速查"}</p>
+              {instructionHits.map((e, i) => (
+                <a key={`ins-${i}`} href={`/api/knowledge/instructions/${e.brand}/${encodeURIComponent(e.instruction ?? "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                  <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-semibold text-amber-700">{e.brand ?? ""}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-[#192837]">{e.instruction}</span>
+                    <span className="block truncate text-xs text-[#192837]/55">{e.doc_title}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          ) : null}
+          {docHits.length ? (
+            <div className="mt-2">
+              <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"知识文档"}</p>
+              {docHits.map((e, i) => (
+                <a key={`doc-${i}`} href={`/api/knowledge/documents/${encodeURIComponent(e.doc_id ?? "")}`} target="_blank" rel="noreferrer" className="block rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                  <span className="block truncate text-sm font-semibold text-[#192837]">{e.doc_title || e.doc_id}</span>
+                  <span className="block truncate text-xs text-[#192837]/55">{e.content}</span>
+                </a>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
 function ResourceMarkdown({ content }: { content: string }) {
   const lines = decodeEscapedText(content).replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
@@ -581,6 +1025,13 @@ function ResourceMarkdown({ content }: { content: string }) {
         lineIndex += 1;
       }
       blocks.push(<ol className="my-4 grid gap-2 pl-5 text-[0.96rem] leading-7 text-white/85 marker:font-semibold marker:text-[#B99DFF]" key={`ordered-${lineIndex}`}>{items.map((item, index) => <li key={index}>{renderInlineMarkdown(item)}</li>)}</ol>);
+      continue;
+    }
+
+    const safetyWarning = line.match(/^>\s*(?:⚠️\s*)?安全提示[:：]\s*(.*)$/);
+    if (safetyWarning) {
+      blocks.push(<div className="my-4 flex items-start gap-3 rounded-2xl border border-red-400/30 bg-red-400/15 px-4 py-3 text-[0.95rem] leading-7 text-red-50" key={`safety-${lineIndex}`}><span className="mt-0.5 shrink-0 text-base">⚠️</span><span>{renderInlineMarkdown(safetyWarning[1])}</span></div>);
+      lineIndex += 1;
       continue;
     }
 
@@ -1015,6 +1466,9 @@ function ExpandedWorkspaceLayout({
 
         {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
+          <RiskBanner level={resource.risk_level} />
+          {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
+          <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
                 {isQuizResource(resource) ? (
                   <div className="mt-8 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75">
@@ -1053,6 +1507,7 @@ function ExpandedWorkspaceLayout({
               <footer className="mt-8 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(roundAudit?.verdict)}{roundAudit?.issues?.[0]?.detail ? <span className="ml-2">{roundAudit.issues[0].detail}</span> : null}</footer>
             </section>;
           }) : null}
+          {isHandsOnResourceType(resource.resource_type) ? <p className="mt-7 text-xs leading-6 text-white/45">本内容仅作教学参考，实际操作请遵守现场安全管理规范与设备官方手册。</p> : null}
           <footer className="mt-9 rounded-xl bg-white/[0.07] px-5 py-4 text-sm leading-7 text-white/75"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}{audit?.issues?.[0]?.detail ? <span className="ml-2">{audit.issues[0].detail}</span> : null}</footer>
         </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
 
@@ -1099,7 +1554,10 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [resourceReady, setResourceReady] = useState(false);
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [coreMap, setCoreMap] = useState<CoreMap | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<Record<string, QuizAttempt>>({});
+  const [safetyAckResource, setSafetyAckResource] = useState<string | null>(null);
+  const [safetyAckChecked, setSafetyAckChecked] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgressOpen, setGenerationProgressOpen] = useState(false);
@@ -1131,7 +1589,32 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       setSelectedQualityGate(null);
     }
   }, [workspaceDialog]);
+  useEffect(() => {
+    if (!selectedResource) return;
+    const resource = (generationResult?.resources ?? []).find(
+      (item) => item.resource_type === selectedResource,
+    );
+    if (!resource || resource.risk_level !== "high_risk") return;
+    const key = quizAttemptKey(resource);
+    if (hasAcknowledgedSafety(key)) return;
+    setSafetyAckChecked(false);
+    setSafetyAckResource(key);
+  }, [selectedResource, generationResult]);
+  const confirmSafetyAck = () => {
+    if (!safetyAckResource || !safetyAckChecked) return;
+    acknowledgeSafety(safetyAckResource);
+    setSafetyAckResource(null);
+    setSafetyAckChecked(false);
+  };
   useEffect(() => () => stopWorkflowRef.current?.(), []);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${getApiBase()}/api/knowledge/core-map`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then((data: CoreMap) => { if (!cancelled) setCoreMap(data); })
+      .catch(() => { if (!cancelled) setCoreMap({ domains: [] }); });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     if (!generationResult?.task_id || generationResult.status === "completed") return;
     stopWorkflowRef.current?.();
@@ -1430,7 +1913,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         mode: "demo",
         status: "completed",
         diagnosis: { summary: `未连接到本地 API，以下为“${learningGoal}”的演示结果。`, learning_style: "practice_first", recommended_difficulty: "beginner", skill_gaps: [{ topic: learningGoal, priority: "high" }] },
-        resources: resourceTypes.map((type) => ({ resource_type: type, title: `${resourceLabel(type)}：${learningGoal}`, content: `# ${learningGoal}\n\n这是 XH-agent 本地演示资源。启动后端后将由 Agent 1 学情诊断、Agent 2 知识生成、Agent 3 内容审核返回真实内容。`, difficulty_level: "beginner", estimated_duration_minutes: type === "quiz" ? 15 : 30 })),
+        resources: resourceTypes.map((type) => ({ resource_type: type, title: `${resourceLabel(type)}：${learningGoal}`, content: `# ${learningGoal}\n\n这是 XH-agent 本地演示资源。启动后端后将由 Agent 1 学情诊断、Agent 2 知识生成、Agent 3 内容审核返回真实内容。`, difficulty_level: "beginner", estimated_duration_minutes: type === "quiz" ? 15 : 30, risk_level: "theory", safety_warnings: [] })),
         audit: resourceTypes.map((type, index) => ({ resource_index: index, resource_type: type, verdict: "approved" })),
         agent_log: [{ agent: "diagnosis", status: "done" }, { agent: "generation", status: "done" }, { agent: "audit", status: "done" }],
       };
@@ -1528,7 +2011,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         mode: "demo",
         status: "completed",
         diagnosis: { summary: `本地 API 未连接，以下为 ${learningGoal} 的演示学习画像。`, learning_style: "practice_first", recommended_difficulty: "beginner", skill_gaps: [{ topic: learningGoal, priority: "high" }] },
-        resources: resourceTypes.map((type) => ({ resource_type: type, title: `${resourceLabel(type)}：${learningGoal}`, content: `# ${learningGoal}\n\n这是 XH-agent 的本地演示资源。连接后端后会显示真实 Agent 生成内容。`, difficulty_level: "beginner", estimated_duration_minutes: type === "quiz" ? 15 : 30 })),
+        resources: resourceTypes.map((type) => ({ resource_type: type, title: `${resourceLabel(type)}：${learningGoal}`, content: `# ${learningGoal}\n\n这是 XH-agent 的本地演示资源。连接后端后会显示真实 Agent 生成内容。`, difficulty_level: "beginner", estimated_duration_minutes: type === "quiz" ? 15 : 30, risk_level: "theory", safety_warnings: [] })),
         audit: resourceTypes.map((type, index) => ({ resource_index: index, resource_type: type, verdict: "approved" })),
         agent_log: workflowStages.map((stage) => ({ agent: stage.agent, status: "done" })),
       };
@@ -1573,6 +2056,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         <nav className={`hidden items-center gap-5 text-[15px] lg:flex xl:gap-7 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
           {navigation.map((item, index) => <button className={`relative whitespace-nowrap px-1 py-2 font-semibold leading-none transition-colors after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded-full after:transition-transform ${activePanel === panelIds[index] ? "text-[#192837] after:scale-x-100 after:bg-[#7342E2]" : "text-[#192837]/60 after:scale-x-0 hover:text-[#192837]"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
         </nav>
+        <GlobalSearch />
         <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton></div>
         <button aria-expanded={menuOpen} aria-label="打开菜单" className="grid h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={21} strokeWidth={1.8} /></button>
       </header>
@@ -1729,6 +2213,9 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                           </div>
                           {resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/80">预计 {resource.estimated_duration_minutes} 分钟</span> : null}
                         </header>
+                        <RiskBanner level={resource.risk_level} />
+                        {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
+                        <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
                         {resource.key_takeaways?.length ? (
                           <aside className="mt-6 rounded-xl bg-white/[0.07] p-4">
                             <p className="text-xs font-semibold text-white/60">学习重点</p>
@@ -1774,6 +2261,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                             <footer className="mt-7 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80"><span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(roundAudit?.verdict)}{roundAudit?.issues?.[0]?.detail ? <span className="ml-2 text-white/65">{roundAudit.issues[0].detail}</span> : null}</footer>
                           </section>;
                         }) : null}
+                        {isHandsOnResourceType(resource.resource_type) ? <p className="mt-7 text-xs leading-6 text-white/45">本内容仅作教学参考，实际操作请遵守现场安全管理规范与设备官方手册。</p> : null}
                         <footer className="mt-8 rounded-xl bg-white/[0.07] px-4 py-3 text-sm leading-6 text-white/80">
                           <span className="font-semibold text-white">审核状态：</span>{auditVerdictLabel(audit?.verdict)}
                           {audit?.issues?.[0]?.detail ? <span className="ml-2 text-white/65">{audit.issues[0].detail}</span> : null}
@@ -1791,7 +2279,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                     </motion.button>
                     <AnimatePresence>
                       {activeStep === index ? <motion.div className="mt-2 rounded-2xl bg-[#192837]/[0.06] p-4 text-sm leading-6 text-[#192837]/80" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
-                        {index === 0 ? <><p className="font-semibold text-[#192837]">学情诊断</p><p className="mt-2">{generationResult?.diagnosis?.summary || "暂无诊断结果。请先生成学习资源。"}</p><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-white/70 px-3 py-1 text-xs">学习风格：{generationResult?.diagnosis?.learning_style || "未返回"}</span><span className="rounded-full bg-white/70 px-3 py-1 text-xs">建议难度：{generationResult?.diagnosis?.recommended_difficulty || "未返回"}</span></div>{generationResult?.diagnosis?.skill_gaps?.length ? <ul className="mt-3 grid gap-1 text-xs">{generationResult.diagnosis.skill_gaps.map((gap, gapIndex) => <li key={`${gap.topic}-${gapIndex}`}>知识缺口：{gap.topic || "未命名"} {gap.priority ? `(${gap.priority})` : ""}</li>)}</ul> : null}</> : null}
+                        {index === 0 ? <><p className="font-semibold text-[#192837]">学情诊断</p><p className="mt-2">{generationResult?.diagnosis?.summary || "暂无诊断结果。请先生成学习资源。"}</p><div className="mt-3 flex flex-wrap gap-2"><span className="rounded-full bg-white/70 px-3 py-1 text-xs">学习风格：{generationResult?.diagnosis?.learning_style || "未返回"}</span><span className="rounded-full bg-white/70 px-3 py-1 text-xs">建议难度：{generationResult?.diagnosis?.recommended_difficulty || "未返回"}</span></div>{generationResult?.diagnosis?.skill_gaps?.length ? <div className="mt-3"><SkillGapCards gaps={generationResult.diagnosis.skill_gaps} /></div> : null}</> : null}
                         {index === 1 ? <><p className="font-semibold text-[#192837]">知识生成</p><p className="mt-2">已返回 {generationResult?.resources?.length ?? 0} 种资源。点击上方资源标签可查看完整正文。</p></> : null}
                         {index === 2 ? <><p className="font-semibold text-[#192837]">内容审核</p><p className="mt-2">{generationResult?.audit?.length ? generationResult.audit.map((audit) => `${resourceLabel(audit.resource_type || "")}: ${audit.verdict || "未返回"}`).join("；") : "暂无审核结果。"}</p></> : null}
                       </motion.div> : null}
@@ -1814,13 +2302,34 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                       <button aria-label="关闭详情" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceDialog(null)} type="button"><X size={19} strokeWidth={1.8} /></button>
                     </div>
                     <div className="mt-6 rounded-2xl bg-[#192837] p-5 text-white sm:p-6">
-                      {workspaceDialog.kind === "workflow" && workspaceDialog.index === 0 ? <><p className="text-sm font-semibold text-white/60">学习画像诊断</p><p className="mt-3 text-sm leading-7 text-white/85">{generationResult?.diagnosis?.summary || "生成资源后将展示学习目标、基础能力和知识缺口诊断。"}</p>{generationResult?.diagnosis?.skill_gaps?.length ? <ul className="mt-5 grid gap-2 text-sm text-white/80">{generationResult.diagnosis.skill_gaps.map((gap, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-gap-${index}`}>{gap.topic || "待补充知识点"}{gap.priority ? <span className="ml-2 text-white/55">· 优先级 {gap.priority}</span> : null}</li>)}</ul> : null}</> : null}
+                      {workspaceDialog.kind === "workflow" && workspaceDialog.index === 0 ? <><p className="text-sm font-semibold text-white/60">学习画像诊断</p><p className="mt-3 text-sm leading-7 text-white/85">{generationResult?.diagnosis?.summary || "生成资源后将展示学习目标、基础能力和知识缺口诊断。"}</p>{generationResult?.diagnosis?.skill_gaps?.length ? <div className="mt-5"><SkillGapCards gaps={generationResult.diagnosis.skill_gaps} dark /></div> : null}<LearningPathMap groups={buildLearningPath(coreMap, generationResult?.diagnosis?.skill_gaps)} /></> : null}
                       {workspaceDialog.kind === "workflow" && workspaceDialog.index === 1 ? <><p className="text-sm font-semibold text-white/60">RAG 知识生成</p><p className="mt-3 text-sm leading-7 text-white/85">根据学习画像检索知识库，生成与当前目标匹配的学习资源。本次已生成 {generationResult?.resources?.length ?? 0} 类资源。</p><div className="mt-5 grid gap-2 sm:grid-cols-3">{(generationResult?.resources ?? []).map((item) => <div className="rounded-xl bg-white/[0.08] px-4 py-3 text-sm text-white/85" key={item.resource_type}>{resourceLabel(item.resource_type)}<span className="mt-1 block text-xs text-white/55">{item.difficulty_level || "待评估难度"}</span></div>)}</div></> : null}
                       {workspaceDialog.kind === "workflow" && workspaceDialog.index === 2 ? <><p className="text-sm font-semibold text-white/60">内容审核与保真修正</p><p className="mt-3 text-sm leading-7 text-white/85">逐项检查资源的知识依据、难度匹配和表达质量，并保留需要修正的具体问题。</p><ul className="mt-5 grid gap-2 text-sm text-white/80">{(generationResult?.audit ?? []).map((item, index) => <li className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-audit-${index}`}><span>{resourceLabel(item.resource_type || "资源")}</span><span className="text-white/60">{auditVerdictLabel(item.verdict)}</span></li>)}</ul></> : null}
                       {workspaceDialog.kind === "quality" && workspaceDialog.id === "evidence" ? <><p className="text-sm font-semibold text-white/60">依据校验</p><p className="mt-3 text-sm leading-7 text-white/85">检查生成内容是否有知识库依据，并显示每种资源对应的审核结论。</p><ul className="mt-5 grid gap-2 text-sm text-white/80">{(generationResult?.audit ?? []).map((item, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-evidence-${index}`}><span>{resourceLabel(item.resource_type || "资源")}</span><span className="ml-3 text-white/60">{auditVerdictLabel(item.verdict)}</span>{item.issues?.[0]?.detail ? <span className="mt-1 block text-xs text-white/55">{item.issues[0].detail}</span> : null}</li>)}</ul></> : null}
                       {workspaceDialog.kind === "quality" && workspaceDialog.id === "difficulty" ? <><p className="text-sm font-semibold text-white/60">难度匹配</p><p className="mt-3 text-sm leading-7 text-white/85">当前建议难度：{generationResult?.diagnosis?.recommended_difficulty || "等待学情诊断"}。系统会将资源难度与学习基础和目标进行比对。</p></> : null}
                       {workspaceDialog.kind === "quality" && workspaceDialog.id === "expression" ? <><p className="text-sm font-semibold text-white/60">表达审核</p><p className="mt-3 text-sm leading-7 text-white/85">{generationResult?.audit?.some((item) => item.issues?.length) ? "部分内容需要进一步修正，请结合下方审核问题检查表达、结构和可用性。" : "当前资源通过表达质量检查，结构清晰，适合继续学习。"}</p>{generationResult?.audit?.flatMap((item) => item.issues ?? []).length ? <ul className="mt-5 grid gap-2 text-sm text-white/80">{generationResult.audit.flatMap((item) => item.issues ?? []).map((issue, index) => <li className="rounded-xl bg-white/[0.08] px-4 py-3" key={`dialog-issue-${index}`}>{issue.detail || "待补充审核说明"}</li>)}</ul> : null}</> : null}
                     </div>
+                  </motion.section>
+                </>
+              ) : null}
+            </AnimatePresence>
+            <AnimatePresence>
+              {safetyAckResource ? (
+                <>
+                  <motion.div className="fixed inset-0 z-[75] bg-[#192837]/50 backdrop-blur-[6px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+                  <motion.section aria-label="安全确认" className="fixed left-1/2 top-1/2 z-[80] w-[min(92vw,460px)] -translate-x-1/2 -translate-y-1/2 rounded-[1.75rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_24px_80px_rgba(25,40,55,0.3)] sm:p-7" initial={reducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.97 }} transition={{ duration: 0.32, ease }} role="dialog" aria-modal="true">
+                    <div className="flex items-start gap-3">
+                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-400/15 text-xl">⚠️</span>
+                      <div>
+                        <h3 className="font-[var(--font-heading)] text-xl leading-tight">安全确认</h3>
+                        <p className="mt-2 text-sm leading-7 text-[#192837]/75">本课程涉及工业机器人实操操作，存在机械伤害风险，请确认已接受基础安全培训并遵守现场操作规程。</p>
+                      </div>
+                    </div>
+                    <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-2xl border border-[#192837]/10 bg-white px-4 py-3">
+                      <input checked={safetyAckChecked} className="h-4 w-4 accent-[#7342E2]" onChange={(event) => setSafetyAckChecked(event.target.checked)} type="checkbox" />
+                      <span className="text-sm font-medium">我已了解风险并遵守安全规范</span>
+                    </label>
+                    <button className="mt-5 w-full rounded-full bg-[#192837] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40" disabled={!safetyAckChecked} onClick={confirmSafetyAck} type="button">确认进入</button>
                   </motion.section>
                 </>
               ) : null}

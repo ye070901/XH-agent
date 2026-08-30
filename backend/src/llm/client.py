@@ -808,6 +808,10 @@ class LLMClient:
             content = self._demo_guide(focus, difficulty, style, dlabel, depth_hint, style_hint)
         elif rtype == "quiz":
             content = self._demo_quiz(focus, difficulty, style, dlabel)
+        elif rtype == "project":
+            content = self._demo_project(focus, difficulty, style, dlabel, depth_hint, style_hint)
+        elif rtype == "pitfall_guide":
+            content = self._demo_pitfall_guide(focus, difficulty, style, dlabel)
         else:
             content = self._demo_lecture(focus, difficulty, style, dlabel, depth_hint, style_hint)
 
@@ -868,14 +872,40 @@ class LLMClient:
             "advanced": "FOR i=1 TO 10\n  L P[i] 2000mm/s CNT100\nENDFOR   // 批量点位，少量注释",
         }[difficulty]
         return (
-            f"# 实操指南：{focus}（{dlabel}）\n\n"
+            f"# FANUC 实操指南：{focus}（{dlabel}）\n\n"
             f"> 风格：{style}（{style_hint}）\n\n"
-            f"## 前置准备\n\n- 示教器 / 仿真环境（RobotStudio 或 ROS2）\n"
+            f"## 安全操作确认清单\n\n"
+            f"- 安全门状态确认\n- 急停按钮位置确认\n- 使能键使用规范\n"
+            f"- 工作区间无人员确认\n- 减速模式开启要求\n\n"
+            f"## 前置准备\n\n- 示教器 / 仿真环境（ROBOGUIDE 或 ROS2）\n"
             f"- 安全确认：急停链路完好\n\n"
             f"## 步骤 1：确认坐标系与 {focus} 现状\n\n"
+            f"> ⚠️ 安全提示：进入手动模式前确认安全门关闭、工作区间无人员。\n\n"
             f"## 步骤 2：执行示例\n\n```\n{code}\n```\n\n"
-            f"## 步骤 3：验证与常见问题\n\n- 现象 A → 排查方向\n- 现象 B → 排查方向\n\n"
+            f"> ⚠️ 安全提示：执行运动指令前开启减速模式，确认使能键可控。\n\n"
+            f"## 步骤 3：验证与常见异常排错\n\n- 现象 A → 排查方向\n- 现象 B → 排查方向\n\n"
             f"## 步骤 4：记录与复盘\n"
+        )
+
+    def _demo_project(self, focus, difficulty, style, dlabel, depth_hint, style_hint) -> str:
+        return (
+            f"# FANUC 搬运工作站项目：{focus}（{dlabel}）\n\n"
+            f"> 风格：{style}（{style_hint}）\n\n"
+            f"## 项目背景与目标\n\n"
+            f"围绕 {focus} 搭建一套 FANUC 机器人上下料工作站，"
+            f"完成从点位示教到节拍验证的完整调试。\n\n"
+            f"## 工作站拆解\n\n"
+            f"- 机器人本体 + 控制柜\n- 输送线 + 夹爪\n- 安全门 / 光栅等联锁\n"
+            f"- 工业相机视觉定位取放（AI 融合：相机识别工件位姿，经现场总线回传机器人）\n\n"
+            f"## 全流程方案\n\n"
+            f"FANUC 控制柜 + 示教器编程，按「安全确认 → 点位示教 → 程序运行 → 节拍验收」推进。\n\n"
+            f"## 安全操作确认清单\n\n"
+            f"- 安全门状态确认\n- 急停按钮位置确认\n- 使能键使用规范\n"
+            f"- 工作区间无人员确认\n- 减速模式开启要求\n\n"
+            f"## 分步调试步骤\n\n"
+            f"> ⚠️ 安全提示：进入工作区间前确认安全门状态、工作区间无人员。\n1. 点位示教\n"
+            f"> ⚠️ 安全提示：试运行前开启减速模式，确认急停按钮可达。\n2. 试运行\n\n"
+            f"## 验收标准与风险点\n\n- 节拍达标\n- 安全联锁有效\n"
         )
 
     def _demo_quiz(self, focus, difficulty, style, dlabel) -> str:
@@ -890,6 +920,24 @@ class LLMClient:
             f"**3. 结合 FANUC 示教器，说明 {focus} 的现场操作要点。**\n\n"
             f"## 挑战题\n\n"
             f"**4. 设计一个 {focus} 相关的现场排故方案。**\n"
+        )
+
+    def _demo_pitfall_guide(self, focus, difficulty, style, dlabel) -> str:
+        return (
+            f"# {dlabel}避坑指南：{focus}\n\n"
+            f"> 风格：{style} · 面向新手，逐条点出易错点\n\n"
+            f"## 常见误区\n\n"
+            f"- 误区一：跳过安全确认直接示教，误以为低速就绝对安全。\n"
+            f"- 误区二：报警后不排查原因直接复位，导致故障反复。\n"
+            f"- 误区三：混淆 FANUC / KUKA / ABB 指令语法，跨品牌套用程序。\n\n"
+            f"## 后果\n\n"
+            f"- 后果一：误触机械臂造成人身伤害或设备损坏。\n"
+            f"- 后果二：故障反复影响生产节拍，甚至扩大故障范围。\n"
+            f"- 后果三：程序无法运行或产生预期外动作。\n\n"
+            f"## 规避方法\n\n"
+            f"- 规避一：操作前完成「安全操作确认清单」逐项确认。\n"
+            f"- 规避二：报警按「原因排查 → 复位 → 低速验证」顺序处理。\n"
+            f"- 规避三：严格按对应品牌官方手册编程，跨品牌不套用指令。\n"
         )
 
     def _demo_takeaways(self, focus, difficulty) -> list:

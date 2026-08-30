@@ -78,7 +78,6 @@ class Settings:
 
     Usage:
         from backend.src.config import settings
-        model = settings.get_model_for_agent("diagnosis")
     """
 
     # ============================================================
@@ -89,23 +88,14 @@ class Settings:
     LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o")
 
-    # Agent 粒度模型覆盖（为空则回退到 LLM_MODEL）
-    LLM_MODEL_DIAGNOSIS: str = os.getenv("LLM_MODEL_DIAGNOSIS", "")
-    LLM_MODEL_GENERATION: str = os.getenv("LLM_MODEL_GENERATION", "")
-    LLM_MODEL_AUDIT: str = os.getenv("LLM_MODEL_AUDIT", "")
-    LLM_MODEL_CORRECTION: str = os.getenv("LLM_MODEL_CORRECTION", "")
-
     # LLM 调用参数
     LLM_TIMEOUT_SECONDS: int = _int_env("LLM_TIMEOUT_SECONDS", 120)
     LLM_MAX_RETRIES: int = _int_env("LLM_MAX_RETRIES", 2)
     LLM_MAX_INPUT_CHARS: int = _int_env("LLM_MAX_INPUT_CHARS", 32000)
     """输入文本最大字符数，超长自动截断（保留 system_prompt + 截断 user_message）"""
 
-    # 各 Agent 推荐温度（诊断/审核/修正低温保证一致，生成中温保证多样性）
-    LLM_TEMPERATURE_DIAGNOSIS: float = _float_env("LLM_TEMPERATURE_DIAGNOSIS", 0.2)
-    LLM_TEMPERATURE_GENERATION: float = _float_env("LLM_TEMPERATURE_GENERATION", 0.5)
+    # 审核 Agent 低温保证审查一致；诊断/生成/修正的温度由各 Agent 构造器硬编码
     LLM_TEMPERATURE_AUDIT: float = _float_env("LLM_TEMPERATURE_AUDIT", 0.1)
-    LLM_TEMPERATURE_CORRECTION: float = _float_env("LLM_TEMPERATURE_CORRECTION", 0.2)
 
     # ============================================================
     # Embedding
@@ -123,7 +113,6 @@ class Settings:
     # ============================================================
     # Agent
     # ============================================================
-    AGENT_MAX_RETRIES: int = _int_env("AGENT_MAX_RETRIES", 3)
     DEBATE_MAX_ROUNDS: int = _int_env("DEBATE_MAX_ROUNDS", 3)
     HALLUCINATION_THRESHOLD: float = _float_env("HALLUCINATION_THRESHOLD", 0.05)
     ADAPTATION_TARGET: float = _float_env("ADAPTATION_TARGET", 0.85)
@@ -242,62 +231,6 @@ class Settings:
     CORS_ORIGINS: list[str] = _list_env("CORS_ORIGINS", "http://localhost:3000")
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = _int_env("PORT", 8000)
-
-    # ═══════════════════════════════════════════════════════════
-    # Agent → Model / Temperature 映射表
-    # ═══════════════════════════════════════════════════════════
-
-    _AGENT_MODEL_MAP: dict[str, str] = {
-        "diagnosis": "LLM_MODEL_DIAGNOSIS",
-        "agent1": "LLM_MODEL_DIAGNOSIS",
-        "generation": "LLM_MODEL_GENERATION",
-        "agent2": "LLM_MODEL_GENERATION",
-        "audit": "LLM_MODEL_AUDIT",
-        "agent3": "LLM_MODEL_AUDIT",
-        "correction": "LLM_MODEL_CORRECTION",
-        "agent4": "LLM_MODEL_CORRECTION",
-    }
-
-    _AGENT_TEMPERATURE_MAP: dict[str, str] = {
-        "diagnosis": "LLM_TEMPERATURE_DIAGNOSIS",
-        "generation": "LLM_TEMPERATURE_GENERATION",
-        "audit": "LLM_TEMPERATURE_AUDIT",
-        "correction": "LLM_TEMPERATURE_CORRECTION",
-    }
-
-    # ═══════════════════════════════════════════════════════════
-    # 方法
-    # ═══════════════════════════════════════════════════════════
-
-    def get_model_for_agent(self, agent_name: str) -> str:
-        """解析 Agent 使用的模型，支持粒度覆盖与回退。
-
-        解析链：LLM_MODEL_<AGENT_NAME> 环境变量 → LLM_MODEL 环境变量
-
-        agent_name 大小写不敏感。支持别名：
-          diagnosis / agent1   → LLM_MODEL_DIAGNOSIS
-          generation / agent2  → LLM_MODEL_GENERATION
-          audit / agent3       → LLM_MODEL_AUDIT
-          correction / agent4  → LLM_MODEL_CORRECTION
-          未匹配的 agent_name  → 直接回退到 LLM_MODEL
-        """
-        attr_name = self._AGENT_MODEL_MAP.get(agent_name.lower(), "")
-        if attr_name:
-            override = getattr(self, attr_name, "")
-            if override:
-                return override
-        return self.LLM_MODEL
-
-    def get_temperature_for_agent(self, agent_name: str) -> float:
-        """获取 Agent 的推荐 temperature。
-
-        agent_name 大小写不敏感。
-        未匹配的 agent_name 返回 0.3（保守默认值）。
-        """
-        attr_name = self._AGENT_TEMPERATURE_MAP.get(agent_name.lower(), "")
-        if attr_name:
-            return getattr(self, attr_name, 0.3)
-        return 0.3
 
     @property
     def is_demo_mode(self) -> bool:

@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """你是一个专业的学情诊断专家。你的任务是：
 
 输出必须为严格的 JSON 格式。
 
-【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
+【你必须忠实于学习者输入的学习目标与课题主题，严禁把课题篡改为工业机器人等其他无关领域。】"""
 
 # topic_scores 是 0-100 百分制掌握度（见 evaluation/pretest.py score_pretest 与
 # data/evaluation/pretest_questions.json meta.scoring），知识点掌握度 level = score/100；

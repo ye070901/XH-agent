@@ -33,12 +33,27 @@ class Difficulty(str, Enum):
     ADVANCED = "advanced"
 
 
+class RiskLevel(str, Enum):
+    """工业实操风险分级（与 Difficulty 正交：危险 ≠ 难度）。
+
+    theory    纯理论内容，无操作风险
+    low_risk  软件操作、参数查看、程序编辑
+    high_risk 示教、点动、运行程序、IO调试等涉及机器人运动的操作
+    """
+
+    THEORY = "theory"
+    LOW_RISK = "low_risk"
+    HIGH_RISK = "high_risk"
+
+
 class ResourceType(str, Enum):
     LECTURE = "lecture"
     GUIDE = "guide"
     QUIZ = "quiz"
     CASE_STUDY = "case_study"
     MICRO_PROJECT = "micro_project"
+    PROJECT = "project"
+    PITFALL_GUIDE = "pitfall_guide"
 
 
 class LearningStyle(str, Enum):
@@ -177,6 +192,36 @@ class Citation(BaseModel):
 # ═══════════════════════════════════════════════════════════
 
 
+class RobotMetadata(BaseModel):
+    """实操类资源的适配元数据 — 仅由知识库 doc_id/doc_title 确定性派生，LLM 不产出。
+
+    任一字段在知识库无权威来源时，运行时代码标注「未标注」，禁止编造具体型号。
+    """
+
+    brand: Optional[str] = None
+    controller_version: Optional[str] = None
+    applicable_model: Optional[str] = None
+
+
+class InstructionLink(BaseModel):
+    """正文命中的指令速查跳转链接 — 由生成管线消费 instruction_index.json 确定性派生。"""
+
+    brand: str
+    name: str = Field(description="指令名，如 MoveJ")
+    doc_id: str
+    doc_title: str
+
+
+class AlarmLink(BaseModel):
+    """正文命中的报警排查跳转链接 — 由生成管线消费 alarm_index.json 确定性派生。"""
+
+    brand: str
+    code: str = Field(description="报警代码，如 SRVO-068")
+    doc_id: str
+    doc_title: str
+    fault_name: str = ""
+
+
 class GeneratedResource(BaseModel):
     """个性化学习资源 — Agent 2 输出，Agent 3 审核"""
 
@@ -193,6 +238,20 @@ class GeneratedResource(BaseModel):
     target_skill_gaps: list[str] = Field(default_factory=list)
     estimated_duration_minutes: int = 30
     prerequisites: list[str] = Field(default_factory=list)
+    risk_level: RiskLevel = RiskLevel.THEORY
+    safety_warnings: list[str] = Field(
+        default_factory=list,
+        description="逐步安全提示，从正文 `> ⚠️ 安全提示：…` 引用块确定性提取，不与普通步骤文本合并",
+    )
+    robot_metadata: Optional[RobotMetadata] = None
+    instruction_links: list[InstructionLink] = Field(
+        default_factory=list,
+        description="正文命中的指令速查跳转链接（三品牌），供前端渲染可点击速查条",
+    )
+    alarm_links: list[AlarmLink] = Field(
+        default_factory=list,
+        description="正文命中的报警排查跳转链接（三品牌），供前端渲染可点击速查条",
+    )
 
 
 # ═══════════════════════════════════════════════════════════

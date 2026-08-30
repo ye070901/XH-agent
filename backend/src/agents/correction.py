@@ -78,7 +78,7 @@ SYSTEM_PROMPT = """你是一个严格的内容修正专家。你的任务是：
 
 输出必须为严格的 JSON 格式。
 
-【你仅处理工业机器人故障诊断相关任务，领域包含FANUC、KUKA、ABB工业机器人、示教器、机器人故障代码；拒绝回答和机器人故障无关的问题。】"""
+【你必须忠实于学习者原始学习课题，只修正与课题一致的内容，严禁把内容改写为工业机器人等其他无关领域。】"""
 
 # 学习风格 → 内容特征标记（用于画像匹配软校验，启发式，仅提示不硬判）
 _STYLE_MARKERS: dict[str, tuple[str, ...]] = {
@@ -271,8 +271,8 @@ class CorrectionAgent(BaseAgent):
                         learner_data=learner_data,
                         downgrade_mode=False,
                     )
-                    # 溯源绑定后处理（讲义/指南，有事实点才绑定）
-                    if resource_type in ("lecture", "guide"):
+                    # 溯源绑定后处理（讲义/指南/项目实战，有事实点才绑定）
+                    if resource_type in ("lecture", "guide", "project"):
                         corrected_resource = self._bind_if_fact_points(
                             result["corrected_resource"], audit_report
                         )
@@ -871,6 +871,10 @@ class CorrectionAgent(BaseAgent):
                 "保持 quiz 结构：基础选择题2道（含选项/标准答案/解析）→ "
                 "进阶题1道 → 挑战实操题1道。修正时保持原题号和格式"
             ),
+            "project": (
+                "保持 project 结构：项目背景与目标 → 工作站拆解 → 全流程方案"
+                "（硬件选型+程序框架）→ 分步调试步骤 → 验收标准与风险点"
+            ),
         }
         return guides.get(resource_type, "保持原内容结构不变")
 
@@ -1017,10 +1021,10 @@ class CorrectionAgent(BaseAgent):
     def _bind_if_fact_points(self, corrected_resource: dict, audit_report: dict) -> dict:
         """既有 LLM 修正路径的溯源绑定后处理。
 
-        仅 lecture/guide 且存在可绑定事实点时，才把【生成陈述 + KB原文出处】
+        仅 lecture/guide/project 且存在可绑定事实点时，才把【生成陈述 + KB原文出处】
         追加到内容末尾，满足"讲义/指南每一条事实点强制绑定"。
         """
-        if corrected_resource.get("resource_type") not in ("lecture", "guide"):
+        if corrected_resource.get("resource_type") not in ("lecture", "guide", "project"):
             return corrected_resource
         fact_points = self._collect_fact_points(corrected_resource, audit_report, [])
         if not fact_points:
@@ -1170,8 +1174,8 @@ class CorrectionAgent(BaseAgent):
             "_arbitration_applied": True,
             "_arbitration_log_count": len(logs),
         }
-        # 溯源绑定（仅讲义/指南）
-        if resource_type in ("lecture", "guide"):
+        # 溯源绑定（仅讲义/指南/项目实战）
+        if resource_type in ("lecture", "guide", "project"):
             fact_points = self._collect_fact_points(corrected_resource, audit_report, adjudications)
             if fact_points:
                 bound_content, bound_lines = self._bind_traceability(new_content, fact_points)
