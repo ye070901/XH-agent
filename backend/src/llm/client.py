@@ -120,6 +120,22 @@ class LLMClient:
         """当前是否为演示模式。"""
         return self._is_demo
 
+    def configure_api_key(self, api_key: str) -> bool:
+        """运行时设置 LLM API key，切换到真实/演示模式（前端「填 key」入口用）。
+
+        副作用（三者须同步，否则真实调用会用旧 key 或仍走演示）：
+          1. settings.LLM_API_KEY —— 影响 settings.is_demo_mode 及下游读取；
+          2. self._is_demo —— call() 据此分派演示/真实分支；
+          3. self._clients —— 清空已缓存的 OpenAI client（cache_key 不含 api_key，
+             换 key 后旧缓存会命中旧凭证）。
+
+        返回是否已进入真实模式（key 非空）。key 仅存内存，后端重启后失效。
+        """
+        settings.LLM_API_KEY = (api_key or "").strip()
+        self._is_demo = not bool(settings.LLM_API_KEY)
+        self._clients.clear()
+        return not self._is_demo
+
     # ═══════════════════════════════════════════════════════════
     # 核心调用
     # ═══════════════════════════════════════════════════════════

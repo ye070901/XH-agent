@@ -22,6 +22,7 @@ from backend.src.api.profiles import router as profiles_router  # noqa: E402
 from backend.src.api.ws import router as ws_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
+from backend.src.llm.client import llm  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
 from backend.src.quality_gate.gates.recall_gate import ONLINE_FALLBACK_DISCLAIMER  # noqa: E402
 from backend.src.scheduler.pipeline import scheduler  # noqa: E402
@@ -121,6 +122,23 @@ async def health():
         "kb_docs": stats["total_documents"],
         "kb_mode": stats["mode"],
     }
+
+
+@app.post("/api/config/llm-key")
+async def set_llm_key(request: dict):
+    """运行时设置 LLM API key，切换到真实模式（前端「填 key」入口）。
+
+    请求: {"api_key": "sk-..."}
+    返回: {"status": "ok", "demo_mode": bool}
+
+    key 仅存内存，不落盘，后端重启后失效（前端可再次填入）。
+    """
+    api_key = str(request.get("api_key", "") or "").strip()
+    if not api_key:
+        raise HTTPException(status_code=422, detail="api_key 不能为空")
+    enabled = llm.configure_api_key(api_key)
+    logger.info(f"[API] 运行时设置 LLM API key：真实模式={enabled}")
+    return {"status": "ok", "demo_mode": not enabled}
 
 
 @app.post("/api/generate")

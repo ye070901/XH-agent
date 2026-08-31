@@ -1575,6 +1575,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [industry, setIndustry] = useState("");
   const [role, setRole] = useState("");
   const [demoMode, setDemoMode] = useState(false);
+  const [apiKey, setApiKey] = useState("");
   const [showWorkspaceTopButton, setShowWorkspaceTopButton] = useState(false);
   const reducedMotion = useReducedMotion();
   const workspaceScrollRef = useRef<HTMLElement>(null);
@@ -1970,6 +1971,14 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     let result: GenerationResult;
     try {
       if (demoMode) throw new Error("Demo mode selected");
+      if (apiKey.trim()) {
+        const keyResponse = await fetch(`${apiBase}/api/config/llm-key`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ api_key: apiKey.trim() }),
+        });
+        if (!keyResponse.ok) throw new Error(`API Key 配置失败 ${keyResponse.status}`);
+      }
       const startResponse = await fetch(`${apiBase}/api/generate/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2143,7 +2152,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">学习目标</legend><label className="grid gap-2 text-sm font-medium">希望完成什么学习任务<textarea className="min-h-24 resize-y rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => { setLearningGoal(event.target.value); setTopic(event.target.value); }} placeholder="例如：掌握 LangGraph 多智能体 AI 应用开发" required value={learningGoal} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">工作背景</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">工作年限<span className="text-[#7342E2]">{workYears.toFixed(1)} 年</span><input className="accent-[#7342E2]" max="15" min="0" onChange={(event) => setWorkYears(Number(event.target.value))} step="0.5" type="range" value={workYears} /></label><label className="grid gap-2 text-sm font-medium">所在行业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setIndustry(event.target.value)} placeholder="例如：互联网" value={industry} /></label></div><label className="grid gap-2 text-sm font-medium">岗位<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setRole(event.target.value)} placeholder="例如：Python 开发" value={role} /></label></fieldset>
-                <fieldset className="grid gap-3"><legend className="text-lg font-semibold">输出设置</legend><span className="text-sm font-medium">资源类型，可多选</span><div className="flex flex-wrap gap-2">{resourceOptions.map((option) => <button aria-pressed={resourceTypes.includes(option.id)} className={`rounded-full px-3 py-2 text-sm font-medium transition ${resourceTypes.includes(option.id) ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.id} onClick={() => toggleResourceType(option.id)} type="button">{option.label}</button>)}</div><label className="mt-2 flex cursor-pointer items-center gap-3 text-sm font-semibold"><input checked={demoMode} className="h-5 w-5 accent-[#7342E2]" onChange={(event) => setDemoMode(event.target.checked)} type="checkbox" />使用演示数据</label></fieldset>
+                <fieldset className="grid gap-3"><legend className="text-lg font-semibold">输出设置</legend><span className="text-sm font-medium">资源类型，可多选</span><div className="flex flex-wrap gap-2">{resourceOptions.map((option) => <button aria-pressed={resourceTypes.includes(option.id)} className={`rounded-full px-3 py-2 text-sm font-medium transition ${resourceTypes.includes(option.id) ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.id} onClick={() => toggleResourceType(option.id)} type="button">{option.label}</button>)}</div><label className="grid gap-2 text-sm font-medium">{"API Key（可选，在线真实生成）"}<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setApiKey(event.target.value)} placeholder="sk-...（留空则用后端 .env 配置）" type="password" value={apiKey} /></label><label className="mt-2 flex cursor-pointer items-center gap-3 text-sm font-semibold"><input checked={demoMode} className="h-5 w-5 accent-[#7342E2]" onChange={(event) => setDemoMode(event.target.checked)} type="checkbox" />使用演示数据</label></fieldset>
                 {generationError ? <p className="text-sm text-red-700">{generationError}</p> : null}
                 <button className="mt-1 flex items-center justify-between rounded-full bg-[#7342E2] px-6 py-4 text-left font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60" disabled={isGenerating} type="submit">{isGenerating ? "正在调用 XH-agent..." : "调用 XH-agent 生成"} <ArrowRightCircle size={20} strokeWidth={1.8} /></button>
               </form>
