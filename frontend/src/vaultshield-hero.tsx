@@ -1399,6 +1399,7 @@ function ExpandedWorkspaceLayout({
   quizAttempts,
   onQuizAttemptChange,
   onExport,
+  backendDemoMode,
 }: {
   generationResult: GenerationResult | null;
   topic: string;
@@ -1416,6 +1417,7 @@ function ExpandedWorkspaceLayout({
   quizAttempts: Record<string, QuizAttempt>;
   onQuizAttemptChange: (resource: GeneratedResource, update: (current: QuizAttempt) => QuizAttempt) => void;
   onExport: () => void;
+  backendDemoMode: boolean | null;
 }) {
   const resources = generationResult?.resources ?? [];
   const resource = resources.find((item) => item.resource_type === selectedResource);
@@ -1460,7 +1462,7 @@ function ExpandedWorkspaceLayout({
       <main className="min-w-0 w-full">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div><p className="text-xs font-semibold tracking-[0.14em] text-white/55">本次生成结果</p><h3 className="mt-2 text-2xl font-semibold leading-tight">{topic || "学习资源工作台"}</h3></div>
-          <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/85">{generationResult?.mode === "demo" ? "本地演示" : "DeepSeek Chat"}</span>
+          <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/85">{generationResult?.mode === "demo" || backendDemoMode === true ? "本地演示" : "DeepSeek Chat"}</span>
         </div>
         {generationResult?.diagnosis?.summary ? <p className="mt-5 max-w-[78ch] text-base leading-8 text-white/80">诊断：{generationResult.diagnosis.summary}</p> : null}
 
@@ -1576,6 +1578,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [role, setRole] = useState("");
   const [demoMode, setDemoMode] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [backendDemoMode, setBackendDemoMode] = useState<boolean | null>(null);
   const [showWorkspaceTopButton, setShowWorkspaceTopButton] = useState(false);
   const reducedMotion = useReducedMotion();
   const workspaceScrollRef = useRef<HTMLElement>(null);
@@ -1614,6 +1618,14 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
       .then((data: CoreMap) => { if (!cancelled) setCoreMap(data); })
       .catch(() => { if (!cancelled) setCoreMap({ domains: [] }); });
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${getApiBase()}/health`)
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then((health: { demo_mode?: boolean }) => { if (!cancelled && typeof health.demo_mode === "boolean") setBackendDemoMode(health.demo_mode); })
+      .catch(() => { /* 后端未启动或 /health 不可用，保持未知 */ });
     return () => { cancelled = true; };
   }, []);
   useEffect(() => {
@@ -1978,6 +1990,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
           body: JSON.stringify({ api_key: apiKey.trim() }),
         });
         if (!keyResponse.ok) throw new Error(`API Key 配置失败 ${keyResponse.status}`);
+        const keyResult = await keyResponse.json() as { demo_mode?: boolean };
+        if (typeof keyResult.demo_mode === "boolean") setBackendDemoMode(keyResult.demo_mode);
       }
       const startResponse = await fetch(`${apiBase}/api/generate/start`, {
         method: "POST",
@@ -2046,6 +2060,10 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   };
   const toggleResourceType = (item: string) => {
     setResourceTypes((current) => current.includes(item) ? (current.length === 1 ? current : current.filter((type) => type !== item)) : [...current, item]);
+  };
+  const openApiKeyDialog = () => {
+    setDemoMode(false);
+    setApiKeyDialogOpen(true);
   };
   const fadeUp = (index: number) => ({
     initial: reducedMotion ? false : { opacity: 0, y: 28 },
@@ -2152,7 +2170,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">学习目标</legend><label className="grid gap-2 text-sm font-medium">希望完成什么学习任务<textarea className="min-h-24 resize-y rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => { setLearningGoal(event.target.value); setTopic(event.target.value); }} placeholder="例如：掌握 LangGraph 多智能体 AI 应用开发" required value={learningGoal} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">工作背景</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">工作年限<span className="text-[#7342E2]">{workYears.toFixed(1)} 年</span><input className="accent-[#7342E2]" max="15" min="0" onChange={(event) => setWorkYears(Number(event.target.value))} step="0.5" type="range" value={workYears} /></label><label className="grid gap-2 text-sm font-medium">所在行业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setIndustry(event.target.value)} placeholder="例如：互联网" value={industry} /></label></div><label className="grid gap-2 text-sm font-medium">岗位<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setRole(event.target.value)} placeholder="例如：Python 开发" value={role} /></label></fieldset>
-                <fieldset className="grid gap-3"><legend className="text-lg font-semibold">输出设置</legend><span className="text-sm font-medium">资源类型，可多选</span><div className="flex flex-wrap gap-2">{resourceOptions.map((option) => <button aria-pressed={resourceTypes.includes(option.id)} className={`rounded-full px-3 py-2 text-sm font-medium transition ${resourceTypes.includes(option.id) ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.id} onClick={() => toggleResourceType(option.id)} type="button">{option.label}</button>)}</div><label className="grid gap-2 text-sm font-medium">{"API Key（可选，在线真实生成）"}<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setApiKey(event.target.value)} placeholder="sk-...（留空则用后端 .env 配置）" type="password" value={apiKey} /></label><label className="mt-2 flex cursor-pointer items-center gap-3 text-sm font-semibold"><input checked={demoMode} className="h-5 w-5 accent-[#7342E2]" onChange={(event) => setDemoMode(event.target.checked)} type="checkbox" />使用演示数据</label></fieldset>
+                <fieldset className="grid gap-3"><legend className="text-lg font-semibold">输出设置</legend><span className="text-sm font-medium">资源类型，可多选</span><div className="flex flex-wrap gap-2">{resourceOptions.map((option) => <button aria-pressed={resourceTypes.includes(option.id)} className={`rounded-full px-3 py-2 text-sm font-medium transition ${resourceTypes.includes(option.id) ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.id} onClick={() => toggleResourceType(option.id)} type="button">{option.label}</button>)}</div><div className="mt-1 grid gap-2"><span className="text-sm font-medium">{"生成方式"}</span><div className="grid gap-2 sm:grid-cols-2"><button aria-pressed={demoMode} className={`rounded-xl px-4 py-3 text-sm font-medium transition ${demoMode ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} onClick={() => setDemoMode(true)} type="button">{"使用演示数据"}</button><button aria-pressed={!demoMode} className={`rounded-xl px-4 py-3 text-sm font-medium transition ${!demoMode ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} onClick={openApiKeyDialog} type="button">{"使用真实 API"}{!demoMode && apiKey ? " · 已填 Key" : ""}</button></div>{!demoMode && !apiKey ? <p className="text-xs text-[#192837]/60">{"真实模式下未填 Key 则使用后端 .env 配置。"}</p> : null}</div></fieldset>
                 {generationError ? <p className="text-sm text-red-700">{generationError}</p> : null}
                 <button className="mt-1 flex items-center justify-between rounded-full bg-[#7342E2] px-6 py-4 text-left font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)] transition hover:brightness-110 disabled:cursor-wait disabled:opacity-60" disabled={isGenerating} type="submit">{isGenerating ? "正在调用 XH-agent..." : "调用 XH-agent 生成"} <ArrowRightCircle size={20} strokeWidth={1.8} /></button>
               </form>
@@ -2165,6 +2183,19 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       </AnimatePresence>
       <AnimatePresence>
         {generationProgressOpen ? <GenerationProgressScreen events={workflowEvents} mode={workflowMode} /> : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {apiKeyDialogOpen ? (
+          <>
+            <motion.button aria-label="关闭 API Key 弹窗" className="fixed inset-0 z-50 bg-[#192837]/40 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setApiKeyDialogOpen(false)} type="button" />
+            <motion.section aria-label="配置 API Key" className="fixed left-1/2 top-1/2 z-[60] w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-[2rem] bg-[#F2F2EE] p-6 text-[#192837] shadow-[0_24px_80px_rgba(25,40,55,0.3)] sm:p-8" initial={reducedMotion ? false : { opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.97 }} transition={{ duration: 0.3, ease }} role="dialog" aria-modal="true">
+              <div className="flex items-start justify-between gap-5"><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">{"在线生成"}</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">{"填写 API Key"}</h2></div><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={() => setApiKeyDialogOpen(false)} type="button"><X size={20} strokeWidth={1.8} /></button></div>
+              <p className="mt-4 text-sm leading-6 text-[#192837]/70">{"填入后切换到真实模式，由后端在线调用 LLM 生成资源。Key 仅存内存，后端重启后失效；留空则使用后端 .env 配置。"}</p>
+              <label className="mt-6 grid gap-2 text-sm font-medium">{"API Key"}<input autoFocus className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setApiKey(event.target.value)} placeholder="sk-..." type="password" value={apiKey} /></label>
+              <div className="mt-7 flex items-center justify-end gap-3"><button className="rounded-full px-5 py-2.5 text-sm font-semibold text-[#192837]/70 transition hover:bg-[#192837]/[0.08]" onClick={() => setApiKeyDialogOpen(false)} type="button">{"取消"}</button><button className="rounded-full bg-[#7342E2] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_20px_rgba(115,66,226,0.25)] transition hover:brightness-110" onClick={() => setApiKeyDialogOpen(false)} type="button">{"确认"}</button></div>
+            </motion.section>
+          </>
+        ) : null}
       </AnimatePresence>
       <AnimatePresence>
         {clarification ? (
@@ -2185,7 +2216,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} backendDemoMode={backendDemoMode} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
                  <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
@@ -2194,7 +2225,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                         <p className="text-xs font-semibold text-white/60">本次生成结果</p>
                         <h3 className="mt-2 text-xl font-semibold leading-tight">{topic}</h3>
                       </div>
-                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/90">{generationResult.mode === "demo" ? "本地演示" : "DeepSeek Chat"}</span>
+                      <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/90">{generationResult.mode === "demo" || backendDemoMode === true ? "本地演示" : "DeepSeek Chat"}</span>
                     </div>
                     {generationResult.diagnosis?.summary ? <p className="mt-4 max-w-[76ch] text-[0.96rem] leading-7 text-white/85">诊断：{generationResult.diagnosis.summary}</p> : null}
                     <div className="mt-6 flex flex-wrap gap-2" aria-label="资源类型">
