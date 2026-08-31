@@ -206,6 +206,7 @@ class CorrectionAgent(BaseAgent):
         diagnosis = state.get("diagnosis_result", {})
         learner_data = state.get("learner_data", {})
         downgrade_mode = state.get("downgrade_mode", False)
+        generation_errors = state.get("generation_errors", [])
 
         # Opt-2 裁决输出（纯数据处理，不导入真实 opt2 模块）
         adjudications = self._normalize_adjudications(state.get("debate_result"))
@@ -242,6 +243,7 @@ class CorrectionAgent(BaseAgent):
         replacements_applied = 0
         keeps_sourced = 0
         consistency_findings = 0
+        dropped_guide_types: list[str] = []
 
         for i, resource in enumerate(resources):
             resource_id = resource.get("resource_id", f"unknown-{i}")
@@ -257,6 +259,13 @@ class CorrectionAgent(BaseAgent):
                     resource = await self._fill_structure_sections(
                         resource, missing_sections, diagnosis, chunks
                     )
+                    if resource.get("structure_missing_sections"):
+                        # 补全失败 → 回退为丢弃（structure_validation），不让残缺 guide 流到前端
+                        self.log(
+                            f"❌ guide 缺章节补全失败，回退丢弃: {', '.join(missing_sections)}"
+                        )
+                        dropped_guide_types.append(resource_type)
+                        continue
                     all_logs.append(
                         {
                             "resource_id": resource_id,
@@ -376,10 +385,29 @@ class CorrectionAgent(BaseAgent):
             f" / {stats['infos_applied']} info, 耗时 {elapsed_ms}ms"
         )
 
+        # ── 回写 generation_errors：guide 补全成功移除告警，补全失败回退为 structure_validation ──
+        updated_generation_errors: list[dict] = []
+        for err in generation_errors:
+            rtype = err.get("resource_type")
+            if err.get("error") == "structure_sections_missing" and rtype in dropped_guide_types:
+                updated_generation_errors.append(
+                    {
+                        "resource_type": rtype,
+                        "error": "structure_validation",
+                        "detail": err.get("detail"),
+                    }
+                )
+            elif err.get("error") == "structure_sections_missing":
+                # 补全成功 → guide 已完整，移除该告警
+                continue
+            else:
+                updated_generation_errors.append(err)
+
         result = {
             "corrected_resources": corrected_resources,
             "correction_log": all_logs,
             "correction_stats": stats,
+            "generation_errors": updated_generation_errors,
         }
         if consistency_report:
             result["consistency_report"] = consistency_report
@@ -552,7 +580,8 @@ class CorrectionAgent(BaseAgent):
 
         覆盖：独立安全标题 / 安全操作确认清单 / 运动步骤安全提示 / 常见异常与排错模块。
         生成端结构校验发现 guide 缺章节时不再整篇丢弃，而是标记 ``structure_missing_sections``；
-        此处基于知识库素材调用 LLM 补全并插入缺失章节，补全失败时原样返回（保留原始输出）。
+        此处基于知识库素材调用 LLM 补全并插入缺失章节，补全失败时原样返回，
+        由 process() 判定后丢弃。
         """
         content = str(resource.get("content", "") or "")
         original_topic = str(diagnosis.get("summary") or "").strip()
