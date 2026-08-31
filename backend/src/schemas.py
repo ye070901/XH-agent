@@ -182,6 +182,7 @@ class Citation(BaseModel):
     """知识溯源 — 每条生成的断言必须关联此记录"""
 
     doc_id: str
+    doc_title: Optional[str] = None
     chunk_index: int
     original_text: str = Field(description="知识库原文片段 — 必须是逐字引用")
     relevance_score: float = Field(ge=0, le=1)

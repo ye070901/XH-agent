@@ -211,6 +211,9 @@ class CorrectionAgent(BaseAgent):
         # Opt-2 裁决输出（纯数据处理，不导入真实 opt2 模块）
         adjudications = self._normalize_adjudications(state.get("debate_result"))
 
+        # doc_id → doc_title 映射（供 citations 溯源携带可读标题）
+        doc_title_map = self._build_doc_title_map(chunks)
+
         if not resources:
             self.log("⚠️ generated_resources 为空，跳过修正")
             return {
@@ -291,6 +294,7 @@ class CorrectionAgent(BaseAgent):
                         resource=resource,
                         audit_report=audit_report,
                         adjudications=adjudications_by_resource[resource_id],
+                        doc_title_map=doc_title_map,
                     )
                 else:
                     # ── 路径 3：既有 LLM 修正（保留原行为）──
@@ -305,7 +309,7 @@ class CorrectionAgent(BaseAgent):
                     # 溯源绑定后处理（讲义/指南/项目实战，有事实点才绑定）
                     if resource_type in ("lecture", "guide", "project"):
                         corrected_resource = self._bind_if_fact_points(
-                            result["corrected_resource"], audit_report
+                            result["corrected_resource"], audit_report, doc_title_map
                         )
                         result = {**result, "corrected_resource": corrected_resource}
 
@@ -1128,7 +1132,9 @@ guide（实操指南），缺失以下强制章节：
     # Phase 3：辩论裁决落地 + 资源溯源绑定（纯数据处理，不调 LLM）
     # ═══════════════════════════════════════════════════════
 
-    def _bind_if_fact_points(self, corrected_resource: dict, audit_report: dict) -> dict:
+    def _bind_if_fact_points(
+        self, corrected_resource: dict, audit_report: dict, doc_title_map: dict | None = None
+    ) -> dict:
         """既有 LLM 修正路径的溯源绑定后处理。
 
         仅 lecture/guide/project 且存在可绑定事实点时，才把【生成陈述 + KB原文出处】
@@ -1136,7 +1142,7 @@ guide（实操指南），缺失以下强制章节：
         """
         if corrected_resource.get("resource_type") not in ("lecture", "guide", "project"):
             return corrected_resource
-        fact_points = self._collect_fact_points(corrected_resource, audit_report, [])
+        fact_points = self._collect_fact_points(corrected_resource, audit_report, [], doc_title_map)
         if not fact_points:
             return corrected_resource
         bound_content, bound_lines = self._bind_traceability(
@@ -1262,7 +1268,11 @@ guide（实操指南），缺失以下强制章节：
         return adjudications
 
     def _apply_arbitration_and_bind(
-        self, resource: dict, audit_report: dict, adjudications: list[dict]
+        self,
+        resource: dict,
+        audit_report: dict,
+        adjudications: list[dict],
+        doc_title_map: dict | None = None,
     ) -> dict:
         """路径 2：辩论裁决落地 + 溯源绑定（纯数据处理，不调用 LLM）。
 
@@ -1286,7 +1296,9 @@ guide（实操指南），缺失以下强制章节：
         }
         # 溯源绑定（仅讲义/指南/项目实战）
         if resource_type in ("lecture", "guide", "project"):
-            fact_points = self._collect_fact_points(corrected_resource, audit_report, adjudications)
+            fact_points = self._collect_fact_points(
+                corrected_resource, audit_report, adjudications, doc_title_map
+            )
             if fact_points:
                 bound_content, bound_lines = self._bind_traceability(new_content, fact_points)
                 if bound_lines:
@@ -1454,8 +1466,25 @@ guide（实操指南），缺失以下强制章节：
             return content, True
         return content.replace(claim, claim + loc, 1), True
 
+    @staticmethod
+    def _build_doc_title_map(chunks: list) -> dict[str, str]:
+        """从 retrieved_chunks 构建 doc_id → doc_title 映射（供 citations 溯源携带标题）。"""
+        m: dict[str, str] = {}
+        for c in chunks or []:
+            if not isinstance(c, dict):
+                continue
+            doc_id = str(c.get("doc_id") or "")
+            title = str(c.get("doc_title") or "")
+            if doc_id and title and doc_id not in m:
+                m[doc_id] = title
+        return m
+
     def _collect_fact_points(
-        self, resource: dict, audit_report: dict, adjudications: list[dict]
+        self,
+        resource: dict,
+        audit_report: dict,
+        adjudications: list[dict],
+        doc_title_map: dict | None = None,
     ) -> list[dict]:
         """收集本资源可绑定的事实点（用于【生成陈述 + KB原文出处】溯源）。
 
@@ -1477,6 +1506,7 @@ guide（实操指南），缺失以下强制章节：
                     "statement": statement,
                     "source_text": source_text or "",
                     "doc_id": doc_id or "",
+                    "doc_title": (doc_title_map or {}).get(doc_id or "", ""),
                     "chunk_index": chunk_index,
                 }
             )
@@ -1553,6 +1583,7 @@ guide（实操指南），缺失以下强制章节：
             cites.append(
                 {
                     "doc_id": doc,
+                    "doc_title": p.get("doc_title") or "",
                     "chunk_index": p.get("chunk_index") or 0,
                     "original_text": src,
                     "relevance_score": 1.0,

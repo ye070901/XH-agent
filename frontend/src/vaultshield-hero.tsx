@@ -80,6 +80,7 @@ type GeneratedResource = {
   robot_metadata?: { brand?: string; controller_version?: string; applicable_model?: string };
   instruction_links?: Array<{ brand?: string; name?: string; doc_id?: string; doc_title?: string }>;
   alarm_links?: Array<{ brand?: string; code?: string; doc_id?: string; doc_title?: string; fault_name?: string }>;
+  citations?: Array<{ doc_id?: string; doc_title?: string; chunk_index?: number; original_text?: string; relevance_score?: number }>;
 };
 
 function getResourceSupplements(resource: GeneratedResource) {
@@ -813,8 +814,88 @@ type GlobalAlarmHit = { brand?: string; alarm_code?: string; fault_name?: string
 type GlobalInstructionHit = { brand?: string; instruction?: string; doc_id?: string; doc_title?: string };
 type GlobalDocumentHit = { doc_id?: string; doc_title?: string; content?: string };
 
+const BRAND_ALIASES: Array<[string, string]> = [
+  ["库卡", "kuka"],
+  ["发那科", "fanuc"],
+  ["法兰克", "fanuc"],
+  ["安川", "yaskawa"],
+  ["优傲", "ur"],
+];
+
+function expandQueryForMatch(q: string): string[] {
+  const lower = q.toLowerCase();
+  const terms = [lower];
+  for (const [zh, en] of BRAND_ALIASES) {
+    if (lower.includes(zh) && !lower.includes(en)) terms.push(en);
+    else if (lower.includes(en) && !lower.includes(zh)) terms.push(zh);
+  }
+  return terms;
+}
+
 function globalMatch(haystack: string, q: string): boolean {
-  return haystack.toLowerCase().includes(q.toLowerCase());
+  const hay = haystack.toLowerCase();
+  return expandQueryForMatch(q).some((term) => hay.includes(term));
+}
+
+type DocumentDetail = { title: string; content: string; source: string };
+
+function DocumentDetailModal({ detail, onClose }: { detail: DocumentDetail | null; onClose: () => void }) {
+  if (!detail) return null;
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8">
+      <button aria-label={"关闭详情"} className="absolute inset-0 bg-[#192837]/40 backdrop-blur-[4px]" onClick={onClose} type="button" />
+      <div className="relative flex max-h-[85dvh] w-full max-w-[720px] flex-col overflow-hidden rounded-[1.75rem] bg-[#F2F2EE] shadow-[0_28px_100px_rgba(25,40,55,0.34)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#192837]/10 px-6 py-5 sm:px-8">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{detail.source}</p>
+            <h2 className="mt-1 truncate font-[var(--font-heading)] text-xl leading-tight text-[#192837]">{detail.title}</h2>
+          </div>
+          <button aria-label={"关闭"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition hover:bg-[#192837]/[0.15]" onClick={onClose} type="button"><X size={20} strokeWidth={1.8} /></button>
+        </div>
+        <div className="overflow-y-auto px-6 py-5 text-sm leading-7 text-[#192837]/80 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#192837] [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#192837] [&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-[#192837] [&_p]:my-2 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1 sm:px-8" dangerouslySetInnerHTML={{ __html: renderDocumentMarkdown(detail.content) }} />
+      </div>
+    </div>
+  );
+}
+
+function References({ citations }: { citations?: GeneratedResource["citations"] }) {
+  const [detail, setDetail] = useState<DocumentDetail | null>(null);
+  const seen = new Set<string>();
+  const refs = (citations ?? []).filter((c) => {
+    const id = c?.doc_id;
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  if (!refs.length) return null;
+  async function openDoc(doc_id: string, doc_title: string) {
+    try {
+      const res = await fetch(`${getApiBase()}/api/knowledge/documents/${encodeURIComponent(doc_id)}`);
+      const data = res.ok ? await res.json() : null;
+      setDetail({ title: data?.title || doc_title || doc_id, content: data?.content || "加载失败，请稍后重试。", source: "知识文档" });
+    } catch {
+      setDetail({ title: doc_title || doc_id, content: "加载失败，请稍后重试。", source: "知识文档" });
+    }
+  }
+  return (
+    <>
+      <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70">
+        <span className="font-semibold text-white/85">{"参考文档"}</span>
+        <div className="mt-2 flex flex-col gap-0.5">
+          {refs.map((c, i) => (
+            <button key={`cite-${i}`} onClick={() => openDoc(c.doc_id ?? "", c.doc_title ?? "")} className="group flex items-start gap-2 rounded-lg px-2 py-1 text-left transition hover:bg-white/[0.06]" type="button">
+              <ArrowRight className="mt-1 h-3.5 w-3.5 shrink-0 text-white/40" />
+              <span className="min-w-0">
+                <span className="block truncate text-white/85 group-hover:text-white">{c.doc_title || c.doc_id}</span>
+                {c.original_text ? <span className="mt-0.5 block truncate text-white/45">{c.original_text}</span> : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <DocumentDetailModal detail={detail} onClose={() => setDetail(null)} />
+    </>
+  );
 }
 
 function GlobalSearch() {
@@ -824,7 +905,7 @@ function GlobalSearch() {
   const [instructionIndex, setInstructionIndex] = useState<GlobalInstructionHit[]>([]);
   const [docHits, setDocHits] = useState<GlobalDocumentHit[]>([]);
   const [searching, setSearching] = useState(false);
-  const [detail, setDetail] = useState<{ title: string; content: string; source: string } | null>(null);
+  const [detail, setDetail] = useState<DocumentDetail | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -968,21 +1049,7 @@ function GlobalSearch() {
           ) : null}
         </div>
       ) : null}
-      {detail ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8">
-          <button aria-label="关闭详情" className="absolute inset-0 bg-[#192837]/40 backdrop-blur-[4px]" onClick={() => setDetail(null)} type="button" />
-          <div className="relative flex max-h-[85dvh] w-full max-w-[720px] flex-col overflow-hidden rounded-[1.75rem] bg-[#F2F2EE] shadow-[0_28px_100px_rgba(25,40,55,0.34)]">
-            <div className="flex items-start justify-between gap-4 border-b border-[#192837]/10 px-6 py-5 sm:px-8">
-              <div className="min-w-0">
-                <p className="truncate text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{detail.source}</p>
-                <h2 className="mt-1 truncate font-[var(--font-heading)] text-xl leading-tight text-[#192837]">{detail.title}</h2>
-              </div>
-              <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition hover:bg-[#192837]/[0.15]" onClick={() => setDetail(null)} type="button"><X size={20} strokeWidth={1.8} /></button>
-            </div>
-            <div className="overflow-y-auto px-6 py-5 text-sm leading-7 text-[#192837]/80 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#192837] [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#192837] [&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-[#192837] [&_p]:my-2 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1 sm:px-8" dangerouslySetInnerHTML={{ __html: renderDocumentMarkdown(detail.content) }} />
-          </div>
-        </div>
-      ) : null}
+      <DocumentDetailModal detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 }
@@ -1505,6 +1572,7 @@ function ExpandedWorkspaceLayout({
           <RiskBanner level={resource.risk_level} />
           {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
           <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
+          <References citations={resource.citations} />
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
                 {isQuizResource(resource) ? (
                   <div className="mt-8 rounded-xl bg-white/[0.06] p-5 text-sm leading-7 text-white/75">
@@ -2290,6 +2358,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                         <RiskBanner level={resource.risk_level} />
                         {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
                         <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
+                        <References citations={resource.citations} />
                         {resource.key_takeaways?.length ? (
                           <aside className="mt-6 rounded-xl bg-white/[0.07] p-4">
                             <p className="text-xs font-semibold text-white/60">学习重点</p>

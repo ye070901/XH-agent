@@ -444,11 +444,31 @@ class KnowledgeBase:
 
     # ════ 检索 + CRUD ════
 
+    # 品牌中英文别名：中文查询追加英文别名，让「库卡」能命中 KUKA 文档/索引
+    _BRAND_ALIASES: dict[str, str] = {
+        "库卡": "kuka",
+        "发那科": "fanuc",
+        "法兰克": "fanuc",
+        "安川": "yaskawa",
+        "优傲": "ur",
+    }
+
+    @classmethod
+    def _expand_query(cls, query: str) -> str:
+        """中文品牌词 → 追加英文别名（BM25 英文 token + 向量检索共用）。"""
+        parts = [query]
+        for zh, en in cls._BRAND_ALIASES.items():
+            if zh in query and en not in query.lower():
+                parts.append(en)
+        return " ".join(parts)
+
     async def search(self, query: str, top_k: int = 10) -> list[dict]:
         """语义检索：ChromaDB 向量 + 文件关键词匹配合并。relevance_score ∈ [0,1]。"""
         t_start = time.perf_counter()
         if not query.strip():
             return []
+
+        query = self._expand_query(query)
 
         # 1. 向量检索（ChromaDB 可用时）
         vector_results: list[dict] = []
@@ -508,14 +528,16 @@ class KnowledgeBase:
     def _merge_search_results(
         vector_results: list[dict], keyword_results: list[dict], top_k: int
     ) -> list[dict]:
-        """合并向量与关键词结果，按 (doc_id, chunk_index) 去重，取最高分降序取 top_k。"""
-        merged: dict[tuple[str, int], dict] = {}
+        """合并向量与关键词结果，按 doc_id 去重（同文档取最高分 chunk），降序取 top_k。"""
+        merged: dict[str, dict] = {}
         for result in vector_results + keyword_results:
-            key = (str(result.get("doc_id") or ""), int(result.get("chunk_index") or 0))
-            if key not in merged or (result.get("relevance_score") or 0.0) > (
-                merged[key].get("relevance_score") or 0.0
+            doc_id = str(result.get("doc_id") or "")
+            if not doc_id:
+                continue
+            if doc_id not in merged or (result.get("relevance_score") or 0.0) > (
+                merged[doc_id].get("relevance_score") or 0.0
             ):
-                merged[key] = result
+                merged[doc_id] = result
         ranked = sorted(
             merged.values(),
             key=lambda r: r.get("relevance_score") or 0.0,
