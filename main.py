@@ -147,6 +147,22 @@ class GenerateRequest(BaseModel):
         description="请求生成的资源类型，默认三种全部",
         examples=[["lecture", "guide", "quiz"]],
     )
+    brand: str | None = Field(
+        default=None,
+        description="目标机器人品牌（FANUC/KUKA/ABB），空/未提供则不强约束",
+        max_length=20,
+        examples=["KUKA"],
+    )
+    failure_feedback: dict | None = Field(
+        default=None,
+        description=(
+            "上次生成失败的反馈（前端「重新生成」时传入），包含 resource_type / error / detail，"
+            "后端据此在生成 prompt 里注入结构修正指令，重试不再原样重试"
+        ),
+        examples=[
+            {"resource_type": "project", "error": "structure_validation", "detail": "缺少安全提示"}
+        ],
+    )
 
 
 class LearningQuestionRequest(BaseModel):
@@ -370,6 +386,8 @@ def _generation_inputs(request: GenerateRequest) -> tuple[dict[str, Any], list[s
         "pretest_results": request.pretest_results,
         "learning_goal": request.learning_goal,
         "name": request.name,
+        "brand": request.brand,
+        "failure_feedback": request.failure_feedback,
     }
     return learner_data, [resource_type.value for resource_type in request.resource_types]
 
@@ -846,6 +864,8 @@ async def generate(request: GenerateRequest):
         "pretest_results": request.pretest_results,
         "learning_goal": request.learning_goal,
         "name": request.name,
+        "brand": request.brand,
+        "failure_feedback": request.failure_feedback,
     }
     resource_types = [rt.value for rt in request.resource_types]
 

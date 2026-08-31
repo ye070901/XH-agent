@@ -63,6 +63,13 @@ const resourceOptions = [
   { id: "pitfall_guide", label: "避坑指南" },
 ];
 
+const brandOptions: { id: string | null; label: string }[] = [
+  { id: null, label: "不确定 · 通用" },
+  { id: "KUKA", label: "KUKA 库卡" },
+  { id: "FANUC", label: "FANUC 发那科" },
+  { id: "ABB", label: "ABB" },
+];
+
 type GeneratedResource = {
   resource_id?: string;
   resource_type: string;
@@ -77,6 +84,8 @@ type GeneratedResource = {
   supplements?: Array<{ title: string; content: string }>;
   risk_level?: "theory" | "low_risk" | "high_risk";
   safety_warnings?: string[];
+  structure_incomplete?: boolean;
+  structure_missing_sections?: string[];
   robot_metadata?: { brand?: string; controller_version?: string; applicable_model?: string };
   instruction_links?: Array<{ brand?: string; name?: string; doc_id?: string; doc_title?: string }>;
   alarm_links?: Array<{ brand?: string; code?: string; doc_id?: string; doc_title?: string; fault_name?: string }>;
@@ -202,6 +211,13 @@ const resourceLabel = (type: string) => {
   return resourceOptions.find((option) => option.id === type)?.label ?? type;
 };
 
+const brandDisplayName = (brand?: string) => {
+  if (brand === "KUKA") return "KUKA 库卡";
+  if (brand === "FANUC") return "FANUC 发那科";
+  if (brand === "ABB") return "ABB";
+  return brand || "未标注";
+};
+
 const generationErrorIsSoft = (item: GenerationErrorItem) =>
   item.error === "invalid_quiz_contract" || item.error === "structure_sections_missing";
 
@@ -240,7 +256,7 @@ const formatErrorTime = (timestamp?: string) => {
   return date.toLocaleString();
 };
 
-function GenerationFailures({ errors, onRegenerate }: { errors: GenerationErrorItem[]; onRegenerate: () => void }) {
+function GenerationFailures({ errors, onRegenerate }: { errors: GenerationErrorItem[]; onRegenerate: (item: GenerationErrorItem) => void }) {
   const [acknowledged, setAcknowledged] = useState<Record<number, boolean>>({});
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   if (!errors.length) return null;
@@ -291,7 +307,7 @@ function GenerationFailures({ errors, onRegenerate }: { errors: GenerationErrorI
             ) : null}
             <div className="mt-3 flex gap-2">
               <button className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/20" onClick={() => setAcknowledged((current) => ({ ...current, [index]: true }))} type="button">{"\u77e5\u9053\u4e86"}</button>
-              <button className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={onRegenerate} type="button">{"\u91cd\u65b0\u751f\u6210"}</button>
+              <button className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={() => onRegenerate(item)} type="button">{"\u91cd\u65b0\u751f\u6210"}</button>
             </div>
           </div>
         );
@@ -903,6 +919,19 @@ function RiskBanner({ level }: { level?: string }) {
     );
   }
   return null;
+}
+
+function StructureIncompleteBanner({ missingSections }: { missingSections?: string[] }) {
+  const items = (missingSections ?? []).map((section) => decodeEscapedText(section)).filter(Boolean);
+  return (
+    <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300/50 bg-amber-300/20 px-4 py-3 text-sm leading-7 text-amber-50">
+      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">{"结构不完整 · 部分内容未经完整审核，仅供参考"}</p>
+        {items.length ? <p className="mt-1 text-xs leading-6 text-amber-50/85">{"缺失："}{items.join("；")}</p> : null}
+      </div>
+    </div>
+  );
 }
 
 
@@ -1534,7 +1563,7 @@ function WorkflowProgress({ events, mode }: { events: WorkflowEvent[]; mode: "id
   );
 }
 
-function GenerationProgressScreen({ events, mode }: { events: WorkflowEvent[]; mode: "idle" | "waiting" | "connected" | "demo" | "complete" }) {
+function GenerationProgressScreen({ events, mode, notice }: { events: WorkflowEvent[]; mode: "idle" | "waiting" | "connected" | "demo" | "complete"; notice?: string | null }) {
   const reducedMotion = useReducedMotion();
   return (
     <>
@@ -1550,6 +1579,7 @@ function GenerationProgressScreen({ events, mode }: { events: WorkflowEvent[]; m
         <p className="text-xs font-semibold tracking-[0.16em] text-[#192837]/55">XH-AGENT</p>
         <h2 className="mt-3 font-[var(--font-heading)] text-3xl leading-tight sm:text-4xl">正在构建你的学习方案</h2>
         <p className="mt-4 max-w-[60ch] text-sm leading-7 text-[#192837]/72">系统会依次完成学习画像诊断、知识检索、资源生成、内容审核与保真修正。完成后将自动进入学习工作台。</p>
+        {notice ? <p className="mt-4 max-w-[60ch] rounded-xl border border-amber-300/40 bg-amber-300/15 px-4 py-3 text-sm font-semibold leading-6 text-amber-700">{notice}</p> : null}
         <div className="mt-8"><WorkflowProgress events={events} mode={mode} /></div>
       </motion.section>
     </>
@@ -1666,7 +1696,8 @@ function ExpandedWorkspaceLayout({
         {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           <RiskBanner level={resource.risk_level} />
-          {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
+          {resource.structure_incomplete ? <StructureIncompleteBanner missingSections={resource.structure_missing_sections} /> : null}
+          {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　{"目标品牌："}{brandDisplayName(resource.robot_metadata.brand)} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
           <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
           <References citations={resource.citations} />
           {resource.key_takeaways?.length ? <aside className="mt-7 rounded-xl bg-white/[0.07] p-5"><p className="text-xs font-semibold text-white/60">学习重点</p><ul className="mt-3 grid gap-2 pl-5 text-sm leading-7 text-white/85 marker:text-[#B99DFF]">{resource.key_takeaways.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></aside> : null}
@@ -1751,6 +1782,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [homeInfoDialog, setHomeInfoDialog] = useState<"workflow" | "overview" | null>(null);
   const [topic, setTopic] = useState("");
   const [resourceTypes, setResourceTypes] = useState<string[]>(["lecture"]);
+  const [brand, setBrand] = useState<string | null>(null);
   const [resourceReady, setResourceReady] = useState(false);
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
@@ -1761,6 +1793,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [safetyAckChecked, setSafetyAckChecked] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [regenerationNotice, setRegenerationNotice] = useState<string | null>(null);
   const [generationProgressOpen, setGenerationProgressOpen] = useState(false);
   const [workflowEvents, setWorkflowEvents] = useState<WorkflowEvent[]>(initialWorkflowEvents);
   const [workflowMode, setWorkflowMode] = useState<"idle" | "waiting" | "connected" | "demo" | "complete">("idle");
@@ -2144,10 +2177,11 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setGeneratorOpen(false);
     setWorkspaceOpen(true);
   };
-  const performGeneration = async (goalForGeneration: string) => {
+  const performGeneration = async (goalForGeneration: string, failureFeedback?: GenerationErrorItem | null) => {
     const apiBase = getApiBase();
     const payload = {
       learning_goal: goalForGeneration,
+      brand: brand ?? null,
       education_level: ({ "本科": "bachelor", "硕士": "master", "博士": "phd", "其他": "high_school" } as Record<string, string>)[education] ?? "bachelor",
       major: major.trim(),
       work_years: workYears,
@@ -2156,6 +2190,11 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       skills_used: skills.split(/[,，]/).map((skill) => skill.trim()).filter(Boolean),
       pretest_results: [],
       resource_types: resourceTypes,
+      failure_feedback: failureFeedback ? {
+        resource_type: failureFeedback.resource_type ?? "",
+        error: failureFeedback.error ?? "",
+        detail: generationErrorDetail(failureFeedback),
+      } : null,
     };
 
     setIsGenerating(true);
@@ -2163,6 +2202,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setWorkflowEvents(initialWorkflowEvents());
     setWorkflowMode("waiting");
     setGenerationError(null);
+    setRegenerationNotice(failureFeedback ? "正在根据失败原因重新生成..." : null);
     setGeneratorOpen(false);
     setGenerationProgressOpen(true);
 
@@ -2245,6 +2285,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setResourceReady(true);
     setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
     setIsGenerating(false);
+    setRegenerationNotice(null);
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     setGenerationProgressOpen(false);
     setWorkspaceOpen(true);
@@ -2374,7 +2415,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
               </div>
               <form className="mt-7 grid gap-7" onSubmit={submitGeneration} ref={generationFormRef}>
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">学习目标</legend><label className="grid gap-2 text-sm font-medium">希望完成什么学习任务<textarea className="min-h-24 resize-y rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => { setLearningGoal(event.target.value); setTopic(event.target.value); }} placeholder="例如：掌握 LangGraph 多智能体 AI 应用开发" required value={learningGoal} /></label></fieldset>
-                <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label></fieldset>
+                <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label><div className="grid gap-2"><span className="text-sm font-medium">{"目标机器人品牌（可选）"}</span><div className="flex flex-wrap gap-2">{brandOptions.map((option) => <button aria-pressed={brand === option.id} className={`rounded-full px-3 py-2 text-sm font-medium transition ${brand === option.id ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.label} onClick={() => setBrand(option.id)} type="button">{option.label}</button>)}</div></div></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">工作背景</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">工作年限<span className="text-[#7342E2]">{workYears.toFixed(1)} 年</span><input className="accent-[#7342E2]" max="15" min="0" onChange={(event) => setWorkYears(Number(event.target.value))} step="0.5" type="range" value={workYears} /></label><label className="grid gap-2 text-sm font-medium">所在行业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setIndustry(event.target.value)} placeholder="例如：互联网" value={industry} /></label></div><label className="grid gap-2 text-sm font-medium">岗位<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setRole(event.target.value)} placeholder="例如：Python 开发" value={role} /></label></fieldset>
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">输出设置</legend><span className="text-sm font-medium">资源类型，可多选</span><div className="flex flex-wrap gap-2">{resourceOptions.map((option) => <button aria-pressed={resourceTypes.includes(option.id)} className={`rounded-full px-3 py-2 text-sm font-medium transition ${resourceTypes.includes(option.id) ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.id} onClick={() => toggleResourceType(option.id)} type="button">{option.label}</button>)}</div><div className="mt-1 grid gap-2"><span className="text-sm font-medium">{"生成方式"}</span><div className="grid gap-2 sm:grid-cols-2"><button aria-pressed={demoMode} className={`rounded-xl px-4 py-3 text-sm font-medium transition ${demoMode ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} onClick={() => setDemoMode(true)} type="button">{"使用演示数据"}</button><button aria-pressed={!demoMode} className={`rounded-xl px-4 py-3 text-sm font-medium transition ${!demoMode ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} onClick={openApiKeyDialog} type="button">{"使用真实 API"}{!demoMode && apiKey ? " · 已填 Key" : ""}</button></div>{!demoMode && !apiKey ? <p className="text-xs text-[#192837]/60">{"真实模式下未填 Key 则使用后端 .env 配置。"}</p> : null}</div></fieldset>
                 {generationError ? <p className="text-sm text-red-700">{generationError}</p> : null}
@@ -2388,7 +2429,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         ) : null}
       </AnimatePresence>
       <AnimatePresence>
-        {generationProgressOpen ? <GenerationProgressScreen events={workflowEvents} mode={workflowMode} /> : null}
+        {generationProgressOpen ? <GenerationProgressScreen events={workflowEvents} mode={workflowMode} notice={regenerationNotice} /> : null}
       </AnimatePresence>
       <AnimatePresence>
         {apiKeyDialogOpen ? (
@@ -2441,7 +2482,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                         </button>
                        ))}
                      </div>
-                     {generationResult.generation_errors?.length ? <GenerationFailures key={generationSeq} errors={generationResult.generation_errors} onRegenerate={() => { void performGeneration(topic || learningGoal.trim()); }} /> : null}
+                     {generationResult.generation_errors?.length ? <GenerationFailures key={generationSeq} errors={generationResult.generation_errors} onRegenerate={(item) => { void performGeneration(topic || learningGoal.trim(), item); }} /> : null}
                   </div>
                   <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={exportGeneratedResources} type="button"><Download size={16} strokeWidth={1.9} />导出全部资源</button>
                   {selectedResource ? (() => {
@@ -2460,7 +2501,8 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                           {resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/80">预计 {resource.estimated_duration_minutes} 分钟</span> : null}
                         </header>
                         <RiskBanner level={resource.risk_level} />
-                        {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　适配品牌：{resource.robot_metadata.brand || "未标注"} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
+                        {resource.structure_incomplete ? <StructureIncompleteBanner missingSections={resource.structure_missing_sections} /> : null}
+                        {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　{"目标品牌："}{brandDisplayName(resource.robot_metadata.brand)} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
                         <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
                         <References citations={resource.citations} />
                         {resource.key_takeaways?.length ? (

@@ -181,6 +181,64 @@ _BRAND_NAME_MARKERS: dict[str, tuple[str, ...]] = {
     "ABB": ("ABB",),
 }
 
+#: 指令级品牌专属术语（补充 brand-lexicon.json 未覆盖的指令/按键概念，仅用于
+#: quiz 用户指定品牌时的强校验；不参与 lecture/guide 既有品牌混淆判定）。
+#: - 中文语境词（SHIFT键/TP语言/J·L指令）用大小写不敏感子串匹配（含中文语境，无误伤）；
+#: - 纯 ASCII 指令词（PTP/LIN/CIRC）必须大小写敏感 + 词边界，避免误伤 linear/link/circle。
+#: ABB 专属指令术语（RAPID/FlexPendant）已由 brand-lexicon.json 覆盖，此处不重复。
+_INSTRUCTION_BRAND_CN_TERMS: dict[str, tuple[str, ...]] = {
+    "FANUC": (
+        "SHIFT键",
+        "SHIFT 键",
+        "TP语言",
+        "TP 语言",
+        "TP程序",
+        "TP 程序",
+    ),
+    "KUKA": (),
+    "ABB": (),
+}
+
+_INSTRUCTION_BRAND_ASCII_TERMS: dict[str, tuple[str, ...]] = {
+    "FANUC": (),
+    "KUKA": ("PTP", "LIN", "CIRC"),
+    "ABB": (),
+}
+
+
+def _build_ascii_instruction_re():
+    """由 _INSTRUCTION_BRAND_ASCII_TERMS 生成大小写敏感 + 词边界正则，避免词表与正则失同步。"""
+    terms = sorted({t for ts in _INSTRUCTION_BRAND_ASCII_TERMS.values() for t in ts})
+    if not terms:
+        return re.compile(r"(?!)")  # 永不匹配
+    return re.compile(r"\b(?:" + "|".join(re.escape(t) for t in terms) + r")\b")
+
+
+_ASCII_INSTRUCTION_TERMS_RE = _build_ascii_instruction_re()
+
+#: FANUC 的 J/L 运动指令（中文语境「J 指令 / L 指令」）。单字母指令名，必须词边界
+#: 匹配，避免误伤 ABB 的 MoveJ/MoveL 等以 J/L 结尾的指令名（MoveJ 无词边界）。
+_FANUC_JL_INSTRUCTION_RE = re.compile(r"\b[JL]\s*指令")
+
+#: 品牌强约束 prompt 文案（用户指定品牌时注入，与校验词表语义一致）
+_BRAND_CONSTRAINT_TEXT: dict[str, str] = {
+    "KUKA": (
+        "所有内容必须围绕 KUKA（库卡）机器人：使用 KRL 语言、smartPAD 示教器、"
+        "PTP/LIN/CIRC 指令、KRC4/KRC5 控制器。禁止出现 FANUC 的 SHIFT 键、TP 语言、"
+        "J/L 指令，禁止出现 ABB 的 RAPID 语言、FlexPendant 示教器。"
+    ),
+    "FANUC": (
+        "所有内容必须围绕 FANUC（发那科）机器人：使用 TP 语言、SHIFT 键、"
+        "J/L 运动指令、R-30iB 控制器。禁止出现 KUKA 的 KRL 语言、smartPAD、"
+        "PTP/LIN/CIRC 指令，禁止出现 ABB 的 RAPID 语言、FlexPendant 示教器。"
+    ),
+    "ABB": (
+        "所有内容必须围绕 ABB 机器人：使用 RAPID 语言、FlexPendant 示教器、"
+        "MoveJ/MoveL 指令、IRC5/OmniCore 控制器。禁止出现 KUKA 的 KRL 语言、smartPAD、"
+        "PTP/LIN/CIRC 指令，禁止出现 FANUC 的 TP 语言、SHIFT 键、J/L 指令。"
+    ),
+}
+
 #: 品牌专属术语词表路径（data/brand-lexicon.json，由盘点脚本/人工维护，只读）
 _BRAND_LEXICON_PATH = (
     Path(__file__).resolve().parent.parent.parent.parent / "data" / "brand-lexicon.json"
@@ -289,9 +347,10 @@ _BEGINNER_ADVANCED_MARKERS: tuple[str, ...] = (
 #: 低于该值视为轻度提及，保留资源仅日志标记。
 _BEGINNER_ADVANCED_EXPANSION_THRESHOLD = 3
 
-#: guide 结构「缺章节」类失败标记：命中这些关键词的校验失败可由下游修正 Agent 补全，
-#: 不判整篇丢弃（仅 guide 生效）；品牌锚定/品牌混淆/入门超纲等仍判丢弃。
-_GUIDE_RECOVERABLE_FAILURE_MARKERS: tuple[str, ...] = (
+#: 结构「缺章节/缺安全提示」类可恢复失败标记：命中这些关键词的校验失败为「缺结构」，
+#: 重试仍缺失时降级保留并标记「结构不完整」（guide 交下游修正 Agent 补全，project 等直接标记）；
+#: 品牌锚定/品牌混淆/入门超纲等致命失败仍判丢弃。
+_RECOVERABLE_STRUCTURE_FAILURE_MARKERS: tuple[str, ...] = (
     "安全操作确认清单",
     "运动步骤安全提示",
     "独立「安全」标题章节",
@@ -452,6 +511,12 @@ class GenerationAgent(BaseAgent):
     # 主题漂移时的最大重试次数（不含首次生成）
     MAX_TOPIC_RETRIES = 2
 
+    # 品牌混用（用户指定品牌时 quiz 强校验）的最大重试次数（不含首次生成）
+    MAX_BRAND_RETRIES = 2
+
+    # 结构校验失败时的最大重试次数（不含首次生成）
+    MAX_STRUCTURE_RETRIES = 2
+
     def __init__(self):
         super().__init__(
             name="知识生成Agent",
@@ -498,6 +563,8 @@ class GenerationAgent(BaseAgent):
         learner_data = state.get("learner_data", {})
         resource_types = state.get("resource_types", ["lecture", "guide", "quiz"])
         retrieved_chunks = state.get("retrieved_chunks", [])
+        # 用户指定的目标机器人品牌（FANUC/KUKA/ABB），空/未提供 → 不强约束
+        brand = self._normalize_brand(learner_data.get("brand"))
 
         # ── 主题对齐：丢弃与原始学习课题无关的检索片段（如非机器人课题丢弃机器人素材）──
         original_topic = str(learner_data.get("learning_goal", "") or "").strip()
@@ -575,6 +642,21 @@ class GenerationAgent(BaseAgent):
                         )
                     )
                     continue
+                # 品牌混用兜底：用户指定品牌但 quiz 混入其他品牌专属术语，重试仍失败 → 丢弃
+                brand_mix_error = result.get("_brand_mix_error")
+                if brand_mix_error:
+                    self.log(f"⚠️ {rtype} 类型资源品牌混用，丢弃: {brand_mix_error}")
+                    mix_reason = _reason_text(brand_mix_error)
+                    errors.append(
+                        self._build_generation_error(
+                            rtype,
+                            "brand_mix",
+                            detail=f"测试题品牌混用：{mix_reason}",
+                            stage="brand_check",
+                            raw_error=mix_reason,
+                        )
+                    )
+                    continue
                 # 与 schemas.GeneratedResource 对齐：resource_id / learner_id /
                 # resource_type 由本层补全，target_skill_gaps 从诊断结果推导
                 quiz_validation_error = result.pop("_quiz_validation_error", None)
@@ -612,6 +694,9 @@ class GenerationAgent(BaseAgent):
                     "project",
                 ):
                     result["robot_metadata"] = self._derive_robot_metadata(retrieved_chunks)
+                    # 用户指定品牌时覆盖元数据（KB 溯源品牌让位于用户显式目标品牌）
+                    if brand:
+                        result["robot_metadata"]["brand"] = brand
                 # ── 二期-2 速查链接注入（确定性，不调 LLM）──
                 # 仅机器人领域讲义/指南识别正文指令名、报警编号，注入跳转链接字段；
                 # quiz 无指令速查价值，project 不在二期-2 范围。
@@ -626,15 +711,22 @@ class GenerationAgent(BaseAgent):
                         str(result.get("content", "") or "")
                     )
                 resources.append(result)
-                # guide 结构缺失章节：保留资源的同时，把缺失项写入 generation_errors 供前端/下游感知
+                # 结构缺失章节：保留资源的同时，把缺失项写入 generation_errors 供前端/下游感知；
+                # structure_incomplete 标记 = 重试后仍缺章节的降级保留（部分内容未经完整审核）。
                 missing_sections = result.get("structure_missing_sections")
                 if missing_sections:
                     missing_reason = _reason_text(missing_sections)
+                    incomplete = bool(result.get("structure_incomplete"))
+                    detail = (
+                        f"结构不完整（部分内容未经完整审核，仅供参考）：{missing_reason}"
+                        if incomplete
+                        else f"缺少安全相关章节：{missing_reason}"
+                    )
                     errors.append(
                         self._build_generation_error(
                             rtype,
                             "structure_sections_missing",
-                            detail=f"缺少安全相关章节：{missing_reason}",
+                            detail=detail,
                             stage="structure_check",
                             raw_error=missing_reason,
                         )
@@ -683,7 +775,8 @@ class GenerationAgent(BaseAgent):
                               / learning_style / summary / profile_tag(可选)
             rtype:            资源类型字符串（lecture / guide / quiz）
             retrieved_chunks: RAG 知识库检索结果列表
-            learner_data:     学习者原始画像（用于纯规则推导 profile_tag，可选）
+            learner_data:     学习者原始画像（用于纯规则推导 profile_tag，可选；
+                              其中 brand 字段为用户指定的目标机器人品牌）
 
         Returns:
             LLM 返回的 dict；LLM 解析失败时返回 {}（由调用方过滤）。
@@ -698,6 +791,10 @@ class GenerationAgent(BaseAgent):
             original_topic = learning_goal
         # 课题是否属于机器人领域：决定是否注入机器人领域质量约束 + 结构后置校验
         is_robot_topic = self._contains_any(original_topic, _ROBOT_DRIFT_MARKERS)
+        # 用户指定的目标机器人品牌（FANUC/KUKA/ABB），空=不强约束
+        brand = self._normalize_brand((learner_data or {}).get("brand"))
+        # 前端「重新生成」传入的上次失败反馈（resource_type/error/detail），空=首次生成
+        failure_feedback = (learner_data or {}).get("failure_feedback")
         # 画像标签：优先取诊断显式字段，否则按 (难度, 风格, 背景) 纯规则推导
         profile_tag = diagnosis.get("profile_tag") or derive_profile_tag(
             learner_data or {}, difficulty, learning_style
@@ -767,6 +864,11 @@ class GenerationAgent(BaseAgent):
 8. **事实准确（铁律）**：严禁编造菜单路径、报警代码、参数值、操作顺序；
    报警编号/指令名必须来自知识库或速查索引，无法确认时标注「以官方手册为准」，不得杜撰。"""
 
+        # ── 目标品牌强约束块：用户指定品牌时注入（所有资源类型生效）──
+        brand_req_block = self._brand_constraint(brand)
+        # ── 上次失败反馈修正块：前端「重新生成」时按失败原因注入（只补结构不编内容）──
+        feedback_block = self._failure_feedback_instruction(failure_feedback, rtype)
+
         prompt = f"""## 结构化画像参数（权威，禁止改写）
 {json.dumps(profile_params, ensure_ascii=False)}
 
@@ -778,7 +880,7 @@ class GenerationAgent(BaseAgent):
 {original_topic}
 
 {kb_section}
-{robot_req_block}
+{robot_req_block}{brand_req_block}{feedback_block}
 
 ## 生成任务
 {task_instruction} {rtype} 类型的个性化学习资源。
@@ -853,6 +955,23 @@ relevant to the learner profile and the retrieved knowledge.
             self.log(f"❌ {rtype} 主题漂移无法纠正，丢弃结果: {drift_reason}")
             return {"_topic_drift_error": drift_reason}
 
+        # ── quiz 品牌强校验（用户指定品牌时）：混入其他品牌专属术语 → 重生成 → 仍失败则丢弃 ──
+        if rtype == "quiz" and brand:
+            mix_failures = self._quiz_brand_mix_failure(str(result.get("content", "") or ""), brand)
+            attempt = 0
+            while mix_failures and attempt < self.MAX_BRAND_RETRIES:
+                attempt += 1
+                self.log(f"⚠️ {rtype} 品牌混用，触发重新生成（第 {attempt} 次）: {mix_failures}")
+                result = await self.call_llm_json(
+                    prompt + self._brand_reinforcement(brand, mix_failures)
+                )
+                mix_failures = self._quiz_brand_mix_failure(
+                    str(result.get("content", "") or ""), brand
+                )
+            if mix_failures:
+                self.log(f"❌ {rtype} 品牌混用无法纠正，丢弃: {mix_failures}")
+                return {"_brand_mix_error": mix_failures}
+
         failure = self._quiz_contract_failure(result)
         if rtype == "quiz" and failure is not None:
             # A quiz without an answer key cannot be submitted, reviewed, or exported
@@ -875,24 +994,37 @@ relevant to the learner profile and the retrieved knowledge.
         # ── A档结构后置校验（确定性，不调 LLM）：仅机器人领域课题生效 ──
         # 只做结构性/存在性判定（品牌声明、安全章节、排错模块、入门超纲、quiz 安全占比），
         # 正确性审查交下游 Agent3，不在此新增 LLM 二次校验（CLAUDE.md §6.1）。
+        # 结构失败先带原因重试（只补结构不编内容），重试仍失败再决定丢弃/降级保留。
         if is_robot_topic and "_quiz_validation_error" not in result:
             structure_failures = self._structure_validation_failure(result, rtype, difficulty)
+            attempt = 0
+            while structure_failures and attempt < self.MAX_STRUCTURE_RETRIES:
+                attempt += 1
+                self.log(f"⚠️ {rtype} 结构校验未通过，重新生成第 {attempt} 次: {structure_failures}")
+                result = await self.call_llm_json(
+                    prompt + self._structure_reinforcement(structure_failures)
+                )
+                structure_failures = self._structure_validation_failure(result, rtype, difficulty)
+
             if structure_failures:
-                # guide 的「缺章节」类失败（安全标题/安全清单/安全提示/排错）不整篇丢弃：
-                # 保留原始输出并标记缺失项，交由下游修正 Agent 补全；其余失败（品牌/超纲等）仍丢弃。
-                if rtype == "guide":
-                    recoverable = [
-                        f for f in structure_failures if self._is_recoverable_structure_failure(f)
-                    ]
-                    fatal = [f for f in structure_failures if f not in recoverable]
-                else:
-                    recoverable = []
-                    fatal = structure_failures
+                # 重试仍失败：缺章节/缺安全提示类失败（安全标题/安全清单/安全提示/排错）不整篇丢弃，
+                # 降级保留并标记「结构不完整」；品牌锚定/品牌混淆/入门超纲等致命失败仍丢弃。
+                recoverable = [
+                    f for f in structure_failures if self._is_recoverable_structure_failure(f)
+                ]
+                fatal = [f for f in structure_failures if f not in recoverable]
                 if fatal:
                     self.log(f"❌ {rtype} 结构校验未通过，丢弃: {fatal}")
                     return {"_structure_validation_error": fatal}
-                if recoverable:
-                    self.log(f"⚠️ {rtype} 结构缺失章节，保留并标记由下游补全: {recoverable}")
+                self.log(
+                    f"⚠️ {rtype} 结构缺失章节，重试后仍缺失，降级保留并标记结构不完整: {recoverable}"
+                )
+                if rtype == "guide":
+                    # guide 缺章节交下游修正 Agent 补全（既有 _fill_structure_sections 路径）
+                    result["structure_missing_sections"] = recoverable
+                else:
+                    # project 等：下游不补全，直接标记「结构不完整」供前端警示
+                    result["structure_incomplete"] = True
                     result["structure_missing_sections"] = recoverable
 
         return result
@@ -1451,13 +1583,130 @@ Knowledge context:
         return failures
 
     @staticmethod
+    def _normalize_brand(brand: object) -> str:
+        """归一化用户指定品牌为 {FANUC, KUKA, ABB} 之一；非三品牌 → 空串（不约束）。"""
+        value = str(brand or "").strip().upper()
+        if value in _THREE_BRANDS:
+            return value
+        # 兼容中文别名（发那科 / 库卡）
+        for canonical, names in _BRAND_NAME_MARKERS.items():
+            if value and value in names:
+                return canonical
+        return ""
+
+    @staticmethod
+    def _brand_constraint(brand: str) -> str:
+        """品牌强约束 prompt 块（brand 指定时注入，所有资源类型生效）。"""
+        text = _BRAND_CONSTRAINT_TEXT.get(brand, "")
+        if not text:
+            return ""
+        return f"\n\n## 目标品牌强约束（用户指定 {brand}，必须遵守）\n{text}"
+
+    @staticmethod
+    def _brand_reinforcement(brand: str, reasons: list[str]) -> str:
+        """品牌混用重试时追加的强约束文本。"""
+        reason_text = _reason_text(reasons)
+        return (
+            "\n\n## 品牌锁定纠正（上次生成被判定品牌混用，必须重做）\n"
+            f"上次生成被判定品牌混用：{reason_text}\n"
+            f"请严格围绕 {brand} 品牌重新生成，题目与解析中严禁出现其他品牌"
+            f"（FANUC/KUKA/ABB 中除 {brand} 外）的专属指令、按键、控制器、示教器术语。"
+        )
+
+    @staticmethod
+    def _structure_reinforcement(failures: list[str]) -> str:
+        """结构校验失败重试时追加的结构修正指令（只补结构/格式，不指定具体内容）。
+
+        失败项本身即命名了缺失的章节（如「high_risk 实操缺少运动步骤安全提示」），
+        这里只要求「补这些章节」，并强调补全内容必须基于知识库、无依据处标注
+        「以官方手册为准」，严禁编造具体安全操作步骤或参数。
+        """
+        reason_text = _reason_text(failures)
+        return (
+            "\n\n## 结构修正要求（上次生成被结构校验拒绝，必须补全，只补结构不编内容）\n"
+            f"上次生成因以下结构问题被拒绝：{reason_text}\n"
+            "请针对上述每一项缺失补全对应的章节/格式要求。补全内容必须严格基于上方知识库参考资料；"
+            "知识库未覆盖的具体操作参数、菜单路径、报警代码、安全规范数值，须标注「以官方手册为准」，"
+            "严禁编造。\n"
+            "尤其注意：安全提示章节只补「章节框架与确认项清单」，"
+            "若知识库没有对应的安全规范原文，不得凭空杜撰具体安全操作步骤或参数。"
+        )
+
+    @staticmethod
+    def _failure_feedback_instruction(feedback: object, rtype: str) -> str:
+        """前端「重新生成」传入的上次失败反馈 → 修正指令（只补结构/格式，不指定内容）。
+
+        仅当 feedback 的 resource_type 与当前 rtype 匹配时注入；其余类型不受影响。
+        反馈的 detail 已含具体失败原因（如「结构校验未通过：high_risk 实操缺少运动步骤安全提示」），
+        这里把它作为「上次被拒绝的原因」原样回传，要求按结构修正重做，而非让 LLM 自由补内容。
+        """
+        if not isinstance(feedback, dict):
+            return ""
+        fb_rtype = str(feedback.get("resource_type", "") or "").strip()
+        if fb_rtype and fb_rtype != rtype:
+            return ""
+        detail = _reason_text(feedback.get("detail"))
+        error = str(feedback.get("error", "") or "").strip()
+        reason = detail or error
+        if not reason:
+            return ""
+        return (
+            "\n\n## 上次失败修正要求（上次生成被拒绝，必须按结构修正后重做，只补结构不编内容）\n"
+            f"上次生成被拒绝的原因：{reason}\n"
+            "请针对上述原因补全对应的章节/格式要求，不要自由发挥改写主题。补全内容必须严格基于"
+            "上方知识库参考资料；知识库未覆盖的具体操作参数、菜单路径、报警代码、安全规范数值，"
+            "须标注「以官方手册为准」，严禁编造。"
+        )
+
+    @staticmethod
+    def _quiz_brand_mix_failure(content: str, brand: str) -> list[str]:
+        """quiz 品牌强校验（用户指定品牌时）：检测是否混入其他品牌专属术语。
+
+        判定源 = 现有 brand-lexicon.json 专属词（大小写不敏感）+ 独立指令级词表
+        _INSTRUCTION_BRAND_CN_TERMS（中文语境，大小写不敏感）与
+        _INSTRUCTION_BRAND_ASCII_TERMS（纯 ASCII，大小写敏感 + 词边界）。
+        返回「指定 X 但出现 Y 专属术语 Z」列表；空列表表示通过。
+        """
+        canonical = GenerationAgent._normalize_brand(brand)
+        if not canonical:
+            return []
+        text = str(content or "")
+        failures: list[str] = []
+        lexicon = _load_brand_lexicon()
+        for other in sorted(_THREE_BRANDS - {canonical}):
+            # 1) 现有 lexicon 专属词（大小写不敏感）
+            for term in lexicon.get(other, []):
+                if GenerationAgent._contains_any(text, (term,)):
+                    failures.append(f"指定 {canonical} 但出现 {other} 专属术语「{term}」")
+                    break
+            # 2) 指令级中文语境词（大小写不敏感）
+            for term in _INSTRUCTION_BRAND_CN_TERMS.get(other, ()):
+                if GenerationAgent._contains_any(text, (term,)):
+                    failures.append(f"指定 {canonical} 但出现 {other} 专属指令概念「{term}」")
+                    break
+        # 3) 指令级纯 ASCII 词（大小写敏感 + 词边界）
+        for term in _ASCII_INSTRUCTION_TERMS_RE.findall(text):
+            for other in sorted(_THREE_BRANDS - {canonical}):
+                if term in _INSTRUCTION_BRAND_ASCII_TERMS.get(other, ()):
+                    failures.append(f"指定 {canonical} 但出现 {other} 专属指令「{term}」")
+                    break
+        # 4) FANUC 的 J/L 运动指令（词边界 + 中文「指令」后缀，排除 MoveJ/MoveL）
+        if canonical != "FANUC":
+            jl_match = _FANUC_JL_INSTRUCTION_RE.search(text)
+            if jl_match:
+                failures.append(
+                    f"指定 {canonical} 但出现 FANUC 专属 J/L 指令「{jl_match.group(0).strip()}」"
+                )
+        return failures
+
+    @staticmethod
     def _is_recoverable_structure_failure(failure: str) -> bool:
-        """guide 结构「缺章节」类失败判定（可由下游修正 Agent 补全，不判整篇丢弃）。
+        """结构「缺章节/缺安全提示」类失败判定（重试仍缺失时降级保留，不判整篇丢弃）。
 
         与品牌锚定/品牌混淆/入门超纲等致命失败区分：仅命中
-        ``_GUIDE_RECOVERABLE_FAILURE_MARKERS`` 之一的失败视为可补全。
+        ``_RECOVERABLE_STRUCTURE_FAILURE_MARKERS`` 之一的失败视为可恢复。
         """
-        return any(m in str(failure) for m in _GUIDE_RECOVERABLE_FAILURE_MARKERS)
+        return any(m in str(failure) for m in _RECOVERABLE_STRUCTURE_FAILURE_MARKERS)
 
     @staticmethod
     def _structure_validation_failure(result: dict, rtype: str, difficulty: str) -> list[str]:

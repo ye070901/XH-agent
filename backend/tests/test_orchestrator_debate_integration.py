@@ -203,7 +203,7 @@ async def test_run_full_chain_includes_debate(monkeypatch):
             state.update(result)
             return result
 
-    async def _no_retrieve(learner_data, diagnosis):
+    async def _no_retrieve(learner_data, diagnosis, resource_types=None):
         return []
 
     workflow._diagnosis = _RecordingDiagnosis()
