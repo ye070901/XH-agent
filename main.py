@@ -20,11 +20,11 @@ import re
 import sys
 import uuid
 from contextlib import asynccontextmanager
-from enum import Enum
 from pathlib import Path
 from typing import Any, List
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -47,30 +47,13 @@ from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
 from backend.src.llm.client import llm  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
+from backend.src.schemas import EducationLevel, ResourceType  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 枚举（与前端表单下拉框一一对应）
+# 唯一权威定义在 backend/src/schemas.py（CLAUDE.md「数据契约唯一源」禁止重复定义），
+# 此处统一 import 而非本地重定义 —— 修复 ResourceType 漏掉 project/pitfall_guide 导致的 422。
 # ═══════════════════════════════════════════════════════════
-
-
-class EducationLevel(str, Enum):
-    """学历 — 前端下拉框选项"""
-
-    HIGH_SCHOOL = "high_school"
-    JUNIOR_COLLEGE = "junior_college"
-    BACHELOR = "bachelor"
-    MASTER = "master"
-    PHD = "phd"
-
-
-class ResourceType(str, Enum):
-    """资源类型 — 前端多选复选框选项"""
-
-    LECTURE = "lecture"
-    GUIDE = "guide"
-    QUIZ = "quiz"
-    CASE_STUDY = "case_study"
-    MICRO_PROJECT = "micro_project"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -289,6 +272,27 @@ async def xh_error_handler(request: Request, exc: XHError) -> JSONResponse:
             "detail": detail,
         },
     )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """请求体校验失败（422）：打印并返回 pydantic 校验详情，方便前端定位字段。
+
+    默认 FastAPI 也会返回 422，但 detail 是一串原始 loc/msg/type 列表、不打印日志。
+    这里归一化成 {field, error, type}，并落日志，便于直接看到「哪一项不匹配 schema」。
+    """
+    errors = [
+        {
+            "field": ".".join(str(p) for p in err.get("loc", []) if p != "body"),
+            "error": err.get("msg", ""),
+            "type": err.get("type", ""),
+        }
+        for err in exc.errors()
+    ]
+    logger.error(f"[API] 请求体校验失败 {request.method} {request.url.path}: {errors}")
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.exception_handler(Exception)
@@ -960,6 +964,108 @@ async def kb_delete(doc_id: str):
         return {"status": "ok", "doc_id": doc_id}
     else:
         raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
+
+
+# ═══════════════════════════════════════════════════════════
+# 知识库速查 API —— 报警库 + 指令手册 + 核心图谱（只读，与 backend/src/api/main.py 同源）
+# 说明：前端 GlobalSearch / LookupChips 依赖这些 GET 端点；此前只存在于
+#       backend/src/api/main.py，而实际启动的是根目录 main.py，导致 GET 请求
+#       落到 DELETE /api/knowledge/{doc_id} 兜底 → 405。
+# ═══════════════════════════════════════════════════════════
+
+
+def _load_index(name: str) -> list[dict]:
+    """读取 data/ 下的结构化速查索引（alarm_index.json / instruction_index.json）。
+
+    索引由 scripts/build_lookup_indexes.py 确定性生成，本函数只读不写；
+    文件缺失或解析失败返回空列表，不阻断主流程。
+    """
+    path = _PROJECT_ROOT / "data" / name
+    if not path.exists():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"[API] 加载索引 {name} 失败: {e}")
+        return []
+
+
+@app.get("/api/knowledge/alarms")
+async def kb_alarms(brand: str = ""):
+    """报警故障排查库索引。无参返回全部；?brand=FANUC 过滤指定品牌。"""
+    entries = _load_index("alarm_index.json")
+    if brand:
+        entries = [e for e in entries if e.get("brand") == brand]
+    return {"brand": brand, "entries": entries, "count": len(entries)}
+
+
+@app.get("/api/knowledge/alarms/{brand}/{code:path}")
+async def kb_alarm_detail(brand: str, code: str):
+    """按品牌+报警代码定位 → 返回整篇「原因-排查-解决-预防」文档 + 索引元数据。"""
+    entry = next(
+        (
+            e
+            for e in _load_index("alarm_index.json")
+            if e.get("brand") == brand and e.get("alarm_code") == code
+        ),
+        None,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"未找到 {brand} {code} 报警文档")
+    doc = knowledge_base.get_full_document(entry["doc_id"])
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"索引指向的文档缺失: {entry['doc_id']}")
+    return {**entry, "content": doc["content"]}
+
+
+@app.get("/api/knowledge/instructions")
+async def kb_instructions(brand: str = ""):
+    """分品牌指令速查索引。无参返回全部；?brand=ABB 过滤指定品牌。"""
+    entries = _load_index("instruction_index.json")
+    if brand:
+        entries = [e for e in entries if e.get("brand") == brand]
+    return {"brand": brand, "entries": entries, "count": len(entries)}
+
+
+@app.get("/api/knowledge/instructions/{brand}/{name:path}")
+async def kb_instruction_detail(brand: str, name: str):
+    """按品牌+指令名定位 → 返回整篇指令速查文档 + 索引元数据。"""
+    entry = next(
+        (
+            e
+            for e in _load_index("instruction_index.json")
+            if e.get("brand") == brand and e.get("instruction") == name
+        ),
+        None,
+    )
+    if not entry:
+        raise HTTPException(status_code=404, detail=f"未找到 {brand} {name} 指令文档")
+    doc = knowledge_base.get_full_document(entry["doc_id"])
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"索引指向的文档缺失: {entry['doc_id']}")
+    return {**entry, "content": doc["content"]}
+
+
+@app.get("/api/knowledge/core-map")
+async def kb_core_map():
+    """核心知识图谱（core_knowledge_map.json）——学习路径图谱的节点骨架，只读。"""
+    path = _PROJECT_ROOT / "data" / "core_knowledge_map.json"
+    if not path.exists():
+        return {"domains": []}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning(f"[API] 加载 core_knowledge_map.json 失败: {e}")
+        return {"domains": []}
+
+
+@app.get("/api/knowledge/documents/{doc_id}")
+async def kb_document_detail(doc_id: str):
+    """按 doc_id 直读 data/raw 整篇文档（全局搜索知识库文档结果跳转目标）。"""
+    doc = knowledge_base.get_full_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail=f"未找到文档 {doc_id}")
+    return doc
 
 
 # ═══════════════════════════════════════════════════════════
