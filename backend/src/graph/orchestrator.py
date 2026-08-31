@@ -20,6 +20,7 @@ Agent 入口文件:
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from loguru import logger
@@ -33,6 +34,20 @@ from ..debate.engine import debate_engine
 from ..event_broadcast import EventType, event_bus
 from ..knowledge import knowledge_base
 from ..knowledge.demo_fallback import DEMO_FALLBACK_CHUNKS
+
+# ── 状态文案动态化：枚举值 → 中文标签（避免文案写死） ──
+_DIFFICULTY_LABELS = {
+    "beginner": "初级",
+    "intermediate": "中级",
+    "advanced": "高级",
+}
+_RESOURCE_TYPE_LABELS = {
+    "lecture": "讲义",
+    "guide": "实操指南",
+    "quiz": "测试题",
+    "pitfall_guide": "避坑指南",
+    "project": "项目实战",
+}
 
 
 class AgentWorkflow:
@@ -110,11 +125,18 @@ class AgentWorkflow:
         result = await self.diagnosis.run(state)
         state.update(result)
         state["agent_log"].append({"agent": "diagnosis", "status": result.get("status", "done")})
+        diag = state.get("diagnosis_result") or {}
+        gap_count = len(diag.get("skill_gaps") or [])
+        difficulty = str(diag.get("recommended_difficulty") or "").lower()
+        difficulty_label = _DIFFICULTY_LABELS.get(difficulty, difficulty or "未知")
         await self._broadcast_status(
             task_id,
             "diagnosis",
             EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
-            "学情诊断失败。" if result.get("status") == "error" else "学情画像已完成。",
+            "学情诊断失败。"
+            if result.get("status") == "error"
+            else f"学情画像已完成：识别出 {gap_count} 个知识缺口，难度等级 {difficulty_label}",
+            {"count": gap_count},
         )
 
         # 诊断失败时终止工作流
@@ -129,18 +151,20 @@ class AgentWorkflow:
             task_id, "retrieval", EventType.AGENT_START, "正在从知识库检索相关依据。"
         )
         retrieved_chunks = await self._retrieve_knowledge(
-            learner_data, state.get("diagnosis_result", {})
+            learner_data, state.get("diagnosis_result", {}), resource_types
         )
         state["retrieved_chunks"] = retrieved_chunks
         state["agent_log"].append(
             {"agent": "retrieval", "status": "done", "count": len(retrieved_chunks)}
         )
+        hit_count = len(retrieved_chunks)
+        doc_count = len({c.get("doc_id") for c in retrieved_chunks if c.get("doc_id")})
         await self._broadcast_status(
             task_id,
             "retrieval",
             EventType.AGENT_DONE,
-            f"知识库检索完成，命中 {len(retrieved_chunks)} 个片段。",
-            {"count": len(retrieved_chunks)},
+            f"知识库检索完成，命中 {hit_count} 个片段（{doc_count} 篇文档）",
+            {"count": hit_count, "doc_count": doc_count},
         )
 
         # Step 2~4: 生成 → 审核 → 博弈裁决 → 修正
@@ -214,12 +238,24 @@ class AgentWorkflow:
                 "count": len(result.get("generated_resources", [])),
             }
         )
-        gen_count = len(result.get("generated_resources", []))
+        generated = result.get("generated_resources") or []
+        gen_count = len(generated)
+        gen_type_order: list[str] = []
+        for res in generated:
+            rt = str(res.get("resource_type") or "")
+            if rt and rt not in gen_type_order:
+                gen_type_order.append(rt)
+        type_names = "、".join(_RESOURCE_TYPE_LABELS.get(t, t) for t in gen_type_order)
+        gen_msg = (
+            f"已生成 {len(gen_type_order)} 种资源：{type_names}"
+            if type_names
+            else f"已生成 {gen_count} 个资源"
+        )
         await self._broadcast_status(
             task_id,
             "generation",
             EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
-            "知识生成失败。" if result.get("status") == "error" else f"已生成 {gen_count} 类资源。",
+            "知识生成失败。" if result.get("status") == "error" else gen_msg,
             {"count": gen_count},
         )
 
@@ -236,11 +272,17 @@ class AgentWorkflow:
         result = await self.audit.run(state)
         state.update(result)
         state["agent_log"].append({"agent": "audit", "status": result.get("status", "done")})
+        audit_reports = result.get("audit_result") or []
+        passed = sum(1 for r in audit_reports if r.get("verdict") == "approved")
+        need_rev = sum(1 for r in audit_reports if r.get("verdict") == "needs_revision")
         await self._broadcast_status(
             task_id,
             "audit",
             EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
-            "内容审核失败。" if result.get("status") == "error" else "内容审核已完成。",
+            "内容审核失败。"
+            if result.get("status") == "error"
+            else f"内容审核完成：{passed} 项通过，{need_rev} 项需修正",
+            {"count": len(audit_reports), "passed": passed, "needs_revision": need_rev},
         )
 
         if result.get("status") == "error":
@@ -278,11 +320,16 @@ class AgentWorkflow:
                 "stats": result.get("correction_stats", {}),
             }
         )
+        corr_stats = result.get("correction_stats") or {}
+        fixed_count = int(corr_stats.get("total_issues") or 0)
         await self._broadcast_status(
             task_id,
             "correction",
             EventType.AGENT_ERROR if result.get("status") == "error" else EventType.AGENT_DONE,
-            "保真修正失败。" if result.get("status") == "error" else "保真修正已完成。",
+            "保真修正失败。"
+            if result.get("status") == "error"
+            else f"保真修正完成：修正 {fixed_count} 处内容",
+            {"count": fixed_count},
         )
 
         if result.get("status") == "error":
@@ -305,7 +352,28 @@ class AgentWorkflow:
         except Exception as exc:
             logger.debug(f"[工作流] 状态广播失败（不影响任务）: {exc}")
 
-    async def _retrieve_knowledge(self, learner_data: dict, diagnosis: dict) -> list[dict]:
+    @staticmethod
+    def _dynamic_top_k(query: str, resource_types: list[str] | None) -> int:
+        """按查询词数量 + 资源类型数动态调整检索 top_k，夹在 [MIN, MAX] 区间。
+
+        检索结果最终仍由知识库按 doc_id 去重、并受库内文档数天然封顶，
+        故这里只决定「请求多少个 chunk」：查询越复杂 / 资源类型越多，需要越多素材覆盖。
+        """
+        query_terms = [t for t in re.split(r"[\s,，、;；]+", query) if t]
+        n_types = len(resource_types) if resource_types else 3
+        top_k = settings.RETRIEVAL_TOP_K_BASE
+        top_k += min(max(len(query_terms) - 1, 0), 3)  # 查询词越多 +0~3
+        top_k += max(n_types - 1, 0)  # 资源类型越多，素材覆盖越多
+        top_k = max(settings.RETRIEVAL_TOP_K_MIN, min(settings.RETRIEVAL_TOP_K_MAX, top_k))
+        logger.info(
+            f"[工作流] 知识库检索 top_k 动态调整：{top_k} "
+            f"（查询词 {len(query_terms)} 个 / 资源类型 {n_types} 种）"
+        )
+        return top_k
+
+    async def _retrieve_knowledge(
+        self, learner_data: dict, diagnosis: dict, resource_types: list[str] | None = None
+    ) -> list[dict]:
         """知识库检索：用学习目标 + 关键盲区构造查询，检索 data/raw 语料。
 
         空知识库时的双分支行为（与生成 Agent 的空 KB 硬拦截配套）：
@@ -326,8 +394,9 @@ class AgentWorkflow:
             logger.info("[工作流] 知识库检索：无查询词，跳过")
             return self._empty_kb_fallback()
 
+        top_k = self._dynamic_top_k(query, resource_types)
         try:
-            chunks = await knowledge_base.search(query=query, top_k=6)
+            chunks = await knowledge_base.search(query=query, top_k=top_k)
             logger.info(f"[工作流] 知识库检索：命中 {len(chunks)} 条")
             if chunks:
                 return chunks

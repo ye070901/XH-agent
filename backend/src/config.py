@@ -210,6 +210,16 @@ class Settings:
     """HuggingFace 镜像地址，用于下载 ChromaDB ONNX 模型（国内网络加速）"""
 
     # ============================================================
+    # 知识库检索（RAG 召回 top_k 动态范围）
+    # ============================================================
+    RETRIEVAL_TOP_K_BASE: int = _int_env("RETRIEVAL_TOP_K_BASE", 8)
+    """检索 top_k 基准值：编排器按查询词数量 + 资源类型数在此基础上上调"""
+    RETRIEVAL_TOP_K_MIN: int = _int_env("RETRIEVAL_TOP_K_MIN", 5)
+    """检索 top_k 下限"""
+    RETRIEVAL_TOP_K_MAX: int = _int_env("RETRIEVAL_TOP_K_MAX", 15)
+    """检索 top_k 上限"""
+
+    # ============================================================
     # EventBus
     # ============================================================
     EVENTBUS_SUBSCRIBER_TTL_SECONDS: int = _int_env("EVENTBUS_SUBSCRIBER_TTL_SECONDS", 300)

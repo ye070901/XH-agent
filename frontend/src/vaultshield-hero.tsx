@@ -991,7 +991,7 @@ function GlobalSearch() {
   const hasResults = alarmHits.length > 0 || instructionHits.length > 0 || docHits.length > 0;
 
   return (
-    <div ref={containerRef} className="relative mx-4 hidden w-full max-w-sm lg:block">
+    <div ref={containerRef} className="relative hidden min-w-0 flex-1 max-w-sm lg:block">
       <div className="flex items-center gap-2 rounded-full bg-[#192837]/[0.06] px-4 py-2">
         <Search className="h-4 w-4 shrink-0 text-[#192837]/50" />
         <input
@@ -1433,7 +1433,7 @@ function WorkflowProgress({ events, mode }: { events: WorkflowEvent[]; mode: "id
   return (
     <section className="rounded-2xl bg-[#0B1D2A] p-5 text-white" aria-label="Agent 实时工作状态">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.12em] text-white/55">Agent 工作状态</p><h5 className="mt-2 text-lg font-semibold">协同工作流</h5></div><span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">{modeLabel}</span></div>
-      <ol className="mt-5 grid gap-2">{workflowStages.map((stage, index) => { const event = events.find((item) => item.agent === stage.agent); const status = event?.status || "pending"; const color = status === "done" ? "bg-emerald-400" : status === "running" ? "bg-[#B99DFF] animate-pulse" : status === "error" ? "bg-red-400" : "bg-white/25"; const label = status === "done" ? "已完成" : status === "running" ? "进行中" : status === "error" ? "异常" : "等待中"; return <li className="flex items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3 text-sm" key={stage.agent}><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} /><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/10 text-[11px]">0{index + 1}</span><span className="flex-1 font-semibold">{stage.label}</span><span className="text-xs text-white/60">{event?.message || label}</span></li>; })}</ol>
+      <ol className="mt-5 grid gap-2">{workflowStages.map((stage, index) => { const event = events.find((item) => item.agent === stage.agent); const status = event?.status || "pending"; const color = status === "done" ? "bg-emerald-400" : status === "running" ? "bg-[#B99DFF] animate-pulse" : status === "error" ? "bg-red-400" : "bg-white/25"; const label = status === "done" ? "已完成" : status === "running" ? "进行中" : status === "error" ? "异常" : "等待中"; return <li className="flex items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3 text-sm" key={stage.agent}><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} /><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/10 text-[11px]">0{index + 1}</span><span className="shrink-0 font-semibold">{stage.label}</span><span className="min-w-0 flex-1 text-right text-xs leading-5 text-white/60">{event?.message || label}</span></li>; })}</ol>
     </section>
   );
 }
@@ -2034,7 +2034,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       };
     }
     if (result.mode === "api") {
-      setWorkflowEvents((current) => (result.agent_log ?? []).reduce((events, item) => mergeWorkflowEvent(events, { agent: item.agent || "generation", status: item.status === "error" ? "error" : "done", message: item.status === "error" ? "异常" : "已完成" }), current));
+      setWorkflowEvents((current) => (result.agent_log ?? []).reduce((events, item) => { const agent = item.agent || "generation"; const existing = events.find((event) => event.agent === agent); return mergeWorkflowEvent(events, { agent, status: item.status === "error" ? "error" : "done", message: existing?.message || (item.status === "error" ? "异常" : "已完成") }); }, current));
       if (result.status === "completed") setWorkflowMode("complete");
     }
     setGenerationResult(result);
@@ -2143,11 +2143,15 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     }
 
     setWorkflowEvents((current) => (result.agent_log ?? []).reduce(
-      (events, item) => mergeWorkflowEvent(events, {
-        agent: item.agent || "generation",
-        status: item.status === "error" ? "error" : "done",
-        message: item.status === "error" ? "执行失败" : "已完成",
-      }),
+      (events, item) => {
+        const agent = item.agent || "generation";
+        const existing = events.find((event) => event.agent === agent);
+        return mergeWorkflowEvent(events, {
+          agent,
+          status: item.status === "error" ? "error" : "done",
+          message: existing?.message || (item.status === "error" ? "执行失败" : "已完成"),
+        });
+      },
       current,
     ));
     setWorkflowMode("complete");
@@ -2180,13 +2184,13 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       </motion.video>
       <div className="absolute inset-0 z-[1] bg-[#F2F2EE]/[0.14]" />
 
-      <header className="relative z-50 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 max-[1023px]:[&>div]:hidden lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
+      <header className="relative z-50 mx-auto flex max-w-[1280px] items-center gap-3 px-5 py-4 max-[1023px]:[&>div]:hidden lg:gap-4 lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
         {!schemeB ? <BrandMark /> : null}
-        <nav className={`hidden items-center gap-5 text-[15px] lg:flex xl:gap-7 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
+        <nav className="hidden shrink-0 items-center gap-5 text-[15px] lg:flex xl:gap-7 xl:text-base" aria-label="Primary navigation">
           {navigation.map((item, index) => <button className={`relative whitespace-nowrap px-1 py-2 font-semibold leading-none transition-colors after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded-full after:transition-transform ${activePanel === panelIds[index] ? "text-[#192837] after:scale-x-100 after:bg-[#7342E2]" : "text-[#192837]/60 after:scale-x-0 hover:text-[#192837]"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
         </nav>
         <GlobalSearch />
-        <div className="hidden items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton></div>
+        <div className="ml-auto hidden shrink-0 items-center gap-2 md:flex"><ActionButton kind="accent" onClick={openGenerator}>生成学习资源</ActionButton><ActionButton kind="quiet" onClick={() => setWorkspaceOpen(true)}>进入工作台</ActionButton></div>
         <button aria-expanded={menuOpen} aria-label="打开菜单" className="grid h-10 w-10 place-items-center rounded-full bg-[#F2F2EE]/85 md:hidden" onClick={() => setMenuOpen(true)}><Menu size={21} strokeWidth={1.8} /></button>
       </header>
 
