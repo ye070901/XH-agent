@@ -251,6 +251,27 @@ class CorrectionAgent(BaseAgent):
             audit_report = audit_results[i] if i < len(audit_results) else {}
 
             try:
+                # ── guide 结构缺失章节补全（生成端标记 structure_missing_sections）──
+                missing_sections = resource.get("structure_missing_sections") or []
+                if missing_sections and resource_type == "guide":
+                    resource = await self._fill_structure_sections(
+                        resource, missing_sections, diagnosis, chunks
+                    )
+                    all_logs.append(
+                        {
+                            "resource_id": resource_id,
+                            "resource_type": resource_type,
+                            "issue_index": -1,
+                            "severity": "info",
+                            "original_text": "",
+                            "corrected_text": "",
+                            "correction_basis": "structure_sections_filled",
+                            "kb_source": None,
+                            "action": "filled",
+                            "error_detail": f"补全缺失章节: {', '.join(missing_sections)}",
+                        }
+                    )
+
                 if downgrade_mode:
                     # ── 路径 1：无 KB 模式 → 纯规则一致性检查（不调 LLM）──
                     result = self._downgrade_check(resource, diagnosis)
@@ -519,6 +540,65 @@ class CorrectionAgent(BaseAgent):
             "corrected_resource": corrected_resource,
             "logs": logs,
         }
+
+    async def _fill_structure_sections(
+        self,
+        resource: dict,
+        missing_sections: list[str],
+        diagnosis: dict,
+        chunks: list[dict],
+    ) -> dict:
+        """补全 guide 缺失的结构章节。
+
+        覆盖：独立安全标题 / 安全操作确认清单 / 运动步骤安全提示 / 常见异常与排错模块。
+        生成端结构校验发现 guide 缺章节时不再整篇丢弃，而是标记 ``structure_missing_sections``；
+        此处基于知识库素材调用 LLM 补全并插入缺失章节，补全失败时原样返回（保留原始输出）。
+        """
+        content = str(resource.get("content", "") or "")
+        original_topic = str(diagnosis.get("summary") or "").strip()
+        kb_text = "\n\n".join(
+            f"【{i + 1}】{str(c.get('content', '') or '').strip()}"
+            for i, c in enumerate(chunks or [])
+            if isinstance(c, dict) and str(c.get("content", "") or "").strip()
+        )
+        if not kb_text:
+            kb_text = "（无知识库素材，按通用知识生成，参数/报警代码须标注「以官方手册为准」）"
+        missing_desc = "\n".join(f"- {s}" for s in missing_sections)
+
+        prompt = f"""你是一个工业机器人实操指南的结构补全助手。下方是一份不完整的
+guide（实操指南），缺失以下强制章节：
+{missing_desc}
+
+请**保留已有正文不变（不得删除或改写）**，只补全缺失章节并插入到正确位置：
+- 独立「安全」标题章节放在正文最前面；
+- 「安全操作确认清单」放在安全章节内（含安全门状态确认/急停按钮位置确认/使能键使用规范/
+  工作区间无人员确认/减速模式开启要求）；
+- 每个运动操作步骤前补独立引用块 `> ⚠️ 安全提示：…`；
+- 「常见异常与排错」对照模块放在正文末尾（报警编号/异常现象须来自知识库素材，
+  无法确认时标注「以官方手册为准」）。
+
+## 知识库素材
+{kb_text}
+
+## 原始学习课题
+{original_topic}
+
+## 现有正文
+{content}
+
+## 输出 JSON
+{{"content": "补全后的完整 Markdown 正文（保留原内容 + 插入缺失章节）"}}"""
+
+        filled = await self.call_llm_json(prompt, temperature=0.2)
+        if not filled or filled.get("_parse_error") or not filled.get("content"):
+            self.log("  ⚠️ guide 结构章节补全失败，保留原始输出")
+            return resource
+
+        filled_resource = dict(resource)
+        filled_resource.pop("structure_missing_sections", None)
+        filled_resource["content"] = filled["content"]
+        filled_resource["_structure_sections_filled"] = True
+        return filled_resource
 
     # ═══════════════════════════════════════════════════════════
     # 私有：prompt 构建

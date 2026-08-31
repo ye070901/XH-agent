@@ -197,6 +197,9 @@ const generationErrorMessage = (item: { resource_type?: string; error?: string; 
     const detail = item.detail ? ` \u5177\u4f53\u539f\u56e0\uff1a${decodeEscapedText(item.detail)}\u3002` : "";
     return "\u6d4b\u8bd5\u9898\u5df2\u751f\u6210\uff0c\u4f46\u6682\u4e0d\u7b26\u5408\u81ea\u52a8\u8bc4\u5206\u6761\u4ef6\u3002" + detail;
   }
+  if (item.error === "structure_sections_missing") {
+    return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u5df2\u751f\u6210\uff0c\u4f46\u7f3a\u5c11\u5b89\u5168\u76f8\u5173\u7ae0\u8282\uff08\u5df2\u6807\u8bb0\u5f85\u8865\u5168\uff09\u3002";
+  }
   return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u672a\u751f\u6210\uff1a" + decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
 };
 

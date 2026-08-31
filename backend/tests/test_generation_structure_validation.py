@@ -82,6 +82,16 @@ GENERIC_LECTURE = {
     "key_takeaways": ["理解坐标系"],
 }
 
+#: 声明了品牌但缺安全章节/安全清单/排错模块的 guide（品牌锚定通过，仅缺结构章节 → 应保留并标记）
+INCOMPLETE_GUIDE = {
+    "title": "FANUC 示教器操作指南",
+    "content": "# FANUC 示教器操作指南\n\n## 操作步骤\n1. 进入手动模式\n2. 示教点位\n",
+    "citations": [],
+    "difficulty_level": "beginner",
+    "estimated_duration_minutes": 30,
+    "key_takeaways": ["掌握示教器基础操作"],
+}
+
 #: 数控机床讲义（无品牌声明，也不含机器人标记）——用于验证非机器人课题跳过结构校验
 CNC_LECTURE = {
     "title": "数控机床编程基础",
@@ -259,6 +269,29 @@ def test_robot_guide_complete_kept() -> None:
     assert "generation_errors" not in state
 
 
+def test_robot_guide_missing_sections_kept_and_flagged() -> None:
+    # 声明了品牌但缺安全章节/排错模块的 guide → 不再整篇丢弃，保留并标记缺失项
+    agent = _agent_with(INCOMPLETE_GUIDE)
+    state = asyncio.run(
+        agent.run(
+            {
+                "learner_data": {"learning_goal": ROBOT_TOPIC},
+                "diagnosis_result": {
+                    "recommended_difficulty": "beginner",
+                    "learning_style": "practice_first",
+                },
+                "retrieved_chunks": [],
+                "resource_types": ["guide"],
+            }
+        )
+    )
+    assert len(state["generated_resources"]) == 1
+    res = state["generated_resources"][0]
+    assert res.get("structure_missing_sections")
+    errors = state.get("generation_errors", [])
+    assert any(e.get("error") == "structure_sections_missing" for e in errors)
+
+
 def test_non_robot_topic_skips_structure_validation() -> None:
     """非机器人课题（数控机床）不注入机器人领域结构校验，保持主题锁定行为。"""
     agent = _agent_with(CNC_LECTURE)
@@ -366,3 +399,37 @@ def test_robot_project_complete_kept() -> None:
     assert len(state["generated_resources"]) == 1
     assert "generation_errors" not in state
     assert state["generated_resources"][0]["resource_type"] == "project"
+
+
+def test_five_resource_types_not_truncated() -> None:
+    """回归：勾选 5 种资源类型时不应被 MAX_RESOURCES 截断为前 3 种。
+
+    mock _generate_one 直接返回合规资源，绕过逐类型结构校验，仅验证数量/顺序不被截断。
+    """
+
+    def _fake_generate(diagnosis, rtype, chunks, learner_data):
+        return {"title": f"{rtype} 标题", "content": f"# {rtype}\n正文内容"}
+
+    agent = GenerationAgent()
+    agent._generate_one = AsyncMock(side_effect=_fake_generate)
+    state = asyncio.run(
+        agent.run(
+            {
+                "learner_data": {"learning_goal": "掌握数控机床编程与加工"},
+                "diagnosis_result": {
+                    "recommended_difficulty": "beginner",
+                    "learning_style": "theory_first",
+                },
+                "retrieved_chunks": [],
+                "resource_types": ["lecture", "guide", "quiz", "project", "pitfall_guide"],
+            }
+        )
+    )
+    assert [r["resource_type"] for r in state["generated_resources"]] == [
+        "lecture",
+        "guide",
+        "quiz",
+        "project",
+        "pitfall_guide",
+    ]
+    assert "generation_errors" not in state

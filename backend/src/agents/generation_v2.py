@@ -102,6 +102,8 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
   未明确品牌版本时标注「通用原理，具体以对应品牌官方手册为准」。
 - 安全红线：实操类内容前置独立「安全」章节；运动/示教步骤附带安全提示，
   严禁描述违反安全规程的操作。
+- guide 强制结构（缺一不可）：① 独立「安全」标题章节 ② 「安全操作确认清单」章节
+  ③ 每个运动操作步骤前输出独立引用块「> ⚠️ 安全提示」 ④ 「常见异常与排错」对照模块。
 - 版本适配：区分控制器代际差异（KUKA C4/C5、FANUC 30iB/Plus）；
   未指定版本时避免生成特定版本专属指令，标注「以官方手册为准」。
 - 难度层级：入门级严禁引入视觉集成、离线编程、外部轴等高级主题。
@@ -278,6 +280,15 @@ _BEGINNER_ADVANCED_MARKERS: tuple[str, ...] = (
 #: 低于该值视为轻度提及，保留资源仅日志标记。
 _BEGINNER_ADVANCED_EXPANSION_THRESHOLD = 3
 
+#: guide 结构「缺章节」类失败标记：命中这些关键词的校验失败可由下游修正 Agent 补全，
+#: 不判整篇丢弃（仅 guide 生效）；品牌锚定/品牌混淆/入门超纲等仍判丢弃。
+_GUIDE_RECOVERABLE_FAILURE_MARKERS: tuple[str, ...] = (
+    "安全操作确认清单",
+    "运动步骤安全提示",
+    "独立「安全」标题章节",
+    "常见异常与排错",
+)
+
 #: quiz 安全规范类题目标记：用于安全题占比 ≥20% 统计
 _QUIZ_SAFETY_MARKERS: tuple[str, ...] = (
     "安全",
@@ -409,9 +420,9 @@ class GenerationAgent(BaseAgent):
     """领域知识生成 Agent — 角色5 在此实现
 
     根据学情诊断结果（diagnosis_result），为每种请求的资源类型
-    （lecture / guide / quiz）生成一份个性化学习资源。
+    （lecture / guide / quiz / project / pitfall_guide）生成一份个性化学习资源。
 
-    资源数量上限为 3，防止单次请求过度消耗 token。
+    资源数量上限为 5，防止单次请求过度消耗 token。
     单个资源生成失败不影响其他资源（部分成功）。
     """
 
@@ -426,8 +437,8 @@ class GenerationAgent(BaseAgent):
         "diagnosis_completed",
     }
 
-    # 资源数量上限，防止 token 过度消耗
-    MAX_RESOURCES = 3
+    # 资源数量上限（对齐前端 5 种资源类型），防止 token 过度消耗
+    MAX_RESOURCES = 5
 
     # 主题漂移时的最大重试次数（不含首次生成）
     MAX_TOPIC_RETRIES = 2
@@ -551,6 +562,16 @@ class GenerationAgent(BaseAgent):
                         str(result.get("content", "") or "")
                     )
                 resources.append(result)
+                # guide 结构缺失章节：保留资源的同时，把缺失项写入 generation_errors 供前端/下游感知
+                missing_sections = result.get("structure_missing_sections")
+                if missing_sections:
+                    errors.append(
+                        {
+                            "resource_type": rtype,
+                            "error": "structure_sections_missing",
+                            "detail": missing_sections,
+                        }
+                    )
             except Exception as e:
                 # 单个资源生成失败不阻断其他资源
                 self.log(f"⚠️ {rtype} 类型资源生成失败: {e}")
@@ -658,8 +679,9 @@ class GenerationAgent(BaseAgent):
 4. **难度层级**：入门级严禁引入视觉集成、离线编程、外部轴、数字孪生等高级主题。
 5. **AI 融合边界**：涉及 AI 的内容须符合工业落地实际，明确适用场景、技术依赖与局限性，
    不脱离工业总线/通信协议夸大自动化程度。
-6. **结构要求**（后置校验会确定性检查，不满足将被丢弃）：
-   - guide 必须含独立「安全」章节 + 「常见异常与排错」对照模块；
+6. **结构要求**（后置校验会确定性检查；guide 缺章节将被标记由下游补全，其余不满足将被丢弃）：
+   - guide 必须完整包含四部分（缺一不可）：① 独立「安全」标题章节 ② 「安全操作确认清单」
+     ③ 每个运动操作步骤前独立引用块「> ⚠️ 安全提示」 ④ 「常见异常与排错」对照模块；
    - lecture/guide/project/pitfall_guide 必须声明品牌（FANUC/KUKA/ABB）或标注「通用原理」；
    - quiz 安全规范类题目占比不低于 20%；
    - pitfall_guide 必须含「常见误区」与「规避/正确做法」两类内容。
@@ -781,8 +803,22 @@ relevant to the learner profile and the retrieved knowledge.
         if is_robot_topic and "_quiz_validation_error" not in result:
             structure_failures = self._structure_validation_failure(result, rtype, difficulty)
             if structure_failures:
-                self.log(f"❌ {rtype} 结构校验未通过，丢弃: {structure_failures}")
-                return {"_structure_validation_error": structure_failures}
+                # guide 的「缺章节」类失败（安全标题/安全清单/安全提示/排错）不整篇丢弃：
+                # 保留原始输出并标记缺失项，交由下游修正 Agent 补全；其余失败（品牌/超纲等）仍丢弃。
+                if rtype == "guide":
+                    recoverable = [
+                        f for f in structure_failures if self._is_recoverable_structure_failure(f)
+                    ]
+                    fatal = [f for f in structure_failures if f not in recoverable]
+                else:
+                    recoverable = []
+                    fatal = structure_failures
+                if fatal:
+                    self.log(f"❌ {rtype} 结构校验未通过，丢弃: {fatal}")
+                    return {"_structure_validation_error": fatal}
+                if recoverable:
+                    self.log(f"⚠️ {rtype} 结构缺失章节，保留并标记由下游补全: {recoverable}")
+                    result["structure_missing_sections"] = recoverable
 
         return result
 
@@ -1338,6 +1374,15 @@ Knowledge context:
                     )
                     break
         return failures
+
+    @staticmethod
+    def _is_recoverable_structure_failure(failure: str) -> bool:
+        """guide 结构「缺章节」类失败判定（可由下游修正 Agent 补全，不判整篇丢弃）。
+
+        与品牌锚定/品牌混淆/入门超纲等致命失败区分：仅命中
+        ``_GUIDE_RECOVERABLE_FAILURE_MARKERS`` 之一的失败视为可补全。
+        """
+        return any(m in str(failure) for m in _GUIDE_RECOVERABLE_FAILURE_MARKERS)
 
     @staticmethod
     def _structure_validation_failure(result: dict, rtype: str, difficulty: str) -> list[str]:
