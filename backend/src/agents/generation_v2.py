@@ -20,6 +20,8 @@ import re
 import uuid
 from pathlib import Path
 
+from loguru import logger
+
 from .base import BaseAgent
 
 # (难度, 学习风格) → 画像标签 的主映射（与 data/evaluation/learner_profiles.json 的 7 画像对齐）
@@ -256,7 +258,9 @@ def _load_alarm_index() -> list[dict]:
     return _alarm_index_cache
 
 
-#: 入门级超纲标记：beginner 内容命中即判超纲（视觉/离线/外部轴等高级主题）
+#: 入门级超纲标记：beginner 内容命中即可能超纲（视觉/离线/外部轴等高级主题）。
+#: 判定分级：出现 >= _BEGINNER_ADVANCED_EXPANSION_THRESHOLD 次视为「大段展开讲解」→ 判超纲；
+#: 出现 1~阈值-1 次视为「轻度提及」→ 允许保留，仅日志标记（不整篇丢弃）。
 _BEGINNER_ADVANCED_MARKERS: tuple[str, ...] = (
     "视觉集成",
     "视觉引导",
@@ -269,6 +273,10 @@ _BEGINNER_ADVANCED_MARKERS: tuple[str, ...] = (
     "深度学习",
     "强化学习",
 )
+
+#: 入门级超纲「大段展开」判定阈值：marker 出现次数 >= 该值即判大段展开（丢弃）；
+#: 低于该值视为轻度提及，保留资源仅日志标记。
+_BEGINNER_ADVANCED_EXPANSION_THRESHOLD = 3
 
 #: quiz 安全规范类题目标记：用于安全题占比 ≥20% 统计
 _QUIZ_SAFETY_MARKERS: tuple[str, ...] = (
@@ -415,6 +423,7 @@ class GenerationAgent(BaseAgent):
         "task_id",
         "agent_log",
         "status",
+        "diagnosis_completed",
     }
 
     # 资源数量上限，防止 token 过度消耗
@@ -1119,6 +1128,11 @@ Knowledge context:
         return any(str(m).lower() in lowered for m in markers)
 
     @staticmethod
+    def _count_occurrences(text: str, marker: str) -> int:
+        """大小写不敏感地统计 marker 在 text 中的非重叠出现次数。"""
+        return str(text or "").lower().count(str(marker).lower())
+
+    @staticmethod
     def _classify_risk_level(rtype: str, content: str) -> str:
         """确定性风险分级（不调 LLM；危险 ≠ 难度）。
 
@@ -1368,12 +1382,17 @@ Knowledge context:
         if rtype == "guide" and not _GUIDE_TROUBLESHOOT_HEADING_RE.search(content):
             failures.append("guide 缺少「常见异常与排错」对照模块")
 
-        # 难度层级：入门级不得出现高级主题
+        # 难度层级：入门级允许轻度提及高级主题（仅日志标记），禁止大段展开讲解（判超纲丢弃）
         if difficulty == "beginner":
             for marker in _BEGINNER_ADVANCED_MARKERS:
-                if GenerationAgent._contains_any(head, (marker,)):
-                    failures.append(f"入门级内容出现超纲主题「{marker}」")
+                count = GenerationAgent._count_occurrences(head, marker)
+                if count >= _BEGINNER_ADVANCED_EXPANSION_THRESHOLD:
+                    failures.append(f"入门级内容大段展开超纲主题「{marker}」（出现 {count} 处）")
                     break
+                if count > 0:
+                    logger.warning(
+                        f"入门级内容轻度提及超纲主题「{marker}」（{count} 处），允许保留仅标记"
+                    )
 
         # quiz 安全规范类题目占比 ≥20%
         if rtype == "quiz":

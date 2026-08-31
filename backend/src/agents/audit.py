@@ -148,6 +148,8 @@ class AuditAgent(BaseAgent):
         "resource_types",
         "retrieved_chunks",
         "downgrade_mode",
+        "diagnosis_completed",
+        "generation_errors",
     }
 
     def __init__(self) -> None:

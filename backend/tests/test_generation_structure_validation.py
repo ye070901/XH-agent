@@ -154,6 +154,16 @@ def test_advanced_marker_ok_for_non_beginner() -> None:
     assert all("超纲" not in f for f in failures)
 
 
+def test_beginner_light_mention_passes() -> None:
+    # 入门级仅轻度提及（1 次）高级主题「离线编程」→ 允许保留，不判超纲
+    result = {
+        "title": "FANUC 示教器基础操作",
+        "content": "# 示教器基础\n\n本文介绍示教器基础操作。离线编程属于后续进阶内容，本文不展开。",
+    }
+    failures = GenerationAgent._structure_validation_failure(result, "lecture", "beginner")
+    assert all("超纲" not in f for f in failures)
+
+
 # ═══════════════════════════════════════════════════════════
 # 单测：_quiz_safety_ratio_failure（安全题占比 ≥20%）
 # ═══════════════════════════════════════════════════════════

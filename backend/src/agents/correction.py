@@ -110,6 +110,7 @@ class CorrectionAgent(BaseAgent):
         "status",
         "downgrade_mode",
         "diagnosis_completed",
+        "generation_errors",
         "resource_types",
         "debate_result",  # Phase 3: Opt-2 博弈引擎裁决输出（未就绪时缺省为空）
     }
