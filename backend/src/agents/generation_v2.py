@@ -18,11 +18,20 @@ Phase 2 版本: 接入 RAG 知识库，约束生成 + 溯源
 import json
 import re
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
 
 from .base import BaseAgent
+
+
+def _reason_text(value: object) -> str:
+    """把错误原因（字符串或字符串列表）归一成一句中文，供 detail/raw_error 展示。"""
+    if isinstance(value, (list, tuple)):
+        return "；".join(str(v) for v in value if str(v).strip())
+    return str(value or "").strip()
+
 
 # (难度, 学习风格) → 画像标签 的主映射（与 data/evaluation/learner_profiles.json 的 7 画像对齐）
 _PROFILE_TAG_BY_DIFF_STYLE: dict[tuple[str, str], str] = {
@@ -450,6 +459,35 @@ class GenerationAgent(BaseAgent):
             temperature=0.5,
         )
 
+    @staticmethod
+    def _build_generation_error(
+        rtype: str,
+        error: str,
+        detail: object = None,
+        stage: str = "",
+        raw_error: object = None,
+    ) -> dict:
+        """构造统一的生成失败错误对象（前端展示 + 溯源）。
+
+        - error: 保留机器可读错误码（程序判断用，不变）
+        - detail: 用户可读中文原因；list 会拼成「；」分隔的一句话
+        - stage: 失败阶段（llm_generate / topic_check / structure_check / quiz_check / generation）
+        - timestamp: ISO 8601 UTC 时间，前端展示失败时间
+        - raw_error: 原始异常 / 技术信息，供排查（前端折叠展示）
+        """
+        item: dict = {
+            "resource_type": rtype,
+            "error": error,
+            "stage": stage,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        detail_text = _reason_text(detail)
+        if detail_text:
+            item["detail"] = detail_text
+        if raw_error is not None:
+            item["raw_error"] = _reason_text(raw_error)
+        return item
+
     async def process(self, state: dict) -> dict:
         """生成个性化学习资源。
 
@@ -491,26 +529,50 @@ class GenerationAgent(BaseAgent):
                 # 解析失败（_parse_error）或空内容同样按失败处理，不当作资源
                 if not result or result.get("_parse_error"):
                     self.log(f"⚠️ {rtype} 类型资源生成解析失败，跳过")
-                    errors.append({"resource_type": rtype, "error": "json_parse_failed"})
+                    errors.append(
+                        self._build_generation_error(
+                            rtype,
+                            "json_parse_failed",
+                            detail=(
+                                "生成结果解析失败：LLM 返回内容无法解析"
+                                "为有效的结构化 JSON，已跳过该资源。"
+                            ),
+                            stage="llm_generate",
+                            raw_error=(
+                                result.get("_parse_error")
+                                if isinstance(result, dict)
+                                else "LLM 返回空内容"
+                            ),
+                        )
+                    )
                     continue
                 # 主题漂移自检兜底：重试仍无法对齐原始课题 → 丢弃，绝不把跑偏内容返回前端
                 drift_error = result.get("_topic_drift_error")
                 if drift_error:
                     self.log(f"⚠️ {rtype} 类型资源主题漂移，丢弃: {drift_error}")
                     errors.append(
-                        {"resource_type": rtype, "error": "topic_drift", "detail": drift_error}
+                        self._build_generation_error(
+                            rtype,
+                            "topic_drift",
+                            detail=drift_error,
+                            stage="topic_check",
+                            raw_error=drift_error,
+                        )
                     )
                     continue
                 # A档结构后置校验兜底：机器人领域资源未通过确定性结构校验 → 丢弃
                 structure_error = result.get("_structure_validation_error")
                 if structure_error:
                     self.log(f"⚠️ {rtype} 类型资源结构校验未通过，丢弃: {structure_error}")
+                    structure_reason = _reason_text(structure_error)
                     errors.append(
-                        {
-                            "resource_type": rtype,
-                            "error": "structure_validation",
-                            "detail": structure_error,
-                        }
+                        self._build_generation_error(
+                            rtype,
+                            "structure_validation",
+                            detail=f"结构校验未通过：{structure_reason}",
+                            stage="structure_check",
+                            raw_error=structure_reason,
+                        )
                     )
                     continue
                 # 与 schemas.GeneratedResource 对齐：resource_id / learner_id /
@@ -521,11 +583,13 @@ class GenerationAgent(BaseAgent):
                         "Quiz generation requires review before it can be automatically scored."
                     )
                     errors.append(
-                        {
-                            "resource_type": rtype,
-                            "error": "invalid_quiz_contract",
-                            "detail": quiz_validation_error,
-                        }
+                        self._build_generation_error(
+                            rtype,
+                            "invalid_quiz_contract",
+                            detail=quiz_validation_error,
+                            stage="quiz_check",
+                            raw_error=quiz_validation_error,
+                        )
                     )
                     result["quiz_validation_status"] = "needs_review"
                     result["quiz_validation_error"] = quiz_validation_error
@@ -565,17 +629,28 @@ class GenerationAgent(BaseAgent):
                 # guide 结构缺失章节：保留资源的同时，把缺失项写入 generation_errors 供前端/下游感知
                 missing_sections = result.get("structure_missing_sections")
                 if missing_sections:
+                    missing_reason = _reason_text(missing_sections)
                     errors.append(
-                        {
-                            "resource_type": rtype,
-                            "error": "structure_sections_missing",
-                            "detail": missing_sections,
-                        }
+                        self._build_generation_error(
+                            rtype,
+                            "structure_sections_missing",
+                            detail=f"缺少安全相关章节：{missing_reason}",
+                            stage="structure_check",
+                            raw_error=missing_reason,
+                        )
                     )
             except Exception as e:
                 # 单个资源生成失败不阻断其他资源
                 self.log(f"⚠️ {rtype} 类型资源生成失败: {e}")
-                errors.append({"resource_type": rtype, "error": str(e)})
+                errors.append(
+                    self._build_generation_error(
+                        rtype,
+                        str(e),
+                        detail=f"生成异常：{type(e).__name__}：{e}",
+                        stage="generation",
+                        raw_error=str(e),
+                    )
+                )
 
         # ── 无素材自生成后处理：打免责标记（citations 置空 + 内容头部声明非权威）──
         if no_kb_mode:

@@ -135,6 +135,15 @@ type KnowledgePointView = KnowledgePoint & {
   reason?: string;
 };
 
+type GenerationErrorItem = {
+  resource_type?: string;
+  error?: string;
+  detail?: string | string[];
+  stage?: string;
+  timestamp?: string;
+  raw_error?: string;
+};
+
 type GenerationResult = {
   task_id?: string;
   status?: string;
@@ -142,7 +151,7 @@ type GenerationResult = {
   resources?: GeneratedResource[];
   audit?: Array<{ resource_index?: number; resource_type?: string; verdict?: string; issues?: Array<{ detail?: string }> }>;
   agent_log?: Array<{ agent?: string; status?: string }>;
-  generation_errors?: Array<{ resource_type?: string; error?: string; detail?: string }>;
+  generation_errors?: GenerationErrorItem[];
   mode?: "demo" | "api";
 };
 
@@ -193,16 +202,103 @@ const resourceLabel = (type: string) => {
   return resourceOptions.find((option) => option.id === type)?.label ?? type;
 };
 
-const generationErrorMessage = (item: { resource_type?: string; error?: string; detail?: string }) => {
-  if (item.resource_type === "quiz" && item.error === "invalid_quiz_contract") {
-    const detail = item.detail ? ` \u5177\u4f53\u539f\u56e0\uff1a${decodeEscapedText(item.detail)}\u3002` : "";
-    return "\u6d4b\u8bd5\u9898\u5df2\u751f\u6210\uff0c\u4f46\u6682\u4e0d\u7b26\u5408\u81ea\u52a8\u8bc4\u5206\u6761\u4ef6\u3002" + detail;
+const generationErrorIsSoft = (item: GenerationErrorItem) =>
+  item.error === "invalid_quiz_contract" || item.error === "structure_sections_missing";
+
+const generationErrorDetail = (item: GenerationErrorItem) => {
+  const detail = item.detail;
+  if (Array.isArray(detail)) {
+    const joined = detail.map((part) => decodeEscapedText(part)).filter(Boolean).join("\uff1b");
+    if (joined) return joined;
+  } else if (typeof detail === "string" && detail.trim()) {
+    return decodeEscapedText(detail);
   }
-  if (item.error === "structure_sections_missing") {
-    return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u5df2\u751f\u6210\uff0c\u4f46\u7f3a\u5c11\u5b89\u5168\u76f8\u5173\u7ae0\u8282\uff08\u5df2\u6807\u8bb0\u5f85\u8865\u5168\uff09\u3002";
-  }
-  return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u672a\u751f\u6210\uff1a" + decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
+  return decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
 };
+
+const generationErrorTitle = (item: GenerationErrorItem) => {
+  if (item.error === "invalid_quiz_contract") return "\u6d4b\u8bd5\u9898\u5df2\u751f\u6210\uff0c\u4f46\u6682\u4e0d\u7b26\u5408\u81ea\u52a8\u8bc4\u5206\u6761\u4ef6";
+  if (item.error === "structure_sections_missing") return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u5df2\u751f\u6210\uff0c\u4f46\u7f3a\u5c11\u5b89\u5168\u76f8\u5173\u7ae0\u8282";
+  return resourceLabel(item.resource_type || "\u8d44\u6e90") + "\u672a\u751f\u6210";
+};
+
+const stageLabel = (stage?: string) => {
+  switch (stage) {
+    case "llm_generate": return "LLM \u751f\u6210";
+    case "topic_check": return "\u4e3b\u9898\u6821\u9a8c";
+    case "structure_check": return "\u7ed3\u6784\u6821\u9a8c";
+    case "quiz_check": return "\u6d4b\u8bd5\u9898\u6821\u9a8c";
+    case "generation": return "\u751f\u6210\u9636\u6bb5";
+    default: return stage || "\u672a\u77e5\u9636\u6bb5";
+  }
+};
+
+const formatErrorTime = (timestamp?: string) => {
+  if (!timestamp) return "\u672a\u77e5";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return timestamp;
+  return date.toLocaleString();
+};
+
+function GenerationFailures({ errors, onRegenerate }: { errors: GenerationErrorItem[]; onRegenerate: () => void }) {
+  const [acknowledged, setAcknowledged] = useState<Record<number, boolean>>({});
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  if (!errors.length) return null;
+  const activeCount = errors.filter((_item, index) => !acknowledged[index]).length;
+
+  return (
+    <div className="mt-4 grid gap-3">
+      {activeCount > 0 ? (
+        <div className="flex items-start gap-3 rounded-xl border border-red-400/40 bg-red-400/15 px-4 py-3 text-sm leading-6 text-red-50">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">{activeCount}{" \u4e2a\u8d44\u6e90\u751f\u6210\u5931\u8d25"}</span>
+            <span className="ml-1 text-red-50/75">{"\uff0c\u672a\u751f\u6210\u7684\u8d44\u6e90\u4e0d\u4f1a\u51fa\u73b0\u5728\u4e0a\u65b9\u6807\u7b7e\uff0c\u5df2\u751f\u6210\u8d44\u6e90\u4e0d\u53d7\u5f71\u54cd\u3002\u70b9\u300c\u67e5\u770b\u8be6\u60c5\u300d\u53ef\u6eaf\u6e90\u3002"}</span>
+          </p>
+        </div>
+      ) : (
+        <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/60">{"\u5931\u8d25\u63d0\u793a\u5df2\u786e\u8ba4\u3002"}</p>
+      )}
+
+      {errors.map((item, index) => {
+        if (acknowledged[index]) return null;
+        const soft = generationErrorIsSoft(item);
+        const open = Boolean(expanded[index]);
+        const reason = generationErrorDetail(item);
+        return (
+          <div key={index} className={`rounded-xl border px-4 py-3 text-sm leading-6 ${soft ? "border-amber-300/30 bg-amber-300/10 text-amber-50" : "border-red-400/40 bg-red-400/15 text-red-50"}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">{generationErrorTitle(item)}</p>
+                {reason ? <p className="mt-1 text-xs leading-5 opacity-80">{reason}</p> : null}
+              </div>
+              <button className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/20" onClick={() => setExpanded((current) => ({ ...current, [index]: !current[index] }))} type="button">
+                {open ? "\u6536\u8d77\u8be6\u60c5" : "\u67e5\u770b\u8be6\u60c5"}{open ? <ArrowUp size={14} strokeWidth={2} /> : <ArrowDown size={14} strokeWidth={2} />}
+              </button>
+            </div>
+            {open ? (
+              <div className="mt-3 grid gap-2 rounded-lg bg-black/20 p-3 text-xs leading-5">
+                <p><span className="font-semibold">{"\u5931\u8d25\u539f\u56e0\uff1a"}</span>{reason || "\u672a\u77e5"}</p>
+                <p><span className="font-semibold">{"\u5931\u8d25\u9636\u6bb5\uff1a"}</span>{stageLabel(item.stage)}</p>
+                <p><span className="font-semibold">{"\u5931\u8d25\u65f6\u95f4\uff1a"}</span>{formatErrorTime(item.timestamp)}</p>
+                {item.raw_error ? (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer font-semibold text-white/70">{"\u539f\u59cb\u9519\u8bef\uff08\u6280\u672f\u6392\u67e5\uff09"}</summary>
+                    <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-all rounded bg-black/30 p-2 font-mono text-[11px] leading-5 text-white/70">{String(item.raw_error)}</pre>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="mt-3 flex gap-2">
+              <button className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold transition hover:bg-white/20" onClick={() => setAcknowledged((current) => ({ ...current, [index]: true }))} type="button">{"\u77e5\u9053\u4e86"}</button>
+              <button className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={onRegenerate} type="button">{"\u91cd\u65b0\u751f\u6210"}</button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // \u2500\u2500 \u4e09\u671f-2\uff1a\u8584\u5f31\u70b9\u8bca\u65ad\u589e\u5f3a + \u5b66\u4e60\u8def\u5f84\u56fe\u8c31\uff08\u786e\u5b9a\u6027\u89c4\u5219\uff0c\u4e0d\u8c03 LLM\uff09\u2500\u2500
 
@@ -1658,6 +1754,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [resourceReady, setResourceReady] = useState(false);
   const [selectedResource, setSelectedResource] = useState<string | null>(null);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
+  const [generationSeq, setGenerationSeq] = useState(0);
   const [coreMap, setCoreMap] = useState<CoreMap | null>(null);
   const [quizAttempts, setQuizAttempts] = useState<Record<string, QuizAttempt>>({});
   const [safetyAckResource, setSafetyAckResource] = useState<string | null>(null);
@@ -2047,19 +2144,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setGeneratorOpen(false);
     setWorkspaceOpen(true);
   };
-  const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const goalForGeneration = goalForGenerationRef.current ?? learningGoal.trim();
-    if (confirmedGoal !== goalForGeneration) {
-      const assessment = await assessLearningGoal(goalForGeneration);
-      if (assessment.status === "needs_clarification") {
-        setClarification({ reason: assessment.reason, questions: assessment.questions });
-        setClarificationAnswers({});
-        return;
-      }
-      setConfirmedGoal(goalForGeneration);
-    }
-
+  const performGeneration = async (goalForGeneration: string) => {
     const apiBase = getApiBase();
     const payload = {
       learning_goal: goalForGeneration,
@@ -2072,7 +2157,6 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       pretest_results: [],
       resource_types: resourceTypes,
     };
-    goalForGenerationRef.current = null;
 
     setIsGenerating(true);
     stopWorkflowRef.current?.();
@@ -2156,6 +2240,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     ));
     setWorkflowMode("complete");
     setGenerationResult(result);
+    setGenerationSeq((n) => n + 1);
     setQuizAttempts({});
     setResourceReady(true);
     setSelectedResource(result.resources?.[0]?.resource_type ?? resourceTypes[0] ?? null);
@@ -2163,6 +2248,21 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     await new Promise((resolve) => window.setTimeout(resolve, 450));
     setGenerationProgressOpen(false);
     setWorkspaceOpen(true);
+  };
+  const submitGeneration = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const goalForGeneration = goalForGenerationRef.current ?? learningGoal.trim();
+    if (confirmedGoal !== goalForGeneration) {
+      const assessment = await assessLearningGoal(goalForGeneration);
+      if (assessment.status === "needs_clarification") {
+        setClarification({ reason: assessment.reason, questions: assessment.questions });
+        setClarificationAnswers({});
+        return;
+      }
+      setConfirmedGoal(goalForGeneration);
+    }
+    goalForGenerationRef.current = null;
+    await performGeneration(goalForGeneration);
   };
   const toggleResourceType = (item: string) => {
     setResourceTypes((current) => current.includes(item) ? (current.length === 1 ? current : current.filter((type) => type !== item)) : [...current, item]);
@@ -2320,7 +2420,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         {workspaceOpen ? (
           <>
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
-            <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] p-6 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:p-9 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
+            <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] px-6 pb-6 pt-24 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-9 sm:pb-9 sm:pt-24 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
                {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} backendDemoMode={backendDemoMode} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
@@ -2341,7 +2441,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                         </button>
                        ))}
                      </div>
-                     {generationResult.generation_errors?.length ? <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm leading-6 text-amber-50">{generationResult.generation_errors.map(generationErrorMessage).join("\n")}</div> : null}
+                     {generationResult.generation_errors?.length ? <GenerationFailures key={generationSeq} errors={generationResult.generation_errors} onRegenerate={() => { void performGeneration(topic || learningGoal.trim()); }} /> : null}
                   </div>
                   <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={exportGeneratedResources} type="button"><Download size={16} strokeWidth={1.9} />导出全部资源</button>
                   {selectedResource ? (() => {
