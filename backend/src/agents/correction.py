@@ -1344,14 +1344,17 @@ guide（实操指南），缺失以下强制章节：
                 )
             elif decision == "replace":
                 if kb_text:
-                    replacement = f"{kb_text} {source}"
+                    # 压平换行 + 截断：避免把整段 KB markdown（含多行标题/来源）内联进正文
+                    kb_flat = re.sub(r"\s+", " ", kb_text).strip()
+                    kb_short = kb_flat[:200] + ("…" if len(kb_flat) > 200 else "")
+                    replacement = f"{kb_short} {source}"
                     if claim in new_content:
                         new_content = new_content.replace(claim, replacement, 1)
                         action = "replaced"
                     else:
                         note = (
                             f"\n\n> ⚠️ 更正声明：原文「{claim}」未能定位，"
-                            f"按 KB 修正为「{kb_text}」{source}"
+                            f"按 KB 修正为「{kb_short}」{source}"
                         )
                         if note not in new_content:
                             new_content = (new_content.rstrip() + note).strip()
@@ -1490,7 +1493,9 @@ guide（实操指南），缺失以下强制章节：
             add(statement, source, adj.get("doc_id", ""), adj.get("chunk_index"))
 
         for fc in (audit_report or {}).get("fact_check", {}).get("items", []) or []:
-            if fc.get("is_accurate") is False:
+            # 只收「准确」断言；unverifiable/partially_supported（is_accurate=None）
+            # 不被绑为事实点，避免「刚被裁决删除的断言又被绑进溯源」的矛盾
+            if fc.get("is_accurate") is not True:
                 continue
             add(
                 fc.get("claim", ""),
@@ -1509,8 +1514,15 @@ guide（实操指南），缺失以下强制章节：
             loc = f"{loc}#chunk_{chunk}"
         elif not loc:
             loc = "未标注"
-        source_part = point.get("source_text") or "暂无权威参考，建议补充学习"
-        return f"- 【生成陈述】{point.get('statement')}【KB原文出处】{source_part}【来源】{loc}"
+        statement = re.sub(r"\s+", " ", str(point.get("statement") or "")).strip()
+        source_part = (
+            re.sub(r"\s+", " ", str(point.get("source_text") or "")).strip()
+            or "暂无权威参考，建议补充学习"
+        )
+        # 截断，避免「生成陈述」与「KB原文出处」两栏都整段重复 KB 全文导致溯源块膨胀
+        statement = statement[:120] + ("…" if len(statement) > 120 else "")
+        source_part = source_part[:120] + ("…" if len(source_part) > 120 else "")
+        return f"- 【生成陈述】{statement}【KB原文出处】{source_part}【来源】{loc}"
 
     @staticmethod
     def _bind_traceability(content: str, fact_points: list[dict]) -> tuple[str, list[str]]:

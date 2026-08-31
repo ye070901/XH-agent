@@ -285,10 +285,12 @@ class AuditAgent(BaseAgent):
 
     def _fallback_extract_claims(self, content: str) -> list[str]:
         """规则兜底：按句子边界切分，过滤过短/纯标题句。"""
-        # 去掉 markdown 标题、代码块、链接
+        # 去掉 markdown 标题、代码块、链接、引用块
         text = re.sub(r"```.*?```", " ", content, flags=re.DOTALL)
         text = re.sub(r"^#{1,6}\s+.*$", " ", text, flags=re.MULTILINE)
         text = re.sub(r"\[[^\]]*\]\([^)]*\)", " ", text)
+        # 引用块（难度/风格/摘要/安全提示等元数据与警示标注）不是可验证事实断言，剔除
+        text = re.sub(r"^[ \t]*>.*$", " ", text, flags=re.MULTILINE)
 
         sentences = [s.strip() for s in re.split(r"[。！？!?\n]+", text) if s.strip()]
         claims = [s for s in sentences if len(s) >= 8]
@@ -297,6 +299,35 @@ class AuditAgent(BaseAgent):
     # ═══════════════════════════════════════════════════════════
     # 2. 收集 KB 证据（逐条检索 + 复用 retrieved_chunks）
     # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _strip_doc_metadata(text: str) -> str:
+        """剥掉 KB chunk 开头的文档元数据头（# 标题 + - **key**：value + --- + ## 正文）。
+
+        仅当 chunk 以「# 标题」开头、且其后紧跟元数据 bullet 行时才剥离；
+        正文 chunk（以 ### 小节标题或正文段落开头）原样保留，避免误删小节标题。
+        这样证据（support/contradict）不再夹带文档自身的来源/日期/摘要元数据。
+        """
+        lines = str(text or "").split("\n")
+        i = 0
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+        if i >= len(lines) or not re.match(r"^\s*#\s+", lines[i]):
+            return text  # 非文档标题开头，不动
+        i += 1
+        while i < len(lines) and not lines[i].strip():
+            i += 1
+        if i >= len(lines) or not re.match(r"^\s*-\s*\*\*[^*]+\*\*\s*[：:]", lines[i].strip()):
+            return text  # 标题后不是元数据行 → 是正文标题，不动
+        while i < len(lines) and re.match(r"^\s*-\s*\*\*[^*]+\*\*\s*[：:]", lines[i].strip()):
+            i += 1
+        while i < len(lines):
+            s = lines[i].strip()
+            if not s or re.match(r"^---+\s*$", s) or re.match(r"^##\s*正文\s*$", s):
+                i += 1
+            else:
+                break
+        return "\n".join(lines[i:]).strip()
 
     async def _collect_evidence(
         self, claims: list[str], retrieved_chunks: list[dict]
@@ -307,7 +338,7 @@ class AuditAgent(BaseAgent):
         def _add(chunk: dict) -> None:
             if not isinstance(chunk, dict):
                 return
-            content = str(chunk.get("content") or "").strip()
+            content = self._strip_doc_metadata(str(chunk.get("content") or "")).strip()
             if not content:
                 return
             key = (
