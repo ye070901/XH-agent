@@ -824,6 +824,7 @@ function GlobalSearch() {
   const [instructionIndex, setInstructionIndex] = useState<GlobalInstructionHit[]>([]);
   const [docHits, setDocHits] = useState<GlobalDocumentHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [detail, setDetail] = useState<{ title: string; content: string; source: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -879,6 +880,21 @@ function GlobalSearch() {
     };
   }, []);
 
+  async function openDetail(path: string, fallbackTitle: string, source: string) {
+    setOpen(false);
+    try {
+      const res = await fetch(`${getApiBase()}${path}`);
+      const data = res.ok ? await res.json() : null;
+      setDetail({
+        title: data?.title || data?.doc_title || fallbackTitle,
+        content: data?.content || "加载失败，请稍后重试。",
+        source,
+      });
+    } catch {
+      setDetail({ title: fallbackTitle, content: "加载失败，请稍后重试。", source });
+    }
+  }
+
   const q = query.trim();
   const ql = q.toLowerCase();
   const alarmHits = ql
@@ -915,13 +931,13 @@ function GlobalSearch() {
             <div className="mt-1">
               <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"报警排查"}</p>
               {alarmHits.map((e, i) => (
-                <a key={`alm-${i}`} href={`/api/knowledge/alarms/${e.brand}/${encodeURIComponent(e.alarm_code ?? "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                <button key={`alm-${i}`} onClick={() => openDetail(`/api/knowledge/alarms/${e.brand}/${encodeURIComponent(e.alarm_code ?? "")}`, e.alarm_code || e.fault_name || "报警文档", `${e.brand ?? ""} · ${e.alarm_code ?? ""}`)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[#192837]/[0.06]" type="button">
                   <span className="rounded-full bg-red-400/15 px-2 py-0.5 text-xs font-semibold text-red-600">{e.brand ?? ""}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[#192837]">{e.alarm_code}</span>
                     <span className="block truncate text-xs text-[#192837]/55">{e.fault_name || e.symptom || e.doc_title}</span>
                   </span>
-                </a>
+                </button>
               ))}
             </div>
           ) : null}
@@ -929,13 +945,13 @@ function GlobalSearch() {
             <div className="mt-2">
               <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"指令速查"}</p>
               {instructionHits.map((e, i) => (
-                <a key={`ins-${i}`} href={`/api/knowledge/instructions/${e.brand}/${encodeURIComponent(e.instruction ?? "")}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                <button key={`ins-${i}`} onClick={() => openDetail(`/api/knowledge/instructions/${e.brand}/${encodeURIComponent(e.instruction ?? "")}`, e.instruction || "指令文档", `${e.brand ?? ""} · ${e.instruction ?? ""}`)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-[#192837]/[0.06]" type="button">
                   <span className="rounded-full bg-amber-400/20 px-2 py-0.5 text-xs font-semibold text-amber-700">{e.brand ?? ""}</span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[#192837]">{e.instruction}</span>
                     <span className="block truncate text-xs text-[#192837]/55">{e.doc_title}</span>
                   </span>
-                </a>
+                </button>
               ))}
             </div>
           ) : null}
@@ -943,13 +959,28 @@ function GlobalSearch() {
             <div className="mt-2">
               <p className="px-3 py-2 text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{"知识文档"}</p>
               {docHits.map((e, i) => (
-                <a key={`doc-${i}`} href={`/api/knowledge/documents/${encodeURIComponent(e.doc_id ?? "")}`} target="_blank" rel="noreferrer" className="block rounded-xl px-3 py-2 transition hover:bg-[#192837]/[0.06]">
+                <button key={`doc-${i}`} onClick={() => openDetail(`/api/knowledge/documents/${encodeURIComponent(e.doc_id ?? "")}`, e.doc_title || e.doc_id || "知识文档", e.doc_title || e.doc_id || "知识文档")} className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-[#192837]/[0.06]" type="button">
                   <span className="block truncate text-sm font-semibold text-[#192837]">{e.doc_title || e.doc_id}</span>
                   <span className="block truncate text-xs text-[#192837]/55">{e.content}</span>
-                </a>
+                </button>
               ))}
             </div>
           ) : null}
+        </div>
+      ) : null}
+      {detail ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-8">
+          <button aria-label="关闭详情" className="absolute inset-0 bg-[#192837]/40 backdrop-blur-[4px]" onClick={() => setDetail(null)} type="button" />
+          <div className="relative flex max-h-[85dvh] w-full max-w-[720px] flex-col overflow-hidden rounded-[1.75rem] bg-[#F2F2EE] shadow-[0_28px_100px_rgba(25,40,55,0.34)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[#192837]/10 px-6 py-5 sm:px-8">
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold tracking-[0.12em] text-[#192837]/50">{detail.source}</p>
+                <h2 className="mt-1 truncate font-[var(--font-heading)] text-xl leading-tight text-[#192837]">{detail.title}</h2>
+              </div>
+              <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition hover:bg-[#192837]/[0.15]" onClick={() => setDetail(null)} type="button"><X size={20} strokeWidth={1.8} /></button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5 text-sm leading-7 text-[#192837]/80 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#192837] [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#192837] [&_h4]:mt-3 [&_h4]:font-semibold [&_h4]:text-[#192837] [&_p]:my-2 [&_ul]:my-3 [&_ol]:my-3 [&_li]:my-1 sm:px-8" dangerouslySetInnerHTML={{ __html: renderDocumentMarkdown(detail.content) }} />
+          </div>
         </div>
       ) : null}
     </div>
@@ -2081,7 +2112,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       </motion.video>
       <div className="absolute inset-0 z-[1] bg-[#F2F2EE]/[0.14]" />
 
-      <header className="relative z-10 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 max-[1023px]:[&>div]:hidden lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
+      <header className="relative z-50 mx-auto flex max-w-[1280px] items-center justify-between px-5 py-4 max-[1023px]:[&>div]:hidden lg:[&>div>button]:px-3 lg:[&>div>button]:py-2 lg:[&>div>button]:text-xs xl:[&>div>button]:px-5 xl:[&>div>button]:py-2.5 xl:[&>div>button]:text-sm sm:px-8 sm:py-5">
         {!schemeB ? <BrandMark /> : null}
         <nav className={`hidden items-center gap-5 text-[15px] lg:flex xl:gap-7 xl:text-base ${schemeB ? "absolute left-1/2 -translate-x-1/2" : ""}`} aria-label="Primary navigation">
           {navigation.map((item, index) => <button className={`relative whitespace-nowrap px-1 py-2 font-semibold leading-none transition-colors after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-4 after:-translate-x-1/2 after:rounded-full after:transition-transform ${activePanel === panelIds[index] ? "text-[#192837] after:scale-x-100 after:bg-[#7342E2]" : "text-[#192837]/60 after:scale-x-0 hover:text-[#192837]"}`} key={item} onClick={() => selectPanel(index)} type="button">{item}</button>)}
