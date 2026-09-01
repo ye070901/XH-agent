@@ -50,8 +50,6 @@ class ResourceType(str, Enum):
     LECTURE = "lecture"
     GUIDE = "guide"
     QUIZ = "quiz"
-    CASE_STUDY = "case_study"
-    MICRO_PROJECT = "micro_project"
     PROJECT = "project"
     PITFALL_GUIDE = "pitfall_guide"
 
