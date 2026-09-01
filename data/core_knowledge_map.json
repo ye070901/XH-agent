@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "工业机器人编程与调试核心知识点清单",
-    "version": "2.0",
+    "version": "2.1",
     "domain": "FANUC / KUKA / ABB 工业机器人编程与调试",
     "coverage_levels": [
       "core",
@@ -772,6 +772,143 @@
           "source_documents": [
             "data/raw/K1_robot_base/K1_20260827_010_payload_inertia_model.md",
             "data/raw/K1_robot_base/K1_20260827_013_nist_robot_cell_calibration.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "K12",
+      "name": "AI 机器人与智能应用",
+      "knowledge_points": [
+        {
+          "id": "K12-STANDARD-001",
+          "topic": "AI 视觉基础",
+          "level": "standard",
+          "aliases": [
+            "AI视觉",
+            "机器视觉成像",
+            "深度学习视觉",
+            "工业视觉"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_basic/K4B_20260829_001_machine_vision_imaging_basics.md",
+            "data/raw/K4_ai_robotics_basic/K4B_20260829_002_deep_learning_industrial_vision_basics.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-002",
+          "topic": "AI 机器人系统架构与部署",
+          "level": "standard",
+          "aliases": [
+            "AI系统架构",
+            "边缘部署",
+            "数据管道",
+            "AI机器人术语"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_basic/K4B_20260829_003_ai_robot_system_architecture.md",
+            "data/raw/K4_ai_robotics_basic/K4B_20260829_004_core_terms_glossary.md",
+            "data/raw/K4_ai_robotics_basic/K4B_20260829_005_data_pipeline_edge_deploy_basics.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-003",
+          "topic": "AI 视觉标定与引导",
+          "level": "standard",
+          "aliases": [
+            "AI标定",
+            "视觉引导",
+            "3D引导",
+            "位姿估计",
+            "3D匹配"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_001_abb_integrated_vision_ai_calibration.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_005_cognex_3d_robot_guidance_acceptance.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_006_mvtec_halcon_3d_matching_robot.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_019_hand_eye_calibration_transform.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_020_3d_pose_grasp_candidate.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-004",
+          "topic": "AI 仿真与 sim2real",
+          "level": "standard",
+          "aliases": [
+            "sim2real",
+            "Isaac",
+            "虚拟调试",
+            "数字孪生"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_003_nvidia_isaac_manipulator_ros2_pipeline.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_007_abb_robotstudio_ai_virtual_commissioning.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_008_nvidia_isaac_lab_sim2real_gate.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-005",
+          "topic": "AI 预测性维护",
+          "level": "standard",
+          "aliases": [
+            "预测性维护",
+            "ZDT",
+            "异常检测"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_004_fanuc_zdt_anomaly_maintenance_workflow.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-006",
+          "topic": "AI 安全与 PLC 集成",
+          "level": "standard",
+          "aliases": [
+            "AI安全",
+            "PLC握手",
+            "安全集成"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_002_siemens_robot_pick_ai_plc_handshake.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_009_ur_ai_accelerator_safety_integration.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-007",
+          "topic": "AI 实时性能与运动规划",
+          "level": "standard",
+          "aliases": [
+            "实时性能",
+            "运动规划",
+            "碰撞检测",
+            "ROS2实时"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_010_abb_high_speed_alignment_latency.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_021_motion_planning_collision_gate.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_022_ros2_industrial_robot_realtime.md"
+          ]
+        },
+        {
+          "id": "K12-STANDARD-008",
+          "topic": "行业 AI 应用场景",
+          "level": "standard",
+          "aliases": [
+            "汽车焊接检测",
+            "精密装配",
+            "智能工厂",
+            "物流码垛",
+            "行业应用"
+          ],
+          "source_documents": [
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_011_automotive_ai_weld_inspection.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_012_electronics_ai_precision_assembly.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_013_hazardous_industry_ai_inspection.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_014_smart_factory_ai_robot_cell.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_015_logistics_ai_palletizing.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_016_pharma_lab_robot_ai.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_017_food_ai_robot_sorting.md",
+            "data/raw/K4_ai_robotics_practical/K4P_20260828_018_energy_ai_robot_inspection.md"
           ]
         }
       ]
