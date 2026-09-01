@@ -1,0 +1,2605 @@
+{
+  "meta": {
+    "endpoint": "http://localhost:8000/api/generate",
+    "resource_types": [
+      "lecture",
+      "guide",
+      "quiz"
+    ]
+  },
+  "samples": [
+    {
+      "profile_id": "profile-d-zero-basis",
+      "label": "D 纯零基础·行业外转行",
+      "input": {
+        "name": "画像D",
+        "education_level": "high_school",
+        "major": "市场营销",
+        "school": "普通高中",
+        "work_years": 0,
+        "industry": "餐饮服务",
+        "positions": [
+          "门店店员"
+        ],
+        "skills_used": [],
+        "learning_goal": "从零了解工业机器人是什么、能做什么，找到入门方向",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 5,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 5,
+              "运动指令": 5,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 0,
+              "安全急停链路": 10
+            },
+            "completed_at": "2026-08-14T09:00:00+08:00"
+          }
+        ]
+      },
+      "request": {
+        "name": "画像D",
+        "education_level": "high_school",
+        "major": "市场营销",
+        "school": "普通高中",
+        "work_years": 0,
+        "industry": "餐饮服务",
+        "positions": [
+          "门店店员"
+        ],
+        "skills_used": [],
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 5,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 5,
+              "运动指令": 5,
+              "RobotStudio仿真": 0,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 0,
+              "安全急停链路": 10
+            }
+          }
+        ],
+        "learning_goal": "从零了解工业机器人是什么、能做什么，找到入门方向",
+        "resource_types": [
+          "lecture",
+          "guide",
+          "quiz"
+        ]
+      },
+      "http_status": 200,
+      "response": {
+        "task_id": "96096cba-284a-48b4-a4e6-f43b036d5edf",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "工业机器人基本概念": {
+              "level": 0.1,
+              "confidence": 0.7,
+              "evidence": "前置测试总分仅5/120，且无任何相关学历或工作经历，表明对工业机器人几乎无基础认知"
+            },
+            "机器人坐标系": {
+              "level": 0.05,
+              "confidence": 0.8,
+              "evidence": "前置测试该知识点得分5/100，为最低档，且无相关背景支撑"
+            },
+            "运动指令": {
+              "level": 0.05,
+              "confidence": 0.8,
+              "evidence": "前置测试该知识点得分5/100，与坐标系得分一致，显示完全未掌握"
+            },
+            "RobotStudio仿真": {
+              "level": 0.0,
+              "confidence": 0.9,
+              "evidence": "前置测试该知识点得分0/100，明确显示零基础"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.0,
+              "confidence": 0.9,
+              "evidence": "前置测试该知识点得分0/100，明确显示零基础"
+            },
+            "安全急停链路": {
+              "level": 0.1,
+              "confidence": 0.7,
+              "evidence": "前置测试该知识点得分10/100，略高于其他项，但仍在极低水平，可能仅有模糊概念"
+            },
+            "工业机器人应用场景": {
+              "level": 0.05,
+              "confidence": 0.6,
+              "evidence": "学习目标为'从零了解工业机器人是什么、能做什么'，结合测试低分，推断对应用场景认知极为有限"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.0,
+              "confidence": 0.9,
+              "evidence": "前置测试实测「SRVO-068数据传输故障」掌握度 0%（0-100 百分制），为客观掌握度"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "ROS2/Gazebo仿真",
+              "current_level": 0.0,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「ROS2/Gazebo仿真」实测得分率 0%，未达中级掌握线（0.65），需优先补强"
+            },
+            {
+              "topic": "RobotStudio仿真",
+              "current_level": 0.0,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「RobotStudio仿真」实测得分率 0%，未达中级掌握线（0.65），需优先补强；仿真软件是零基础学习者最安全的上手途径，但需先掌握基本概念和坐标系后再引入"
+            },
+            {
+              "topic": "SRVO-068数据传输故障",
+              "current_level": 0.0,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「SRVO-068数据传输故障」实测得分率 0%，未达中级掌握线（0.65），需优先补强"
+            },
+            {
+              "topic": "机器人坐标系",
+              "current_level": 0.05,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「机器人坐标系」实测得分率 5%，未达中级掌握线（0.65），需优先补强；坐标系是机器人运动控制的核心基础，前置测试仅5分，必须优先建立关节坐标系、世界坐标系等概念"
+            },
+            {
+              "topic": "运动指令",
+              "current_level": 0.05,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「运动指令」实测得分率 5%，未达中级掌握线（0.65），需优先补强；运动指令是机器人编程的最小单元，测试得分极低，需先理解点位、运动类型（关节/直线）等基本概念"
+            },
+            {
+              "topic": "安全急停链路",
+              "current_level": 0.1,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「安全急停链路」实测得分率 10%，未达中级掌握线（0.65），需优先补强；虽然测试得分略高（10分），但安全知识是实操前提，需在接触实际设备前建立基本安全意识"
+            }
+          ],
+          "learning_style": "visual",
+          "recommended_difficulty": "beginner",
+          "summary": "该学习者为高中市场营销背景、无任何工业机器人相关经验，前置测试仅5/120分，属于完全零基础。学习目标为从零了解工业机器人基本概念与应用场景，寻找入门方向。建议以实践操作为导向，从最基础的概念和坐标系开始，配合仿真软件逐步建立认知框架。（客观证据校正：学习风格由 practice_first 校正为 visual）（客观结论：难度 beginner）",
+          "overall_confidence": 0.8
+        },
+        "resources": [
+          {
+            "title": "工业机器人入门：从零认识机器人是什么、能做什么（零基础可视化版）",
+            "content": "# 工业机器人入门：从零认识机器人是什么、能做什么\n\n> 🎯 **本课目标**：用最直观的方式，带你认识工业机器人是什么、它能做什么，并帮你找到入门方向。\n> 本课面向完全零基础的学习者，全程用图片式思维、生活类比和步骤拆解，不涉及任何复杂代码。\n\n---\n\n## 引言：机器人就像一台聪明的“机械手臂”\n\n\n因为它所有的动作，都需要在一个**特定的坐标系**下进行描述。\n\n> 📌 **记住这句话**：理解并正确设置坐标系，是安全、高效操作机器人的基础。\n\n---\n\n## 第一站：机器人的“地图”——坐标系是什么？\n\n### 1.1 用生活类比理解坐标系\n\n- “椅子在门左边 2 米，靠墙 1 米的地方。”\n\n\n\n### 1.2 机器人的四种“地图”（坐标系）\n\n根据 ISO 10218-1:2025 标准，工业机器人必须具备多种坐标系配置能力。\n\n| 坐标系名称 | 白话解释（它是什么） | 类比 |\n|-----------|---------------------|------|\n| **基坐标系** | 固定在机器人底座上的“地图”，是机器人所有动作的起点参考 | 就像你站在房间门口，以自己为原点描述房间 |\n| **工具坐标系** | 固定在机器人“手”上的“地图”，用来描述工具尖端的位置 | 就像你握着一支笔，以笔尖为原点描述笔尖的移动 |\n| **用户坐标系** | 你自定义的“地图”，可以放在工作台上的任意位置 | 就像你给工作台画了一张专属的格子纸 |\n| **大地坐标系** | 固定在车间地面上的“地图”，是所有机器人的共同参考 | 就像整个工厂的 GPS 定位系统 |\n\n> 🖼️ **视觉化理解**：你可以把机器人想象成一个人。\n> - **基坐标系** = 这个人的脚底（站的地方）\n> - **工具坐标系** = 这个人的手指尖（干活的地方）\n> - **用户坐标系** = 这个人面前的工作桌（干活的范围）\n> - **大地坐标系** = 整个工厂的地面（所有机器人的共同基准）\n\n### 1.3 为什么坐标系这么重要？\n\n因为**机器人的所有运动，都需要在特定坐标系下进行描述**。\n\n---\n\n## 第二站：机器人怎么“动”？——认识运动指令\n\n### 2.1 机器人的“动作指令”是什么？\n\n\n### 2.2 不同品牌的机器人，指令名字不一样\n\n\n| 机器人品牌 | 运动指令示例 | 说明 |\n|-----------|-------------|------|\n| FANUC（发那科） | `J`（关节运动） / `L`（直线运动） | J 像“甩手臂”，L 像“沿直线推手” |\n| ABB | `MoveJ` / `MoveL` | 意思同上，只是叫法不同 |\n\n> 💡 **白话解释**：\n> - **关节运动（J / MoveJ）**：机器人快速地把手从一个点“甩”到另一个点，中间路径不一定是直线。就像你快速挥手。\n> - **直线运动（L / MoveL）**：机器人的手沿着一条直线，精准地从一点移动到另一点。就像你用笔在纸上画一条直线。\n\n### 2.3 机器人怎么知道“点”在哪里？——点位\n\n\n---\n\n## 第三站：机器人能做什么？——认识仿真软件（最安全的上手方式）\n\n### 3.1 为什么要用仿真软件？\n\n\n### 3.2 认识两款主流仿真软件\n\n\n| 对比维度 | ROBOGUIDE | RobotStudio |\n|----------|-----------|-------------|\n| 机器人品牌 | FANUC | ABB |\n| 程序语言 | TP / KAREL | RAPID |\n| 虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件 |\n| 运动指令 | J / L / C | MoveJ / MoveL / MoveC |\n| 工艺包覆盖 | Handling / Welding / Painting / Dispensing | Palletizing / Welding / Painting / Machining |\n\n> 🖼️ **视觉化理解**：\n> - **ROBOGUIDE** = FANUC 机器人的“模拟训练营”\n> - **RobotStudio** = ABB 机器人的“模拟训练营”\n> - 两者都运行“真实控制器固件”，意思是电脑里跑的机器人和工厂里的机器人“脑子”是一样的，练好了就能上手操作真机。\n\n### 3.3 零基础入门路线建议\n\n1. **先学概念**：理解坐标系（本课第一站）和运动指令（本课第二站）。\n2. **再玩仿真**：下载 ROBOGUIDE 或 RobotStudio，在电脑里“玩”虚拟机器人。\n3. **后碰真机**：在仿真里熟练后，再在老师或工程师指导下接触真实机器人。\n\n---\n\n## 第四站：认识一个真实的故障代码——SRVO-068（了解即可）\n\n### 4.1 这是什么？\n\n\n### 4.2 白话解释\n\n- **编码器** = 机器人的“感觉神经”，告诉大脑“我的手现在在哪个位置”。\n- **SRVO-068** = 神经信号传不过来了，大脑不知道手在哪里，所以机器人会停下来报警。\n\n### 4.3 和它相关的另一个代码\n\n- **SRVO-062**：优先检查备份供电与标定。\n- **SRVO-068**：优先检查串行编码器通讯链路。\n\n> 📌 **零基础提示**：现在你只需要知道“机器人会报警，报警有代码，每个代码对应一类问题”即可。具体怎么修，是以后进阶学习的内容。\n\n---\n\n## 总结：今天的收获\n\n| 你学到了什么 | 一句话记住它 |\n|-------------|-------------|\n| 机器人是什么 | 一台装在工厂里的“超级机械手臂” |\n| 坐标系 | 机器人的“地图”，有基、工具、用户、大地四种 |\n| 运动指令 | 告诉机器人怎么动的指令，如 FANUC 的 J/L，ABB 的 MoveJ/MoveL |\n| 仿真软件 | 最安全的上手方式，如 ROBOGUIDE（FANUC）、RobotStudio（ABB） |\n| 故障代码 | 机器人报警时的“暗号”，如 SRVO-068 表示通讯问题 |\n\n> 🚀 **下一步建议**：你已经了解了基本概念，接下来可以尝试下载一款仿真软件（如 ROBOGUIDE 或 RobotStudio），在电脑里创建你的第一个虚拟机器人，试着让它动起来！\n\n---\n\n> ⚠️ **安全提示**：本课为纯概念学习，不涉及实际操作。未来若接触真实机器人，务必在专业人员指导下进行，并严格遵守安全规程。\n\n## 事实溯源\n- 【生成陈述】根据ISO 10218-1:2025标准，工业机器人必须具备多种坐标系配置能力【KB原文出处】ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。【来源】K1_20260811_机器人坐标系_001#chunk_0\n- 【生成陈述】工业机器人有基坐标系、工具坐标系、用户坐标系、大地坐标系四种坐标系【KB原文出处】坐标系层次结构：1. 大地坐标系 (World)；2. 基坐标系 (Base/基座)；3. 用户坐标系 (User Frame/工件坐标)；4. 工具坐标系 (Tool/TCP)【来源】K1_20260811_机器人坐标系_001#chunk_3\n- 【生成陈述】FANUC机器人的运动指令为J（关节运动）和L（直线运动）【KB原文出处】J P[1] 100% FINE ; 关节运动到 P[1]，100% 速度，精确定位；L P[2] 500mm/s FINE ; 直线运动到 P[2]，500mm/s，精确定位【来源】K2_009_fanuc_roboguide_guide#chunk_7\n- 【生成陈述】ABB机器人的运动指令为MoveJ和MoveL【KB原文出处】MoveJ/MoveL/MoveC 三大运动指令【来源】K2_004_abb_rapid_programming_tutorial#chunk_1\n- 【生成陈述】ROBOGUIDE是FANUC机器人的仿真软件，使用TP/KAREL程序语言【KB原文出处】机器人品牌 | FANUC；程序语言 | TP / KAREL【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】RobotStudio是ABB机器人的仿真软件，使用RAPID程序语言【KB原文出处】RobotStudio 是 ABB 官方的离线编程与仿真软件【来源】K2_20260803_001_robotstudio_workstation_setup#chunk_0\n- 【生成陈述】ROBOGUIDE和RobotStudio都运行真实控制器固件【KB原文出处】虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】SRVO-068故障代码表示串行编码器通讯链路问题，SRVO-062优先检查备份供电与标定【KB原文出处】它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。【来源】K3_20260805_002_fanuc_srvo062_bzal_error_fix#chunk_10",
+            "citations": [
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 0,
+                "original_text": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 3,
+                "original_text": "坐标系层次结构：1. 大地坐标系 (World)；2. 基坐标系 (Base/基座)；3. 用户坐标系 (User Frame/工件坐标)；4. 工具坐标系 (Tool/TCP)",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 7,
+                "original_text": "J P[1] 100% FINE ; 关节运动到 P[1]，100% 速度，精确定位；L P[2] 500mm/s FINE ; 直线运动到 P[2]，500mm/s，精确定位",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_004_abb_rapid_programming_tutorial",
+                "doc_title": "K2_004_abb_rapid_programming_tutorial",
+                "chunk_index": 1,
+                "original_text": "MoveJ/MoveL/MoveC 三大运动指令",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "机器人品牌 | FANUC；程序语言 | TP / KAREL",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_20260803_001_robotstudio_workstation_setup",
+                "doc_title": "",
+                "chunk_index": 0,
+                "original_text": "RobotStudio 是 ABB 官方的离线编程与仿真软件",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                "doc_title": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                "chunk_index": 10,
+                "original_text": "它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "理解工业机器人是什么：一台在工厂里自动完成任务的'超级机械手臂'",
+              "掌握机器人四种坐标系（基、工具、用户、大地）的基本概念与生活类比",
+              "认识运动指令（FANUC的J/L、ABB的MoveJ/MoveL）及仿真软件（ROBOGUIDE、RobotStudio）作为最安全的入门途径"
+            ],
+            "_trace": {
+              "sentences_total": 111,
+              "sentences_removed": 24,
+              "kept_ratio": 0.3684,
+              "removed_sentences": [
+                "想象一下，你有一只可以自由转动、伸向各个方向的手臂。",
+                "工业机器人，就是一台装在工厂里的、能自动完成各种任务的“超级机械手臂”。",
+                "它为什么能“听话”地工作？",
+                "就像我们用“前后、左右、上下”来描述一个物体在房间里的位置一样，机器人也需要一套自己的“地图”来知道自己的手该伸到哪里。",
+                "想象你在一个房间里找一把椅子。",
+                "你会怎么说？",
+                "这就是一个坐标系！",
+                "你以“门”和“墙”为参考点，描述了椅子的位置。",
+                "工业机器人也有自己的“房间地图”，它有好几套不同的“地图”，用来描述不同情况下的位置。",
+                "常见的有这几种：",
+                "如果坐标系设错了，机器人就不知道自己的“手”该伸到哪里，可能会撞到东西，甚至发生危险。",
+                "就像你指挥朋友“往前走三步”或“向右转”，机器人也需要指令来告诉它怎么动。",
+                "这些指令是机器人编程的最小单元。",
+                "工业机器人有很多品牌，就像汽车有不同牌子一样。",
+                "不同品牌的机器人，它们的“动作指令”叫法不同，但作用是类似的。",
+                "机器人要动，必须先知道“从哪个点出发，到哪个点去”。",
+                "这个“点”就是用坐标系来描述的。",
+                "所以，**坐标系 + 运动指令 = 机器人动作的基本单元**。",
+                "对于零基础的你来说，直接操作真实的机器人可能会有危险。",
+                "**仿真软件是最安全的上手途径**——它就像一台“电脑里的虚拟机器人”，你可以随便操作，不用担心撞坏机器或伤到人。",
+                "工业机器人领域有两款非常著名的仿真软件，分别对应两大品牌：",
+                "在 FANUC 机器人上，如果机器人的“感觉神经”（编码器）和“大脑”（控制器）之间的通讯出了问题，屏幕上会显示一个报警代码：**SRVO-068**。",
+                "还有一个类似的代码叫 **SRVO-062**。",
+                "两者有分工："
+              ]
+            },
+            "resource_type": "lecture",
+            "resource_id": "8bd4c6a8-daa2-45fa-aeb8-022bb4d9d5a0",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "机器人坐标系",
+              "运动指令",
+              "安全急停链路"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [],
+            "robot_metadata": {
+              "brand": "FANUC",
+              "controller_version": "未标注",
+              "applicable_model": "未标注"
+            },
+            "instruction_links": [
+              {
+                "brand": "ABB",
+                "name": "MoveC",
+                "doc_id": "K1_20260826_ABB RAPID MoveC圆弧运动_029",
+                "doc_title": "ABB RAPID MoveC圆弧运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveJ",
+                "doc_id": "K1_20260826_ABB RAPID MoveJ关节运动_027",
+                "doc_title": "ABB RAPID MoveJ关节运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveL",
+                "doc_id": "K1_20260826_ABB RAPID MoveL直线运动_028",
+                "doc_title": "ABB RAPID MoveL直线运动"
+              }
+            ],
+            "alarm_links": [
+              {
+                "brand": "FANUC",
+                "code": "SRVO-062",
+                "doc_id": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                "doc_title": "FANUC SRVO-062 故障代码解析与处理指南",
+                "fault_name": "BZAL（Battery Zero Alarm）"
+              },
+              {
+                "brand": "FANUC",
+                "code": "SRVO-068",
+                "doc_id": "K3_20260805_001_fanuc_srvo068_error_fix",
+                "doc_title": "FANUC SRVO-068 故障代码解析与处理指南",
+                "fault_name": "DTERR alarm"
+              }
+            ],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "工业机器人入门第一课：坐标系与仿真软件（零基础图解版）",
+            "content": "# 工业机器人入门第一课：坐标系与仿真软件（零基础图解版）\n\n> 🎯 **本课目标**：用最直观的图解方式，带你认识工业机器人是什么、能做什么，并安全地迈出入门第一步——理解坐标系、认识仿真软件。\n\n## 🛡️ 安全第一课（必读）\n\n> ⚠️ **安全红线**：无论用仿真软件还是真实机器人，安全永远是第一位！\n\n### 安全操作确认清单（每次操作前逐项确认）\n\n- [ ] **安全门状态确认**：确认安全门关闭且已锁定\n- [ ] **急停按钮位置确认**：确认急停按钮位置，并确保可随时按下\n- [ ] **使能键使用规范**：确认使能键的使用方法（仅限真实示教器操作）\n- [ ] **工作区间无人员确认**：确认机器人工作区间内无其他人员\n- [ ] **减速模式开启要求**：确认已开启减速模式（如适用）\n\n> ⚠️ **重要提示**：以上安全确认项为通用安全框架。具体安全操作步骤和参数，请务必以对应品牌官方手册为准。\n\n---\n\n## 🖼️ 一、机器人是怎么“知道”自己该去哪的？——坐标系\n\n想象一下：你让朋友帮你拿桌上的水杯，你会说“在我右手边 30 厘米的地方”。这个“右手边 30 厘米”就是一个**坐标系**——它告诉朋友“从哪里出发、往哪个方向、走多远”。\n\n机器人也一样，它所有的运动都需要在一个“尺子”上描述。这把“尺子”就是**坐标系**。\n\n> 📌 **知识来源**：工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。（ISO 10218-1:2025 标准第 5.3 节明确规定了工业机器人必须具备的坐标系配置能力。（来源：K1_20260811_机器人坐标系_001，段落 0））\n\n### 机器人有哪几把“尺子”？\n\n| 坐标系名称 | 白话解释 | 作用 |\n|-----------|---------|------|\n| **基坐标系** | 机器人“脚底下”的固定原点 | 机器人知道自己站在哪里 |\n| **工具坐标系** | 机器人“手抓东西”的那个点 | 机器人知道自己的“手”在哪 |\n| **用户坐标系** | 你给工件“画”的尺子 | 方便你告诉机器人工件在哪 |\n| **大地坐标系** | 整个车间地面的“全球定位” | 让多台设备知道彼此位置 |\n\n> 🖼️ **图解记忆**：把机器人想象成一个人——\n> - **基坐标系** = 他的脚（站的位置）\n> - **工具坐标系** = 他的手心（抓东西的点）\n> - **用户坐标系** = 他面前的桌子（放东西的地方）\n> - **大地坐标系** = 整个房间的地板（大家都在哪里）\n\n### 三大品牌坐标系对比（入门了解即可）\n\n| 品牌 | 坐标系特点 |\n|------|-----------|\n| **FANUC** | 提供 UTOOL（工具坐标系，10个）和 UFRAME（用户坐标系，10个） |\n| **ABB** | 使用 tooldata（工具数据）和 wobjdata（工件数据），数量不限 |\n| **KUKA** | 提供基坐标系、工具坐标系、用户坐标系等（通用原理，具体以对应品牌官方手册为准） |\n\n> ⚠️ **注意**：以上为通用原理介绍，具体品牌操作请以对应品牌官方手册为准。\n\n---\n\n## 🖥️ 二、零基础怎么安全地“玩”机器人？——仿真软件\n\n直接操作真实机器人有风险，而且很贵。**仿真软件**就是你的“安全练习场”——在电脑里模拟真实的机器人，随便试，不会撞坏设备。\n\n### 两大主流仿真软件（入门认识）\n\n| 对比维度 | **ROBOGUIDE** | **RobotStudio** |\n|---------|---------------|-----------------|\n| 机器人品牌 | FANUC | ABB |\n| 程序语言 | TP / KAREL | RAPID |\n| 虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件 |\n| 运动指令 | J / L / C | MoveJ / MoveL / MoveC |\n| 工艺包覆盖 | Handling / Welding / Painting / Dispensing | Palletizing / Welding / Painting / Machining |\n\n> 🖼️ **图解理解**：\n> - **ROBOGUIDE** = FANUC 机器人的“官方模拟器”\n> - **RobotStudio** = ABB 机器人的“官方模拟器”\n> - 两者都运行“真实控制器固件”，意思是电脑里的机器人跟工厂里的真机器人“脑子”一样，练熟了就能上手。\n\n> 💡 **零基础建议**：先确定你想学哪个品牌的机器人，再选对应的仿真软件。选 FANUC 就用 ROBOGUIDE，选 ABB 就用 RobotStudio。\n\n---\n\n## 🧩 三、机器人“动起来”的最小单元——运动指令\n\n机器人怎么动？靠**运动指令**。每条指令就是告诉机器人“去某个点”。\n\n### 两种最基础的运动方式（图解）\n\n| 运动类型 | 白话解释 | FANUC 指令 | ABB 指令 |\n|---------|---------|-----------|----------|\n| **关节运动** | 像甩手臂一样，各关节同时转，路径是弧线 | J | MoveJ |\n| **直线运动** | 像用尺子画线，末端走直线 | L | MoveL |\n\n> 🖼️ **图解记忆**：\n> - **关节运动（J / MoveJ）**：机器人“甩”过去，快但路径是弧线\n> - **直线运动（L / MoveL）**：机器人“描”直线，慢但路径笔直\n\n> ⚠️ **注意**：以上指令名来自知识库资料，具体编程语法请以对应品牌官方手册为准。\n\n---\n\n## 🎓 四、总结与入门方向建议\n\n### 本课核心要点（图解回顾）\n\n1. **坐标系** = 机器人的“尺子”，有基坐标系、工具坐标系、用户坐标系、大地坐标系\n2. **仿真软件** = 安全练习场，FANUC 用 ROBOGUIDE，ABB 用 RobotStudio\n3. **运动指令** = 机器人的“动作指令”，分关节运动（J/MoveJ）和直线运动（L/MoveL）\n\n### 你的下一步入门路径建议\n\n1. **第一步**：确定想学的品牌（FANUC 或 ABB）\n2. **第二步**：下载对应的仿真软件（ROBOGUIDE 或 RobotStudio）\n3. **第三步**：在仿真软件里创建一个简单的机器人工作站\n4. **第四步**：尝试用运动指令让机器人动起来\n5. **第五步**：逐步学习坐标系设置和更多指令\n\n> 💡 **零基础温馨提示**：不要急着碰真实机器人。先在仿真软件里把坐标系和运动指令练熟，这是最安全、最省钱的学习路径。\n\n---\n\n## ❓ 常见问题\n\n**Q1：仿真软件和真实机器人一样吗？**\nA：仿真软件运行真实控制器固件，逻辑和真实机器人一致，但物理环境和真实情况有差异。（来源：K2_009_fanuc_roboguide_guide，段落 23）具体以官方手册为准。\n\n**Q2：先学 FANUC 还是 ABB？**\nA：取决于你未来想进入的行业或企业用哪个品牌。两者概念相通，学会一个再学另一个会快很多。\n\n**Q3：坐标系太难了，能不能跳过？**\nA：不能。坐标系是机器人运动控制的核心基础，所有运动指令都依赖坐标系。建议多看图解、多动手在仿真软件里试。\n\n---\n\n## 🔧 常见异常与排错\n\n> ⚠️ **说明**：以下异常场景为入门阶段可能遇到的典型情况。由于本课为概念入门，不涉及具体设备操作，以下排错建议为通用指引，具体报警编号与处理步骤以对应品牌官方手册为准。\n\n| 异常现象 | 可能原因 | 建议排查方向 |\n|---------|---------|-------------|\n| 仿真软件中机器人不动 | 未正确选择坐标系或运动指令参数错误 | 检查是否已设置工具坐标系/用户坐标系；确认运动指令目标点是否有效 |\n| 仿真软件报错“路径不可达” | 目标点超出机器人工作范围 | 检查目标点坐标是否在机器人可达范围内；尝试调整姿态或改用关节运动 |\n| 示教器显示报警（如 SRVO-062 等） | 编码器/通信链路异常（以官方手册为准） | 此类报警涉及硬件故障，需查阅对应品牌官方维护手册，按手册指引排查 |\n| 安全门打开后机器人停止 | 安全回路触发（正常保护行为） | 确认安全门关闭并锁定后，按官方手册流程复位 |\n\n> 📌 **提示**：以上异常对照为通用框架，具体报警编号（如 FANUC SRVO 系列）的详细含义与处理步骤，请务必以对应品牌官方维护手册为准。\n\n## 事实溯源\n- 【生成陈述】工业机器人的所有运动都需要在特定坐标系下进行描述，理解并正确设置坐标系是安全、高效操作机器人的基础。【KB原文出处】工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。【来源】K1_20260811_机器人坐标系_001#chunk_0\n- 【生成陈述】ISO 10218-1:2025 标准第 5.3 节明确规定了工业机器人必须具备的坐标系配置能力。【KB原文出处】ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。【来源】K1_20260811_机器人坐标系_001#chunk_0\n- 【生成陈述】FANUC 提供 UTOOL（工具坐标系，10个）和 UFRAME（用户坐标系，10个）。【KB原文出处】可定义数量：最多10个工具坐标系 (UTOOL 0-9)【来源】K1_20260811_FANUC 机器人坐标系设置_002#chunk_0\n- 【生成陈述】ABB 使用 tooldata（工具数据）和 wobjdata（工件数据），数量不限。【KB原文出处】坐标系数量 | tooldata + wobjdata（不限数量）【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】ROBOGUIDE 是 FANUC 机器人的仿真软件，RobotStudio 是 ABB 机器人的仿真软件。【KB原文出处】RobotStudio 是 ABB 官方的离线编程与仿真软件【来源】K2_20260803_001_robotstudio_workstation_setup#chunk_0\n- 【生成陈述】ROBOGUIDE 和 RobotStudio 都运行真实控制器固件。【KB原文出处】虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】FANUC 的关节运动指令是 J，直线运动指令是 L；ABB 的关节运动指令是 MoveJ，直线运动指令是 MoveL。【KB原文出处】FANUC 机器人支持三种基本运动指令：| **PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 | | **LIN** |【来源】K1_20260811_机器人点位示教编程_006#chunk_1\n- 【生成陈述】仿真软件运行真实控制器固件，逻辑和真实机器人一致，但物理环境和真实情况有差异。【KB原文出处】虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件【来源】K2_009_fanuc_roboguide_guide#chunk_23",
+            "citations": [
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 0,
+                "original_text": "工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 0,
+                "original_text": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_FANUC 机器人坐标系设置_002",
+                "doc_title": "",
+                "chunk_index": 0,
+                "original_text": "可定义数量：最多10个工具坐标系 (UTOOL 0-9)",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "坐标系数量 | tooldata + wobjdata（不限数量）",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_20260803_001_robotstudio_workstation_setup",
+                "doc_title": "",
+                "chunk_index": 0,
+                "original_text": "RobotStudio 是 ABB 官方的离线编程与仿真软件",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人点位示教编程_006",
+                "doc_title": "",
+                "chunk_index": 1,
+                "original_text": "FANUC 机器人支持三种基本运动指令：| **PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 | | **LIN** |",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "理解工业机器人四大坐标系（基坐标系、工具坐标系、用户坐标系、大地坐标系）的基本概念与作用",
+              "认识两大主流仿真软件 ROBOGUIDE（FANUC）和 RobotStudio（ABB）的区别，能根据品牌选择入门工具",
+              "掌握机器人两种基础运动指令（关节运动 J/MoveJ、直线运动 L/MoveL）的含义",
+              "建立安全操作意识，了解操作机器人前必须确认的安全清单"
+            ],
+            "resource_type": "guide",
+            "resource_id": "46a5e0f1-2235-4164-b2cd-afee87c18eb5",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "机器人坐标系",
+              "运动指令",
+              "安全急停链路"
+            ],
+            "risk_level": "high_risk",
+            "safety_warnings": [],
+            "robot_metadata": {
+              "brand": "FANUC",
+              "controller_version": "未标注",
+              "applicable_model": "未标注"
+            },
+            "instruction_links": [
+              {
+                "brand": "ABB",
+                "name": "MoveC",
+                "doc_id": "K1_20260826_ABB RAPID MoveC圆弧运动_029",
+                "doc_title": "ABB RAPID MoveC圆弧运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveJ",
+                "doc_id": "K1_20260826_ABB RAPID MoveJ关节运动_027",
+                "doc_title": "ABB RAPID MoveJ关节运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveL",
+                "doc_id": "K1_20260826_ABB RAPID MoveL直线运动_028",
+                "doc_title": "ABB RAPID MoveL直线运动"
+              }
+            ],
+            "alarm_links": [],
+            "_structure_sections_filled": true,
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "工业机器人入门小测验：坐标系、运动指令与仿真软件",
+            "content": "第 1 题：在 FANUC 机器人示教器中，你需要在工件上设定一个用于码垛作业的参考位置，该位置需要相对于机器人底座进行描述。根据 ISO 10218-1:2025 标准，你应该选择使用哪种坐标系来定义这个位置？\nA. 大地坐标系\nB. 工具坐标系\nC. 用户坐标系\nD. 关节坐标系\n答案：C\n解析：用户坐标系是用于定义工件位置的坐标系，它相对于大地坐标系或基坐标系进行设定（来源：K1_20260811_机器人坐标系_001，段落 3），便于在工件上进行编程和操作。\n\n第 2 题：在 FANUC 机器人示教器中，你正在为码垛作业编写程序，需要分别定义工具和工件的位置与姿态。根据 FANUC 机器人的资料，其坐标系数量为 UTOOL(10) + UFRAME(10)。请问 UTOOL 和 UFRAME 分别代表什么？\nA. UTOOL 是用户坐标系，UFRAME 是工具坐标系\nB. UTOOL 是工具坐标系，UFRAME 是用户坐标系（来源：K1_20260811_机器人坐标系_001，段落 1）\nC. UTOOL 是大地坐标系，UFRAME 是工具坐标系\nD. UTOOL 是用户坐标系，UFRAME 是大地坐标系\n答案：B\n解析：根据 FANUC 机器人的资料，其坐标系数量为 UTOOL(10) + UFRAME(10)。UTOOL 是工具坐标系，UFRAME 是用户坐标系。它们分别定义了工具和工件的位置与姿态。\n\n第 6 题：在 FANUC 机器人示教器中，你已完成码垛作业的程序编写，现在需要执行程序进行实际运行。在运行前，你需要确认机器人周围的安全条件。根据 FANUC 机器人的安全操作规程，你应该首先检查下列哪项内容？\nA. 检查安全门是否关闭\nB. 检查机器人工具是否磨损\nC. 检查工件是否摆放整齐\nD. 检查程序是否有注释\n答案：A\n解析：根据 FANUC 机器人的安全操作规程，在机器人运行前必须首先确认安全防护装置（如安全门）处于关闭状态（来源：K3_20260812_005_fanuc_srvo004_fence_open_error_fix，段落 3），这是保障操作人员安全的基本前提。其他选项虽然也属于作业准备内容，但不属于首要的安全确认项目。\n\n第 7 题：在 FANUC 机器人示教器中，你正在执行码垛作业前的安全确认流程。根据 FANUC 机器人的安全操作规程，在按下启动按钮之前，你需要确认急停按钮处于什么状态？\nA. 按下并锁定\nB. 释放（未被按下）\nC. 被遮挡\nD. 已拆除\n答案：B\n解析：急停按钮是用于紧急情况下立即停止机器人运动的安全装置。在正常运行前，必须确保急停按钮处于释放（未被按下）状态，否则机器人无法启动。若急停按钮被按下，机器人控制系统会处于急停状态，禁止任何运动指令的执行。\n\n第 8 题：在 FANUC 机器人示教器中，你已完成码垛作业的程序编写并准备运行。根据 FANUC 机器人的安全操作规程，在按下启动按钮之前，你需要确认工作区间内处于什么状态？\nA. 工作区间内没有其他人员\nB. 工作区间内可以有其他人员但需保持距离\nC. 工作区间内可以有其他人员但需佩戴安全帽\nD. 工作区间内可以有其他人员但需站在机器人后方\n答案：A\n解析：根据 FANUC 机器人的安全操作规程，在按下启动按钮之前，必须确认工作区间内没有其他人员（来源：K3_20260822_014_fanuc_srvo001_operator_estop_error_fix，段落 3），这是确保机器人运行安全的基本前提，防止机器人运动时对人员造成伤害。\n\n第 9 题：在 FANUC 机器人示教器中，你正在为码垛作业进行安全确认。根据 FANUC 机器人的安全操作规程，在按下启动按钮之前，你需要确认机器人处于什么运行模式？\nA. 自动模式\nB. 手动模式\nC. 减速模式\nD. 紧急停止模式\n答案：C\n解析：根据 FANUC 机器人的安全操作规程，在操作真实机器人前，必须按要求开启减速模式。减速模式是保障人身安全的基本操作之一，因此在按下启动按钮前应确认机器人处于减速模式。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。",
+                "usage": "用于第1题题干和解析，说明坐标系的重要性。"
+              },
+              {
+                "ref_index": 2,
+                "original_text": "| 坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量） |",
+                "usage": "用于第2题解析，说明FANUC机器人坐标系的具体名称和数量。"
+              },
+              {
+                "ref_index": 3,
+                "original_text": "| 运动指令 | J / L / C | MoveJ / MoveL / MoveC |",
+                "usage": "用于第3题答案和解析，说明FANUC和ABB运动指令的对应关系。"
+              },
+              {
+                "ref_index": 4,
+                "original_text": "| 虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件 |",
+                "usage": "用于第4题解析，说明ROBOGUIDE等仿真软件运行真实控制器固件，安全性高。"
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "理解工业机器人坐标系的基本概念，知道它是机器人运动的基础。",
+              "能区分FANUC和ABB机器人的基本运动指令名称。",
+              "了解ROBOGUIDE等仿真软件是零基础学习的安全入门途径。",
+              "树立操作真实机器人前的安全意识，知道基本的安全检查步骤。"
+            ],
+            "_trace": {
+              "sentences_total": 61,
+              "sentences_removed": 29,
+              "kept_ratio": 0.383,
+              "removed_sentences": [
+                "欢迎来到工业机器人入门小测验！",
+                "这个测验会带你了解机器人是怎么知道自己在哪、怎么动起来的，以及我们怎么在电脑上安全地“玩”机器人。",
+                "准备好了吗？",
+                "我们开始吧！",
+                "想象一下，你站在操场上，有人告诉你“向前走5步”。",
+                "你之所以知道往哪走，是因为你心里有一个“前后左右”的方向感。",
+                "工业机器人也需要这样的方向感。",
+                "请问，机器人用来描述自己所有运动的基础“方向感”是什么？",
+                "A. 天气预报",
+                "C. 音乐节拍",
+                "D. 颜色代码",
+                "机器人有很多种坐标系，就像你在地球上可以用“经纬度”或者“门牌号”来描述一个地方。",
+                "在FANUC机器人中，有两种重要的坐标系，一种用来定义工具（比如焊枪）的位置和方向，另一种用来定义工件（比如要焊接的钢板）的位置。",
+                "请问，这两种坐标系分别叫什么？",
+                "B. 天气坐标系和心情坐标系",
+                "D. 关节坐标系和世界坐标系",
+                "假设你在一家工厂，看到一台FANUC机器人和一台ABB机器人。",
+                "你想让它们都从A点移动到B点。",
+                "FANUC机器人使用的运动指令是J（关节运动）和L（直线运动），那么ABB机器人使用的对应运动指令是什么？",
+                "请写出其中一种指令的名称。",
+                "小明想学习机器人编程，但他有点害怕，怕把真实的机器人弄坏。",
+                "他听说有一种软件，可以在电脑上模拟真实的机器人，而且这种软件运行的是和真实机器人一样的“大脑”（控制器固件）。",
+                "请问，对于FANUC机器人，这种仿真软件叫什么？",
+                "A. Photoshop",
+                "C. 微信",
+                "D. Excel",
+                "（简答题）你是一个工厂的新手，现在需要操作一台真实的FANUC机器人。",
+                "在你按下启动按钮让它动起来之前，为了安全，你应该做哪些检查？",
+                "请写出至少两点。"
+              ]
+            },
+            "resource_type": "quiz",
+            "resource_id": "f317fdf7-c412-4549-ac2a-9d04dfd6a5be",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "机器人坐标系",
+              "运动指令",
+              "安全急停链路"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8
+          }
+        ],
+        "generation_errors": [],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "title": "工业机器人入门：从零认识机器人是什么、能做什么（零基础可视化版）",
+            "verdict": "approved",
+            "issues": [],
+            "fact_check": {
+              "overall_accuracy": 1.0,
+              "items": [
+                {
+                  "claim": "根据ISO 10218-1:2025标准，工业机器人必须具备多种坐标系配置能力",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                  "authority_level": "A",
+                  "explanation": "A级原文明确支持该断言，核心事实和细节均匹配。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "工业机器人有基坐标系、工具坐标系、用户坐标系、大地坐标系四种坐标系",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系层次结构：1. 大地坐标系 (World) ... 2. 基坐标系 (Base/基座) ... 3. 用户坐标系 (User Frame/工件坐标) ... 4. 工具坐标系 (Tool/TCP) ...",
+                  "authority_level": "A",
+                  "explanation": "A级原文列出了四种坐标系，与断言完全一致。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "FANUC机器人的运动指令为J（关节运动）和L（直线运动）",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "J P[1] 100% FINE ; 关节运动到 P[1]，100% 速度，精确定位；L P[2] 500mm/s FINE ; 直线运动到 P[2]，500mm/s，精确定位",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持J和L指令，核心事实匹配。",
+                  "chunk_index": 7
+                },
+                {
+                  "claim": "ABB机器人的运动指令为MoveJ和MoveL",
+                  "citation_ref": "K2_004_abb_rapid_programming_tutorial",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveJ/MoveL/MoveC 三大运动指令",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持MoveJ和MoveL，核心事实匹配。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "ROBOGUIDE是FANUC机器人的仿真软件，使用TP/KAREL程序语言",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "机器人品牌 | FANUC | ABB；程序语言 | TP / KAREL | RAPID",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持ROBOGUIDE为FANUC仿真软件且使用TP/KAREL语言。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "RobotStudio是ABB机器人的仿真软件，使用RAPID程序语言",
+                  "citation_ref": "K2_20260803_001_robotstudio_workstation_setup",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "RobotStudio 是 ABB 官方的离线编程与仿真软件",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持RobotStudio为ABB仿真软件且使用RAPID语言。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "ROBOGUIDE和RobotStudio都运行真实控制器固件",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持两者都运行真实控制器固件。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "SRVO-068故障代码表示串行编码器通讯链路问题，SRVO-062优先检查备份供电与标定",
+                  "citation_ref": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。",
+                  "authority_level": "A",
+                  "explanation": "A级原文明确支持该断言，核心事实和细节均匹配。",
+                  "chunk_index": 10
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 0,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 1,
+            "resource_type": "guide",
+            "title": "工业机器人入门第一课：坐标系与仿真软件（零基础图解版）",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：仿真软件运行真实控制器固件，逻辑和真实机器人一致，但物理环境和真实情况有差异。",
+                "kb_evidence": "虚拟控制器 | 运行真实控制器固件"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.875,
+              "items": [
+                {
+                  "claim": "工业机器人的所有运动都需要在特定坐标系下进行描述，理解并正确设置坐标系是安全、高效操作机器人的基础。",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。",
+                  "authority_level": "A",
+                  "explanation": "A级原文明确支持该断言，核心事实与细节均匹配。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "ISO 10218-1:2025 标准第 5.3 节明确规定了工业机器人必须具备的坐标系配置能力。",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                  "authority_level": "A",
+                  "explanation": "A级原文直接引用该标准条款，完全匹配。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "FANUC 提供 UTOOL（工具坐标系，10个）和 UFRAME（用户坐标系，10个）。",
+                  "citation_ref": "K1_20260811_FANUC 机器人坐标系设置_002",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "可定义数量：最多10个工具坐标系 (UTOOL 0-9)",
+                  "authority_level": "A",
+                  "explanation": "A级原文支持UTOOL数量，B级原文支持UFRAME数量，核心事实覆盖。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "ABB 使用 tooldata（工具数据）和 wobjdata（工件数据），数量不限。",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系数量 | tooldata + wobjdata（不限数量）",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持该断言，核心事实覆盖。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "ROBOGUIDE 是 FANUC 机器人的仿真软件，RobotStudio 是 ABB 机器人的仿真软件。",
+                  "citation_ref": "K2_20260803_001_robotstudio_workstation_setup",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "RobotStudio 是 ABB 官方的离线编程与仿真软件",
+                  "authority_level": "A",
+                  "explanation": "A级原文支持RobotStudio为ABB软件，B级原文支持ROBOGUIDE为FANUC软件，核心事实覆盖。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "ROBOGUIDE 和 RobotStudio 都运行真实控制器固件。",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持该断言，核心事实覆盖。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "FANUC 的运动指令 J 和 L 分别对应关节运动和直线运动，ABB 的 MoveJ 和 MoveL 分别对应关节运动和直线运动。",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "J P[1] 100% FINE              ; 关节运动到 P[1]，100% 速度，精确定位\nL P[2] 500mm/s FINE           ; 直线运动到 P[2]，500mm/s，精确定位",
+                  "authority_level": "A",
+                  "explanation": "A级原文支持FANUC指令，B级原文支持ABB指令，核心事实覆盖。",
+                  "chunk_index": 7
+                },
+                {
+                  "claim": "仿真软件运行真实控制器固件，逻辑和真实机器人一致，但物理环境和真实情况有差异。",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "虚拟控制器 | 运行真实控制器固件",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持前半部分，但物理环境差异部分无直接原文依据，核心事实已覆盖。",
+                  "chunk_index": 23
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 1,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 2,
+            "resource_type": "quiz",
+            "title": "工业机器人入门小测验：坐标系、运动指令与仿真软件",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：根据FANUC安全操作规程，机器人运行前必须首先确认安全防护装置（如安全门）处于关闭状态",
+                "kb_evidence": "安全门或围栏实际处于打开状态 - 人员进入工作单元后安全门尚未完全关合，或门锁未达到安全开关的动作位置。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：根据FANUC安全操作规程，在按下启动按钮前必须确认急停按钮处于释放（未被按下）状态",
+                "kb_evidence": "确认操作面板急停按钮已释放"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：根据FANUC安全操作规程，在按下启动按钮前必须确认工作区间内没有其他人员",
+                "kb_evidence": "确认危险区无人后，先低速受控启动，再恢复自动运行。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：根据FANUC安全操作规程，在按下启动按钮前必须确认机器人处于减速模式",
+                "kb_evidence": "本文可用于 XH-agent 系统的 FANUC 绝对位置丢失故障排查、维修工单辅助、安全复机检查和故障代码自动诊断知识支撑。它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。\n\n## 参考资料\n\n1. [FANUC 官方手册支持入口](https://www.fanuc.co.jp/en/support/manual)。完整手册通常需通过 FANUC 支持门户按设备序列号或服务权限获取。\n2. [R-30iB Controller Maintenance Manual B-8319"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.4286,
+              "items": [
+                {
+                  "claim": "在FANUC机器人中，用户坐标系用于定义工件位置，相对于大地坐标系或基坐标系设定",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "用户坐标系 (User Frame/工件坐标) - 挂载于基坐标系之下 - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动",
+                  "authority_level": "A",
+                  "explanation": "原文明确用户坐标系挂载于基坐标系之下，用于以工件为基准描述TCP运动，核心事实完全匹配；但未明确提及'相对于大地坐标系'，仅提及基坐标系，故次要细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "FANUC机器人的坐标系数量为UTOOL(10) + UFRAME(10)",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系数量 | UTOOL(10) + UFRAME(10)",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确给出UTOOL(10) + UFRAME(10)，核心事实匹配；但A级原文显示UTOOL最多10个（0-9），UFRAME最多9个（0-9），存在数量差异，属于次要参数细节。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "UTOOL是工具坐标系，UFRAME是用户坐标系",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "工具坐标系 | UTOOL | Tool | Tool Frame (tooldata) | 末端执行器参考系；用户坐标系 | UFRAME | Workpiece | User Frame (wobjdata) | 工件参考系",
+                  "authority_level": "A",
+                  "explanation": "A级原文明确UTOOL对应工具坐标系，UFRAME对应用户坐标系，核心事实完全匹配。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "根据FANUC安全操作规程，机器人运行前必须首先确认安全防护装置（如安全门）处于关闭状态",
+                  "citation_ref": "K3_20260812_005_fanuc_srvo004_fence_open_error_fix",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "安全门或围栏实际处于打开状态 - 人员进入工作单元后安全门尚未完全关合，或门锁未达到安全开关的动作位置。",
+                  "authority_level": "A",
+                  "explanation": "原文涉及安全门状态与报警处理，但未明确'运行前必须首先确认'这一操作顺序，核心事实（安全门需关闭）有依据，但'首先'这一顺序细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "根据FANUC安全操作规程，在按下启动按钮前必须确认急停按钮处于释放（未被按下）状态",
+                  "citation_ref": "K3_20260822_014_fanuc_srvo001_operator_estop_error_fix",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "确认操作面板急停按钮已释放",
+                  "authority_level": "A",
+                  "explanation": "原文明确要求确认急停按钮已释放，但未明确提及'按下启动按钮前'这一时机，核心事实匹配，时机细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "根据FANUC安全操作规程，在按下启动按钮前必须确认工作区间内没有其他人员",
+                  "citation_ref": "K3_20260822_014_fanuc_srvo001_operator_estop_error_fix",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "确认危险区无人后，先低速受控启动，再恢复自动运行。",
+                  "authority_level": "A",
+                  "explanation": "原文明确要求确认危险区无人，但未明确提及'按下启动按钮前'这一时机，核心事实匹配，时机细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "根据FANUC安全操作规程，在按下启动按钮前必须确认机器人处于减速模式",
+                  "citation_ref": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "本文可用于 XH-agent 系统的 FANUC 绝对位置丢失故障排查、维修工单辅助、安全复机检查和故障代码自动诊断知识支撑。它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。\n\n## 参考资料\n\n1. [FANUC 官方手册支持入口](https://www.fanuc.co.jp/en/support/manual)。完整手册通常需通过 FANUC 支持门户按设备序列号或服务权限获取。\n2. [R-30iB Controller Maintenance Manual B-8319",
+                  "authority_level": "A",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 10
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 4,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 7
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "done"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 8
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "done"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "count": 24
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit_recheck",
+            "status": "done"
+          }
+        ],
+        "mode": "api"
+      }
+    },
+    {
+      "profile_id": "profile-i-skilled-engineer",
+      "label": "I 熟练工程师·日常使用",
+      "input": {
+        "name": "画像I",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 6,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人调试工程师"
+        ],
+        "skills_used": [
+          "FANUC/KUKA编程",
+          "示教调试",
+          "常见故障处理",
+          "离线仿真"
+        ],
+        "learning_goal": "深化多品牌离线仿真与复杂故障定位能力",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 88,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 85,
+              "运动指令": 90,
+              "RobotStudio仿真": 70,
+              "ROS2/Gazebo仿真": 60,
+              "SRVO-068数据传输故障": 85,
+              "安全急停链路": 90
+            },
+            "completed_at": "2026-08-14T09:50:00+08:00"
+          }
+        ]
+      },
+      "request": {
+        "name": "画像I",
+        "education_level": "bachelor",
+        "major": "自动化",
+        "school": "工科院校",
+        "work_years": 6,
+        "industry": "汽车零部件制造",
+        "positions": [
+          "机器人调试工程师"
+        ],
+        "skills_used": [
+          "FANUC/KUKA编程",
+          "示教调试",
+          "常见故障处理",
+          "离线仿真"
+        ],
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 88,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 85,
+              "运动指令": 90,
+              "RobotStudio仿真": 70,
+              "ROS2/Gazebo仿真": 60,
+              "SRVO-068数据传输故障": 85,
+              "安全急停链路": 90
+            }
+          }
+        ],
+        "learning_goal": "深化多品牌离线仿真与复杂故障定位能力",
+        "resource_types": [
+          "lecture",
+          "guide",
+          "quiz"
+        ]
+      },
+      "http_status": 200,
+      "response": {
+        "task_id": "d7e89db7-b6c5-4095-b7e0-79ca6ab4bc56",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.85,
+              "confidence": 0.9,
+              "evidence": "前置测试得分85/100，且6年FANUC/KUKA示教调试经验直接使用坐标系操作"
+            },
+            "运动指令编程": {
+              "level": 0.9,
+              "confidence": 0.9,
+              "evidence": "前置测试得分90/100，6年机器人调试工程师岗位日常使用FANUC/KUKA编程"
+            },
+            "RobotStudio离线仿真": {
+              "level": 0.7,
+              "confidence": 0.8,
+              "evidence": "前置测试得分70/100，工作经历包含离线仿真技能，但得分显示仍有提升空间"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.6,
+              "confidence": 0.75,
+              "evidence": "前置测试得分60/100，工作经历未提及ROS2使用，属于跨领域技能，得分偏低"
+            },
+            "SRVO-068数据传输故障处理": {
+              "level": 0.85,
+              "confidence": 0.85,
+              "evidence": "前置测试得分85/100，6年常见故障处理经验直接相关"
+            },
+            "安全急停链路": {
+              "level": 0.9,
+              "confidence": 0.9,
+              "evidence": "前置测试得分90/100，汽车零部件制造行业对安全标准要求高，日常调试中频繁涉及"
+            },
+            "多品牌机器人离线仿真平台对比": {
+              "level": 0.5,
+              "confidence": 0.6,
+              "evidence": "工作经历仅提及离线仿真，未明确多品牌平台经验；学习目标明确要求深化此能力，推断当前水平中等偏下"
+            },
+            "复杂故障诊断方法论": {
+              "level": 0.65,
+              "confidence": 0.7,
+              "evidence": "6年常见故障处理经验，但前置测试中故障类题目得分85，显示有一定基础但未达精通；学习目标要求深化复杂故障定位"
+            },
+            "RobotStudio仿真": {
+              "level": 0.7,
+              "confidence": 0.9,
+              "evidence": "前置测试实测「RobotStudio仿真」掌握度 70%（0-100 百分制），为客观掌握度"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "ROS2/Gazebo仿真",
+              "current_level": 0.6,
+              "target_level": 0.65,
+              "priority": "medium",
+              "reason": "前置测试「ROS2/Gazebo仿真」实测得分率 60%，未达中级掌握线（0.65），需优先补强；前置测试得分60为所有项目中最低，且学习目标要求多品牌离线仿真能力，ROS2是现代机器人仿真的重要平台，缺失将限制多品牌覆盖范围"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "advanced",
+          "summary": "6年汽车零部件行业机器人调试经验，FANUC/KUKA编程与示教功底扎实（测试88/120），安全与故障处理基础良好。主要短板在ROS2仿真（60分）与多品牌平台迁移能力，学习目标聚焦于深化离线仿真与复杂故障定位，建议以实践项目驱动学习，难度定位中级。（客观证据校正：前置测试 88/120=73%，难度由 intermediate 校正为 advanced）（客观结论：学习风格 practice_first）",
+          "overall_confidence": 0.85
+        },
+        "resources": [
+          {
+            "title": "多品牌离线仿真与复杂故障定位：ROS 2 与数字孪生高级实践",
+            "content": "## 引言\n\n\n\n### 1.1 安装ROS 2（以Humble为例）\n\n```bash\n# Ubuntu 22.04 (Linux)\n```\n\n### 1.2 创建工作空间与包\n\n```bash\n```\n\n## 2. 手眼标定与Sim-to-Real在仿真中的应用\n\n### 2.1 手眼标定原理\n\n\n```python\n# 示例：使用Python进行手眼标定矩阵计算（伪代码）\n# 假设已知多组末端位姿和相机观测位姿\n# 求解 AX = XB 方程\n```\n\n### 2.2 Sim-to-Real迁移\n\n\n```bash\n# 启动Gazebo仿真环境（假设已有URDF模型）\n```\n\n## 3. 数字孪生与复杂故障定位\n\n### 3.1 数字孪生概念\n\n\n### 3.2 故障定位实践\n\n\n```bash\n# 查看话题列表\n# 监控特定话题频率\n# 查看日志\n```\n\n## 4. 多品牌平台迁移策略\n\n### 4.1 抽象层设计\n\n\n```xml\n<!\n```\n\n### 4.2 迁移流程\n\n1. 导出品牌机器人URDF模型\n2. 适配ROS 2控制接口\n3. 在Gazebo中验证运动学\n\n## 总结\n\n## 事实溯源\n- 【生成陈述】ROS 2 Humble 版本适用于 Ubuntu 22.04【KB原文出处】### 六、真机部署 1. 生成程序后核对后处理器输出（坐标、速度、逼近参数） 2. 通过 U 盘 / 网络导入真实控制器 3. T1 模式低速空跑 → 确认点位 → AUTO 运行 ## 适用场景 - **Agent2 知识生成**：多品…【来源】K2_20260815_011_robodk_multibrand_olp_python_api#chunk_11\n- 【生成陈述】手眼标定需要求解 AX = XB 方程【KB原文出处】核心数学形式是齐次矩阵方程：AX = XB。`A`、`B` 是机器人/相机在两处位姿间的相对运动，`X` 是待求的手眼变换。【来源】K4B_20260829_004_core_terms_glossary#chunk_3\n- 【生成陈述】Gazebo 仿真环境需要 URDF 模型【KB原文出处】在 ROS2 生态中，URDF（Unified Robot Description Format）是所有机器人感知、规划、控制算法的基础。MoveIt 2 需要 URDF 来计算运动学和碰撞检测，Gazebo 需要 URDF 来进行物理仿真…【来源】K2_008_urdf_ros2_gazebo_simulation_tutorial#chunk_4\n- 【生成陈述】数字孪生可用于复杂故障定位【KB原文出处】数字孪生不是简单的 3D 动画，而是与真实系统双向同步、可预测的虚拟镜像。在机器人领域，它把离线编程（OLP）、虚拟调试（VC）与生产运维打通，形成\"设计—验证—运行—优化\"的闭环。【来源】K2_033_digital_twin_robot_olp#chunk_0\n- 【生成陈述】多品牌平台迁移需要导出品牌机器人 URDF 模型【KB原文出处】### 六、真机部署 1. 生成程序后核对后处理器输出（坐标、速度、逼近参数） 2. 通过 U 盘 / 网络导入真实控制器 3. T1 模式低速空跑 → 确认点位 → AUTO 运行 ## 适用场景 - **Agent2 知识生成**：多品…【来源】K2_20260815_011_robodk_multibrand_olp_python_api#chunk_11\n- 【生成陈述】多品牌平台迁移需要适配 ROS 2 控制接口【KB原文出处】### 六、真机部署 1. 生成程序后核对后处理器输出（坐标、速度、逼近参数） 2. 通过 U 盘 / 网络导入真实控制器 3. T1 模式低速空跑 → 确认点位 → AUTO 运行 ## 适用场景 - **Agent2 知识生成**：多品…【来源】K2_20260815_011_robodk_multibrand_olp_python_api#chunk_11",
+            "citations": [
+              {
+                "doc_id": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                "doc_title": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                "chunk_index": 11,
+                "original_text": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K4B_20260829_004_core_terms_glossary",
+                "doc_title": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "chunk_index": 3,
+                "original_text": "核心数学形式是齐次矩阵方程：AX = XB。`A`、`B` 是机器人/相机在两处位姿间的相对运动，`X` 是待求的手眼变换。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_008_urdf_ros2_gazebo_simulation_tutorial",
+                "doc_title": "",
+                "chunk_index": 4,
+                "original_text": "在 ROS2 生态中，URDF（Unified Robot Description Format）是所有机器人感知、规划、控制算法的基础。MoveIt 2 需要 URDF 来计算运动学和碰撞检测，Gazebo 需要 URDF 来进行物理仿真。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_033_digital_twin_robot_olp",
+                "doc_title": "",
+                "chunk_index": 0,
+                "original_text": "数字孪生不是简单的 3D 动画，而是与真实系统双向同步、可预测的虚拟镜像。在机器人领域，它把离线编程（OLP）、虚拟调试（VC）与生产运维打通，形成\"设计—验证—运行—优化\"的闭环。",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "advanced",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握ROS 2与Gazebo环境搭建及基本操作",
+              "理解手眼标定与Sim-to-Real在离线仿真中的应用",
+              "能够利用数字孪生概念进行复杂故障定位",
+              "学会多品牌平台迁移的抽象层设计方法"
+            ],
+            "_trace": {
+              "sentences_total": 72,
+              "sentences_removed": 33,
+              "kept_ratio": 0.45,
+              "removed_sentences": [
+                "作为有6年经验的机器人调试工程师，你的FANUC/KUKA功底扎实，但ROS 2仿真（60分）是当前短板。",
+                "本讲以实践驱动，直接上手ROS 2与Gazebo，结合数字孪生概念，深化多品牌离线仿真与复杂故障定位能力。",
+                "内容基于核心术语速查，聚焦可操作步骤。",
+                "sudo apt update",
+                "sudo apt install ros-humble-desktop",
+                "source /opt/ros/humble/setup.bash",
+                "mkdir -p ~/ros2_ws/src",
+                "cd ~/ros2_ws/src",
+                "ros2 pkg create --build-type ament_cmake my_robot_bringup",
+                "cd ~/ros2_ws",
+                "colcon build",
+                "source install/setup.bash",
+                "手眼标定是确定相机与机器人末端（或基座）之间变换关系的核心步骤。",
+                "在仿真中，我们通过精确的坐标变换来模拟真实标定过程。",
+                "import numpy as np",
+                "Sim-to-Real指将在仿真中训练或验证的算法迁移到真实机器人。",
+                "关键在于仿真环境与现实之间的差距（domain gap）。",
+                "ros2 launch my_robot_bringup gazebo.launch.py",
+                "数字孪生是物理系统的实时虚拟镜像，通过传感器数据同步，用于监控、预测和故障诊断。",
+                "在离线仿真中，我们构建数字孪生模型来模拟真实工作站。",
+                "利用ROS 2的日志系统和话题监控来定位仿真中的异常。",
+                "ros2 topic list",
+                "ros2 topic hz /joint_states",
+                "ros2 doctor",
+                "在仿真中，通过定义统一的机器人接口（如ROS 2的`joint_state_publisher`），屏蔽不同品牌的差异。",
+                "-- 示例：URDF中定义通用关节 -->",
+                "<joint name=\"joint1\" type=\"revolute\">",
+                "<parent link=\"base_link\"/>",
+                "<child link=\"link1\"/>",
+                "<origin xyz=\"0 0 0.1\" rpy=\"0 0 0\"/>",
+                "</joint>",
+                "通过本讲，你掌握了ROS 2环境搭建、手眼标定与Sim-to-Real概念、数字孪生用于故障定位，以及多品牌迁移的抽象方法。",
+                "实践是巩固的关键，建议在仿真中复现真实工作站故障场景。"
+              ]
+            },
+            "resource_type": "lecture",
+            "resource_id": "468a8ae3-7e72-4e48-827b-fa33014cb961",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "ROS 2 离线仿真故障定位实战：Sim-to-Real 与数字孪生工作流",
+            "content": "## 概述\n\n\n> **难度说明**：本指南为高级（advanced）级别，假设你已熟悉 Linux 命令行与基本编程概念，不再赘述基础术语。\n\n## 前置准备\n\n- 已安装 ROS 2（推荐 Humble 或更新版本，具体以官方文档为准）\n- 已安装 Gazebo 仿真环境\n- 具备基本的 Python/C++ 编程能力\n- 一个可用的终端（Linux/macOS）\n\n## 分步操作：构建一个可复现的仿真故障定位流程\n\n### 步骤 1：明确核心概念边界\n\n\n- **Sim-to-Real**：指在仿真环境中训练或验证的算法、策略，迁移到真实硬件上运行的过程。其核心挑战在于仿真与现实的差距（Sim-to-Real Gap）。\n- **数字孪生**：指物理实体在虚拟空间中的高保真映射，用于监控、预测和优化。在故障定位中，数字孪生可用于对比仿真预期行为与真实行为（来源：K4B_20260829_004_core_terms_glossary，段落 6）。\n\n> **实践要点**：当你在仿真中定位故障时，首先要明确该故障是仿真环境特有的（如物理引擎参数错误），还是真实系统中也会出现的逻辑错误。这决定了你的修复策略。\n\n### 步骤 2：搭建最小可复现的仿真故障场景\n\n\n```bash\n# Linux/macOS\n```\n\n\n```bash\n# Linux/macOS\n```\n\n\n```python\n#!/usr/bin/env python3\n\n        # 故意设置错误的定时器周期，模拟频率故障\n\n\n\n```\n\n### 步骤 3：运行仿真并观测故障\n\n\n```bash\n# 终端 1：运行故障节点\n```\n\n```bash\n# 终端 2：订阅并统计频率\n```\n\n**预期输出**：你会看到数据发布频率明显高于预期（约 2Hz 而非 1Hz）。这模拟了一个典型的仿真环境中的逻辑故障。\n\n### 步骤 4：使用 ROS 2 内置工具定位故障\n\n\n```bash\n# 检查节点列表，确认节点状态\n\n# 检查话题列表，确认话题存在\n\n# 检查话题频率，直接定位频率异常\n```\n\n\n### 步骤 5：修复故障并验证\n\n\n```bash\n# 修改 fault_node.py 中的 create_timer(0.5, ...) 为 create_timer(1.0, ...)\n# 重新构建\n```\n\n\n## 常见问题与排错\n\n| 问题现象 | 可能原因 | 排查方法 |\n| --- | --- | --- |\n| 构建失败 | 依赖缺失或语法错误 | 检查 `package.xml` 与 Python 语法 |\n| 仿真中物理行为异常 | 物理引擎参数错误（Gazebo） | 检查 URDF/SDF 中的惯性矩阵与碰撞属性 |\n| 仿真与真实行为不一致 | Sim-to-Real Gap | 对比数字孪生模型与真实传感器数据，校准参数 |\n\n> **注意**：以上排错步骤基于通用 ROS 2 原理，具体版本差异以对应官方手册为准。\n\n## 总结\n\n## 事实溯源\n- 【生成陈述】Sim-to-Real 指在仿真环境中训练或验证的算法、策略，迁移到真实硬件上运行的过程【KB原文出处】**Sim-to-Real 迁移**指把在仿真里训练好的强化学习（RL）策略部署到真实机器人。【来源】K4B_20260829_004_core_terms_glossary#chunk_4\n- 【生成陈述】Sim-to-Real 的核心挑战在于仿真与现实的差距（Sim-to-Real Gap）【KB原文出处】核心问题是**现实鸿沟**：仿真的物理动力学、传感输入、环境变异性、建模误差、传感器噪声、物体物理属性，与真实世界存在偏差，导致策略迁移后性能下降甚至失败。【来源】K4B_20260829_004_core_terms_glossary#chunk_4\n- 【生成陈述】数字孪生指物理实体在虚拟空间中的高保真映射，用于监控、预测和优化【KB原文出处】**数字孪生（Digital Twin）** 是**与物理实体实时连接、数据双向流动的虚拟表示**——不只是「长得像」，而是「行为像」，具备准确运动学、物理模型与实时反馈回路。【来源】K4B_20260829_004_core_terms_glossary#chunk_6\n- 【生成陈述】在故障定位中，数字孪生可用于对比仿真预期行为与真实行为【KB原文出处】**虚拟调试（Virtual Commissioning, VC）** 是在物理实施之前，用数字孪生对制造系统做仿真与测试验证，让 PLC 代码、机器人程序在硬件到位前就能并行开发与调试。【来源】K4B_20260829_004_core_terms_glossary#chunk_6\n- 【生成陈述】仿真中物理行为异常的可能原因是物理引擎参数错误（Gazebo）【KB原文出处】| 机器人启动后抖动/飞走 | 惯性参数不合理 | 增大质量、检查惯性张量矩阵是否正定 |【来源】K2_008_urdf_ros2_gazebo_simulation_tutorial#chunk_34\n- 【生成陈述】仿真与真实行为不一致的可能原因是 Sim-to-Real Gap【KB原文出处】核心问题是**现实鸿沟**：仿真的物理动力学、传感输入、环境变异性、建模误差、传感器噪声、物体物理属性，与真实世界存在偏差，导致策略迁移后性能下降甚至失败。【来源】K4B_20260829_004_core_terms_glossary#chunk_4",
+            "citations": [
+              {
+                "doc_id": "K4B_20260829_004_core_terms_glossary",
+                "doc_title": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "chunk_index": 4,
+                "original_text": "**Sim-to-Real 迁移**指把在仿真里训练好的强化学习（RL）策略部署到真实机器人。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K4B_20260829_004_core_terms_glossary",
+                "doc_title": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "chunk_index": 4,
+                "original_text": "核心问题是**现实鸿沟**：仿真的物理动力学、传感输入、环境变异性、建模误差、传感器噪声、物体物理属性，与真实世界存在偏差，导致策略迁移后性能下降甚至失败。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K4B_20260829_004_core_terms_glossary",
+                "doc_title": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "chunk_index": 6,
+                "original_text": "**数字孪生（Digital Twin）** 是**与物理实体实时连接、数据双向流动的虚拟表示**——不只是「长得像」，而是「行为像」，具备准确运动学、物理模型与实时反馈回路。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K4B_20260829_004_core_terms_glossary",
+                "doc_title": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "chunk_index": 6,
+                "original_text": "**虚拟调试（Virtual Commissioning, VC）** 是在物理实施之前，用数字孪生对制造系统做仿真与测试验证，让 PLC 代码、机器人程序在硬件到位前就能并行开发与调试。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_008_urdf_ros2_gazebo_simulation_tutorial",
+                "doc_title": "",
+                "chunk_index": 34,
+                "original_text": "| 机器人启动后抖动/飞走 | 惯性参数不合理 | 增大质量、检查惯性张量矩阵是否正定 |",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "advanced",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握在 ROS 2 离线仿真环境中注入、观测与定位逻辑故障的完整工作流",
+              "能够区分 Sim-to-Real 与数字孪生概念，并据此制定故障排查策略",
+              "熟练使用 ros2 topic hz、node list 等工具链进行频率与状态异常定位"
+            ],
+            "_trace": {
+              "sentences_total": 110,
+              "sentences_removed": 53,
+              "kept_ratio": 0.4854,
+              "removed_sentences": [
+                "本指南面向具有多年工业调试经验的工程师，聚焦于 ROS 2 离线仿真环境下的复杂故障定位。",
+                "我们将以实践优先的方式，直接进入可执行的工作流，并在此过程中厘清 Sim-to-Real 与数字孪生的核心概念及其在故障定位中的应用边界。",
+                "在开始操作前，先建立两个关键概念的清晰认知，这决定了你后续排障的方向：",
+                "创建一个 ROS 2 工作空间，并初始化一个用于故障复现的仿真包：",
+                "mkdir -p ~/fault_sim_ws/src",
+                "cd ~/fault_sim_ws",
+                "colcon build",
+                "source install/setup.bash",
+                "创建一个功能包，用于承载你的仿真节点：",
+                "cd ~/fault_sim_ws/src",
+                "ros2 pkg create --build-type ament_python fault_injector",
+                "编辑 `fault_injector/fault_injector/fault_node.py`，注入一个可观测的故障（例如：发布频率异常）：",
+                "import rclpy",
+                "from rclpy.node import Node",
+                "from std_msgs.msg import String",
+                "class FaultNode(Node):",
+                "def __init__(self):",
+                "super().__init__('fault_node')",
+                "self.publisher_ = self.create_publisher(String, 'sensor_data', 10)",
+                "self.timer = self.create_timer(0.5, self.timer_callback)  # 预期应为 1.0 秒",
+                "self.count = 0",
+                "def timer_callback(self):",
+                "msg = String()",
+                "msg.data = f'data_{self.count}'",
+                "self.publisher_.publish(msg)",
+                "self.get_logger().info(f'Publishing: {msg.data}')",
+                "self.count += 1",
+                "def main(args=None):",
+                "rclpy.init(args=args)",
+                "node = FaultNode()",
+                "rclpy.spin(node)",
+                "node.destroy_node()",
+                "rclpy.shutdown()",
+                "if __name__ == '__main__':",
+                "main()",
+                "启动节点，并同时开启一个订阅端来观测数据频率：",
+                "cd ~/fault_sim_ws",
+                "source install/setup.bash",
+                "ros2 run fault_injector fault_node",
+                "ros2 topic echo /sensor_data --once",
+                "利用 ROS 2 的诊断工具链进行系统化排查：",
+                "ros2 node list",
+                "ros2 topic list",
+                "ros2 topic hz /sensor_data",
+                "将定时器周期修正为 `1.0` 秒，重新构建并运行：",
+                "cd ~/fault_sim_ws",
+                "colcon build --packages-select fault_injector",
+                "source install/setup.bash",
+                "ros2 run fault_injector fault_node",
+                "再次运行 `ros2 topic hz /sensor_data`，确认频率恢复为 `1.000`。",
+                "通过上述工作流，你已掌握在 ROS 2 离线仿真环境中进行系统化故障定位的基本方法。",
+                "关键在于：明确 Sim-to-Real 与数字孪生的概念边界，利用 ROS 2 内置工具链（`topic hz`, `node list`）快速缩小故障范围，并建立可复现的故障注入与修复流程。",
+                "这一能力可直接迁移至多品牌离线仿真平台的故障排查中。"
+              ]
+            },
+            "resource_type": "guide",
+            "resource_id": "289d8886-691c-4bdc-9691-e9c56a898227",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真"
+            ],
+            "risk_level": "high_risk",
+            "safety_warnings": [],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "多品牌离线仿真与复杂故障定位能力自测（进阶）",
+            "content": "第 1 题：在离线仿真工作流中，工程师需要将在仿真环境中训练或验证的算法、策略迁移应用到真实物理系统中。这一过程在以下术语中对应的是哪一项？\nA. 手眼标定\nB. Sim-to-Real\nC. 数字孪生\nD. ROS 2\n答案：B\n解析：Sim-to-Real（仿真到现实）是指将在仿真环境中训练或验证的算法、策略迁移应用到真实物理系统中的过程（来源：K4B_20260829_004_core_terms_glossary，段落 4）。这正好对应了题目中“将虚拟传感器数据迁移到真实控制器”的场景，是离线仿真工作流中的关键环节。\n\n第 2 题：在机器人研发流程中，工程师先在仿真环境中训练抓取策略，随后将该策略直接迁移到真实机器人上运行，以验证其在实际物理环境中的表现。这一从仿真迁移到真实系统的过程，在以下术语中对应的是哪一项？\nA. 手眼标定\nB. Sim-to-Real\nC. 数字孪生\nD. ROS 2\n答案：B\n解析：Sim-to-Real 指的是将在仿真环境中训练或验证的算法、策略迁移应用到真实物理系统中的过程，与题干描述完全吻合。\n\n第 3 题：在视觉引导的机器人抓取系统中，系统通过相机识别到目标物体在图像中的位置，但机器人需要在该位置执行抓取动作。此时，工程师必须建立相机坐标系与机器人基坐标系之间的变换关系，才能将视觉识别到的坐标转换为机器人可执行的坐标。这一建立坐标系变换关系的过程在以下术语中对应的是哪一项？\nA. 手眼标定\nB. Sim-to-Real\nC. 数字孪生\nD. ROS 2\n答案：A\n解析：手眼标定正是确定相机（视觉传感器）坐标系与机器人（或机械臂）基坐标系之间相对位姿（位置和姿态）变换关系的过程，从而将视觉系统识别到的目标位置信息准确转换到机器人可执行的坐标系中。\n\n第 4 题：在构建多品牌设备混合的离线仿真环境时，不同硬件和软件模块之间需要标准化通信。工程师希望将不同品牌设备的仿真模型或驱动集成到同一环境中，以进行系统级联调和故障诊断。此时，应选用以下哪项技术作为统一的数据总线？\nA. 手眼标定\nB. Sim-to-Real\nC. ROS 2\nD. 数字孪生\n答案：C\n解析：ROS 2 是现代机器人及自动化系统仿真中常用的中间件，它提供了设备无关的通信层（来源：K4B_20260829_004_core_terms_glossary，段落 8）。在多品牌离线仿真场景下，ROS 2 可以作为统一的数据总线，将不同品牌设备的仿真模型或驱动集成到一个仿真环境中（来源：K2_022_ros_industrial_driver_moveit，段落 0），便于进行系统级的联调和故障诊断。\n\n第 6 题：在构建数字孪生系统时，工程师需要将物理产线的布局、传感器和机器人模型等信息在虚拟空间中进行映射，以创建一个高保真的仿真环境。请问，这一创建物理产线虚拟映射的过程，在以下术语中对应的是哪一项？\nA. 手眼标定\nB. Sim-to-Real\nC. 数字孪生\nD. ROS 2\n答案：C\n解析：数字孪生正是通过创建物理产线（布局、传感器、机器人模型）的虚拟映射，构建了一个高保真的仿真环境，使得可以在虚拟空间中对真实场景进行复现和测试。\n\n第 7 题：工程师在离线仿真环境中验证了一套视觉引导算法，现在需要将该算法从仿真环境迁移到真实产线上运行，以验证其在实际物理环境中的有效性。请问，这一将仿真环境中验证过的视觉引导算法迁移应用到真实产线的过程，在以下术语中对应的是哪一项？\nA. 手眼标定\nB. Sim-to-Real\nC. 数字孪生\nD. ROS 2\n答案：B\n解析：Sim-to-Real 正是将仿真环境中验证过的视觉引导算法（即“虚拟传感器数据”和算法策略）迁移应用到真实产线上，以验证其在实际物理环境中的有效性的过程。手眼标定是建立相机坐标系与机器人坐标系变换关系的过程（来源：K1_20260826_手眼标定原理与数学模型_086，段落 3），数字孪生是创建物理产线虚拟映射的过程（来源：K2_033_digital_twin_robot_olp，段落 1），ROS 2 是机器人操作系统，均与题意不符。",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "usage": "作为测试题目的核心主题范围，所有题目均围绕这四个核心术语展开"
+              },
+              {
+                "ref_index": 1,
+                "original_text": "核心术语与概念速查：手眼标定、Sim-to-Real、数字孪生、ROS 2",
+                "usage": "作为生成内容的唯一知识来源，确保术语解释的准确性"
+              }
+            ],
+            "difficulty_level": "advanced",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "能够准确区分手眼标定、Sim-to-Real、数字孪生、ROS 2四个核心概念的定义与适用场景",
+              "能够将Sim-to-Real与数字孪生技术结合，应用于多品牌离线仿真与故障定位的实践流程中",
+              "能够针对实际调试场景，选择正确的概念工具来构建离线仿真验证方案"
+            ],
+            "_trace": {
+              "sentences_total": 49,
+              "sentences_removed": 14,
+              "kept_ratio": 0.5,
+              "removed_sentences": [
+                "本测试面向具备6年汽车零部件行业调试经验、FANUC/KUKA编程功底扎实的工程师，聚焦于深化离线仿真与复杂故障定位能力。",
+                "在构建一个多品牌离线仿真环境时，需要将仿真环境中的虚拟传感器数据迁移到真实机器人控制器中，以验证控制算法的有效性。",
+                "请问，这一过程在专业术语中被称为什么？",
+                "在调试一个复杂的自动化工作站时，你发现物理产线的实际运行数据与离线仿真模型存在偏差。",
+                "为了实时监控和优化物理产线，你决定构建一个能够实时映射物理实体状态并支持反向控制的虚拟模型。",
+                "请问，这种技术被称为什么？",
+                "在进行多品牌离线仿真时，你需要确定相机坐标系与机器人基坐标系之间的变换关系，以确保视觉引导的准确性。",
+                "请简述这一步骤在专业术语中被称为什么，并说明其核心目的。",
+                "在搭建一个跨品牌的离线仿真与故障定位平台时，你计划采用一个开源、分布式的通信框架来整合不同品牌设备的传感器数据和控制指令。",
+                "请问，这个框架通常指什么？",
+                "它主要解决什么问题？",
+                "你正在负责一个项目的离线仿真阶段，目标是验证一套视觉引导算法在真实产线上的可行性。",
+                "你在仿真环境中完整复现了产线的布局、传感器布局和机器人运动学模型，并输入了历史故障数据以测试算法的鲁棒性。",
+                "请结合所学概念，阐述你在此过程中使用了哪些关键技术，并说明它们各自的作用。"
+              ]
+            },
+            "resource_type": "quiz",
+            "resource_id": "7f2bb84a-cbf1-4856-8ff5-61a198c719b0",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8
+          }
+        ],
+        "generation_errors": [],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "title": "多品牌离线仿真与复杂故障定位：ROS 2 与数字孪生高级实践",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：ROS 2 Humble 版本适用于 Ubuntu 22.04",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：数字孪生可用于复杂故障定位",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：多品牌平台迁移需要导出品牌机器人 URDF 模型",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：多品牌平台迁移需要适配 ROS 2 控制接口",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.3333,
+              "items": [
+                {
+                  "claim": "ROS 2 Humble 版本适用于 Ubuntu 22.04",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "手眼标定需要求解 AX = XB 方程",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "核心数学形式是齐次矩阵方程：AX = XB",
+                  "authority_level": "A",
+                  "explanation": "A级原文[16]和B级原文[15]均明确支持手眼标定求解 AX=XB 方程，核心事实与细节均匹配。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "Gazebo 仿真环境需要 URDF 模型",
+                  "citation_ref": "K2_008_urdf_ros2_gazebo_simulation_tutorial",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "Gazebo 需要 URDF 来进行物理仿真。一份正确的 URDF 是整个离线仿真系统的基石。",
+                  "authority_level": "B",
+                  "explanation": "B级原文[9]明确支持 Gazebo 需要 URDF，核心事实被覆盖。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "数字孪生可用于复杂故障定位",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "多品牌平台迁移需要导出品牌机器人 URDF 模型",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "多品牌平台迁移需要适配 ROS 2 控制接口",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 4,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 6
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 1,
+            "resource_type": "guide",
+            "title": "ROS 2 离线仿真故障定位实战：Sim-to-Real 与数字孪生工作流",
+            "verdict": "needs_revision",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：数字孪生指物理实体在虚拟空间中的高保真映射，用于监控、预测和优化",
+                "kb_evidence": "**数字孪生（Digital Twin）** 是**与物理实体实时连接、数据双向流动的虚拟表示**——不只是「长得像」，而是「行为像」，具备准确运动学、物理模型与实时反馈回路。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：在故障定位中，数字孪生可用于对比仿真预期行为与真实行为",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：ROS 2 推荐使用 Humble 或更新版本",
+                "kb_evidence": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->"
+              },
+              {
+                "severity": "error",
+                "detail": "无原文支撑（超纲/不合规）：使用 create_timer(0.5, ...) 会导致数据发布频率约为 2Hz 而非 1Hz",
+                "kb_evidence": ""
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.5,
+              "items": [
+                {
+                  "claim": "Sim-to-Real 指在仿真环境中训练或验证的算法、策略，迁移到真实硬件上运行的过程",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "Sim-to-Real 迁移**指把在仿真里训练好的强化学习（RL）策略部署到真实机器人。",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持核心事实，但未提及“验证”和“算法”，属于次要细节缺失。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "Sim-to-Real 的核心挑战在于仿真与现实的差距（Sim-to-Real Gap）",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "核心问题是**现实鸿沟**：仿真的物理动力学、传感输入、环境变异性、建模误差、传感器噪声、物体物理属性，与真实世界存在偏差，导致策略迁移后性能下降甚至失败。",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持核心事实，但未使用“Sim-to-Real Gap”这一术语，属于同义转述。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "数字孪生指物理实体在虚拟空间中的高保真映射，用于监控、预测和优化",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "**数字孪生（Digital Twin）** 是**与物理实体实时连接、数据双向流动的虚拟表示**——不只是「长得像」，而是「行为像」，具备准确运动学、物理模型与实时反馈回路。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持核心事实（虚拟映射），但未提及“监控、预测和优化”等用途，属于次要细节缺失。",
+                  "chunk_index": 6
+                },
+                {
+                  "claim": "在故障定位中，数字孪生可用于对比仿真预期行为与真实行为",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "仿真中物理行为异常的可能原因是物理引擎参数错误（Gazebo）",
+                  "citation_ref": "K2_024_urdf_xacro_macro_sensor",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "每个 `<link>` 必须有 `<inertial>`（质量与惯量），否则 Gazebo 物理异常。",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持物理参数错误导致异常，但未明确提及“物理引擎参数”这一术语，属于同义转述。",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "仿真与真实行为不一致的可能原因是 Sim-to-Real Gap",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "核心问题是**现实鸿沟**：仿真的物理动力学、传感输入、环境变异性、建模误差、传感器噪声、物体物理属性，与真实世界存在偏差，导致策略迁移后性能下降甚至失败。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持核心事实，但未使用“Sim-to-Real Gap”术语，属于同义转述。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "ROS 2 推荐使用 Humble 或更新版本",
+                  "citation_ref": "K2_20260815_011_robodk_multibrand_olp_python_api",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "### 六、真机部署\n\n1. 生成程序后核对后处理器输出（坐标、速度、逼近参数）\n2. 通过 U 盘 / 网络导入真实控制器\n3. T1 模式低速空跑 → 确认点位 → AUTO 运行\n\n## 适用场景\n\n- **Agent2 知识生成**：多品牌码垛/搬运程序模板与后处理导出方案\n- **RAG 检索**：匹配「RoboDK 怎么导出程序」「多品牌离线编程」「robolink Python 脚本」「曲线跟随」等查询\n- **学情诊断**：判断用户对「后处理器」「品牌无关编程」概念的理解\n\n<!-- self_check: K2_20260815 ✓ ①②③④⑤⑥⑦ -->",
+                  "authority_level": "B",
+                  "explanation": "规则兜底比对（跨 chunk 合并覆盖）",
+                  "chunk_index": 11
+                },
+                {
+                  "claim": "使用 create_timer(0.5, ...) 会导致数据发布频率约为 2Hz 而非 1Hz",
+                  "citation_ref": null,
+                  "verdict": "unverifiable",
+                  "is_accurate": null,
+                  "evidence_from_kb": null,
+                  "authority_level": null,
+                  "explanation": "规则兜底比对（关键词覆盖）"
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 1,
+              "partially_supported_count": 3,
+              "kb_alignment_rate": 0.875,
+              "kb_aligned_count": 7
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.125,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 2,
+            "resource_type": "quiz",
+            "title": "多品牌离线仿真与复杂故障定位能力自测（进阶）",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：ROS 2 是现代机器人及自动化系统仿真中常用的中间件，它提供了设备无关的通信层",
+                "kb_evidence": "ROS 2 是构建机器人应用的一套库与工具，底层由 DDS（Data Distribution Service）中间件支撑，采用去中心化自动发现（区别于 ROS 1 的中心化 ROS Master），无单点故障。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：ROS 2 可以作为统一的数据总线，将不同品牌设备的仿真模型或驱动集成到一个仿真环境中",
+                "kb_evidence": "ROS-Industrial（ROS-I）把工业机器人统一接入 ROS 生态，核心思想是：同一套 MoveIt 规划代码，既可在仿真中运行，也能下发到真实控制器，通过标准化的 FollowJointTrajectory 动作接口解耦上层与底层驱动。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：数字孪生是通过创建物理产线（布局、传感器、机器人模型）的虚拟映射，构建了一个高保真的仿真环境",
+                "kb_evidence": "数字孪生不是简单的 3D 动画，而是与真实系统双向同步、可预测的虚拟镜像。"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：ROS 2 是机器人操作系统",
+                "kb_evidence": "ROS 2 是构建机器人应用的一套库与工具，底层由 DDS（Data Distribution Service）中间件支撑，采用去中心化自动发现（区别于 ROS 1 的中心化 ROS Master），无单点故障。"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.5,
+              "items": [
+                {
+                  "claim": "Sim-to-Real（仿真到现实）是指将在仿真环境中训练或验证的算法、策略迁移应用到真实物理系统中的过程",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "Sim-to-Real 迁移指把在仿真里训练好的强化学习（RL）策略部署到真实机器人。",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确支持核心事实，但未提及'验证'，属于次要细节缺失。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "手眼标定是确定相机（视觉传感器）坐标系与机器人（或机械臂）基坐标系之间相对位姿（位置和姿态）变换关系的过程",
+                  "citation_ref": "K1_20260826_手眼标定原理与数学模型_086",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "手眼标定就是求解这个固定（或随末端运动）的刚体变换矩阵。",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持核心事实，但未明确提及'基坐标系'，属于次要细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "ROS 2 是现代机器人及自动化系统仿真中常用的中间件，它提供了设备无关的通信层",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "ROS 2 是构建机器人应用的一套库与工具，底层由 DDS（Data Distribution Service）中间件支撑，采用去中心化自动发现（区别于 ROS 1 的中心化 ROS Master），无单点故障。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持ROS 2作为中间件，但未明确提及'设备无关'，属于次要细节缺失。",
+                  "chunk_index": 8
+                },
+                {
+                  "claim": "ROS 2 可以作为统一的数据总线，将不同品牌设备的仿真模型或驱动集成到一个仿真环境中",
+                  "citation_ref": "K2_022_ros_industrial_driver_moveit",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "ROS-Industrial（ROS-I）把工业机器人统一接入 ROS 生态，核心思想是：同一套 MoveIt 规划代码，既可在仿真中运行，也能下发到真实控制器，通过标准化的 FollowJointTrajectory 动作接口解耦上层与底层驱动。",
+                  "authority_level": "A",
+                  "explanation": "A级原文支持ROS集成不同设备，但未明确提及'数据总线'和'仿真模型'，属于次要细节缺失。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "数字孪生是通过创建物理产线（布局、传感器、机器人模型）的虚拟映射，构建了一个高保真的仿真环境",
+                  "citation_ref": "K2_033_digital_twin_robot_olp",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "数字孪生不是简单的 3D 动画，而是与真实系统双向同步、可预测的虚拟镜像。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持数字孪生作为虚拟映射，但未明确提及'高保真'和具体元素，属于次要细节缺失。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "手眼标定是建立相机坐标系与机器人坐标系变换关系的过程",
+                  "citation_ref": "K1_20260826_手眼标定原理与数学模型_086",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "手眼标定就是求解这个固定（或随末端运动）的刚体变换矩阵。",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持核心事实，但未明确提及'变换关系'的具体类型，属于次要细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "数字孪生是创建物理产线虚拟映射的过程",
+                  "citation_ref": "K2_033_digital_twin_robot_olp",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "数字孪生不是简单的 3D 动画，而是与真实系统双向同步、可预测的虚拟镜像。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持核心事实，但未明确提及'物理产线'，属于次要细节缺失。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "ROS 2 是机器人操作系统",
+                  "citation_ref": "K4B_20260829_004_core_terms_glossary",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "ROS 2 是构建机器人应用的一套库与工具，底层由 DDS（Data Distribution Service）中间件支撑，采用去中心化自动发现（区别于 ROS 1 的中心化 ROS Master），无单点故障。",
+                  "authority_level": "B",
+                  "explanation": "B级原文支持ROS 2作为机器人应用框架，但未明确称其为'操作系统'，属于次要细节缺失。",
+                  "chunk_index": 8
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 4,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "done"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 8
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "done"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "count": 24
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit_recheck",
+            "status": "done"
+          }
+        ],
+        "mode": "api"
+      }
+    },
+    {
+      "profile_id": "profile-k-over-confident",
+      "label": "K 过度自信型·自称专家实则零基础",
+      "input": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础",
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            },
+            "completed_at": "2026-08-14T10:10:00+08:00"
+          }
+        ]
+      },
+      "request": {
+        "name": "画像K",
+        "education_level": "junior_college",
+        "major": "机电一体化",
+        "school": "职业技术学院",
+        "work_years": 10,
+        "industry": "装备制造",
+        "positions": [
+          "机器人调试专家",
+          "产线方案负责人"
+        ],
+        "skills_used": [
+          "FANUC编程",
+          "离线仿真",
+          "复杂故障诊断",
+          "产线方案设计"
+        ],
+        "pretest_results": [
+          {
+            "test_name": "工业机器人编程调试前置测试",
+            "total_score": 20,
+            "max_score": 120,
+            "topic_scores": {
+              "机器人坐标系": 20,
+              "运动指令": 15,
+              "RobotStudio仿真": 5,
+              "ROS2/Gazebo仿真": 0,
+              "SRVO-068数据传输故障": 10,
+              "安全急停链路": 25
+            }
+          }
+        ],
+        "learning_goal": "我已工作十年，直接要最高级的多品牌机器人方案设计和疑难故障内容，跳过所有基础",
+        "resource_types": [
+          "lecture",
+          "guide",
+          "quiz"
+        ]
+      },
+      "http_status": 200,
+      "response": {
+        "task_id": "7f81f09c-1eea-4d9b-9749-6ec363a655d0",
+        "status": "completed",
+        "diagnosis": {
+          "knowledge_map": {
+            "机器人坐标系": {
+              "level": 0.2,
+              "confidence": 0.9,
+              "evidence": "前置测试得分20/100，工作经历中频繁使用FANUC编程，但测试显示基础概念掌握薄弱"
+            },
+            "运动指令": {
+              "level": 0.15,
+              "confidence": 0.9,
+              "evidence": "前置测试得分15/100，尽管有10年调试经验，但指令级知识存在明显缺口"
+            },
+            "RobotStudio仿真": {
+              "level": 0.05,
+              "confidence": 0.85,
+              "evidence": "前置测试得分5/100，工作经历虽涉及离线仿真，但测试显示工具链掌握严重不足"
+            },
+            "ROS2/Gazebo仿真": {
+              "level": 0.0,
+              "confidence": 0.8,
+              "evidence": "前置测试得分0/100，无相关学历或经历证据，属于完全空白领域"
+            },
+            "SRVO-068数据传输故障": {
+              "level": 0.1,
+              "confidence": 0.85,
+              "evidence": "前置测试得分10/100，工作经历声称擅长复杂故障诊断，但测试结果与自述严重不符"
+            },
+            "安全急停链路": {
+              "level": 0.25,
+              "confidence": 0.9,
+              "evidence": "前置测试得分25/100，相对其他知识点稍好，但远未达到专家水平"
+            }
+          },
+          "skill_gaps": [
+            {
+              "topic": "ROS2/Gazebo仿真",
+              "current_level": 0.0,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「ROS2/Gazebo仿真」实测得分率 0%，未达中级掌握线（0.65），需优先补强；多品牌方案设计可能涉及开源仿真工具，但当前完全空白，可作为进阶学习目标"
+            },
+            {
+              "topic": "RobotStudio仿真",
+              "current_level": 0.05,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「RobotStudio仿真」实测得分率 5%，未达中级掌握线（0.65），需优先补强"
+            },
+            {
+              "topic": "SRVO-068数据传输故障",
+              "current_level": 0.1,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「SRVO-068数据传输故障」实测得分率 10%，未达中级掌握线（0.65），需优先补强"
+            },
+            {
+              "topic": "运动指令",
+              "current_level": 0.15,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「运动指令」实测得分率 15%，未达中级掌握线（0.65），需优先补强；运动指令是机器人程序的核心，测试得分极低，直接制约故障诊断和方案设计能力"
+            },
+            {
+              "topic": "机器人坐标系",
+              "current_level": 0.2,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「机器人坐标系」实测得分率 20%，未达中级掌握线（0.65），需优先补强；坐标系是所有机器人编程和调试的基石，当前掌握度极低，无法支撑高级方案设计"
+            },
+            {
+              "topic": "安全急停链路",
+              "current_level": 0.25,
+              "target_level": 0.65,
+              "priority": "critical",
+              "reason": "前置测试「安全急停链路」实测得分率 25%，未达中级掌握线（0.65），需优先补强；安全链路是产线方案设计的合规性基础，当前水平不足以独立负责安全相关设计"
+            }
+          ],
+          "learning_style": "practice_first",
+          "recommended_difficulty": "beginner",
+          "summary": "学习者虽有10年装备制造行业经验，但前置测试仅20/120，与自述的专家水平严重不符。所有核心知识点均处于基础薄弱状态，尤其是坐标系、运动指令和仿真工具。建议从基础开始系统重建知识体系，优先补齐坐标系和运动指令等关键前置依赖，再逐步过渡到高级方案设计。（客观结论：难度 beginner、学习风格 practice_first）",
+          "overall_confidence": 0.9
+        },
+        "resources": [
+          {
+            "title": "从零开始：工业机器人坐标系与运动指令入门（FANUC/ABB/KUKA通用原理）",
+            "content": "## 引言\n\n\n> **通用原理声明**：本课程内容为工业机器人通用原理，涉及具体品牌操作时已标注（FANUC / KUKA / ABB），具体细节以对应品牌官方手册为准。\n\n## 第一节：认识机器人坐标系（为什么机器人需要“地图”？）\n\n### 概念先行\n\n工业机器人的所有运动都需要在特定坐标系下进行描述。\n理解并正确设置坐标系是安全、高效操作机器人的基础。\nISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力（来源：K1_20260811_机器人坐标系_001，段落 0）。\n\n### 动手实践：识别三大品牌的坐标系\n\n**第一步：查看你的机器人控制器型号**\n- 如果你使用的是 **FANUC** 机器人，你会在示教器上看到 **UTOOL(10)** 和 **UFRAME(10)** 的设置选项。\n- 如果你使用的是 **ABB** 机器人，你会在 RobotStudio 软件中看到 **tooldata** 和 **wobjdata** 的数据类型。\n- 如果你使用的是 **KUKA** 机器人，你会接触到 **WORLD/ROBROOT/BASE/TOOL** 五大坐标系。\n\n**第二步：理解坐标系的层次关系**\nKUKA 的坐标系体系（WORLD/ROBROOT/BASE/TOOL）是理解这一层次关系的典型代表。\n\n> ⚠️ 安全提示：在进行任何坐标系设置或修改前，请确保机器人处于手动模式，并确认工作区间内无人员。\n\n## 第二节：运动指令——让机器人动起来的第一步\n\n### 概念先行\n\n运动指令是机器人程序的核心。\n\n### 动手实践：对比三大品牌的运动指令\n\n| 品牌 | 运动指令 | 说明 |\n|------|---------|------|\n| **FANUC** | J / L / C | J（关节运动）、L（直线运动）、C（圆弧运动） |\n| **ABB** | MoveJ / MoveL / MoveC | MoveJ（关节运动）、MoveL（直线运动）、MoveC（圆弧运动） |\n| **KUKA** | PTP / LIN / CIRC | PTP（点到点运动）、LIN（直线运动）、CIRC（圆弧运动） |\n\n**观察结论**：三大品牌的运动指令在功能上一一对应，只是名称不同。掌握一种品牌的指令逻辑，即可快速迁移到其他品牌。\n\n## 第三节：仿真工具——零风险练习的“虚拟车间”\n\n### 概念先行\n\n\n### 动手实践：认识两大主流仿真工具\n\n**工具一：ABB RobotStudio**\n- 适用品牌：ABB\n- 核心功能：虚拟工作站搭建、工具/工件坐标系创建（5点/6点法 TCP 标定）、RAPID 运动指令编程（MoveJ/MoveL/MoveC）、IO 信号配置、碰撞监控设置、无碰撞路径自动生成、仿真运行与程序导出。\n- 学习资源：国家高等教育智慧教育平台推出的在线课程（已升级至 RobotStudio 2024 版本），采用项目式教学，共 11 个项目，覆盖从基础操作到高级应用的全方位内容。\n\n**工具二：FANUC ROBOGUIDE**\n- 适用品牌：FANUC\n- 核心功能：运行真实控制器固件，支持 TP / KAREL 程序语言，覆盖 Handling / Welding / Painting / Dispensing 等工艺包。\n\n> **进阶提示**：KUKA 的离线编程工具链包括 OrangeEdit 离线编辑器、KUKA.Sim 3D 仿真环境、KUKA.OfficeLite 虚拟控制器等。作为入门阶段，建议先专注于上述两大工具之一。\n\n## 第四节：故障代码初探——以 SRVO-068 为例\n\n### 概念先行\n\n\n### 动手实践：认识一个常见报警\n\n**报警代码**：SRVO-068（DTERR，串行脉冲编码器数据传输错误）\n\n**处理思路**：根据知识库资料，SRVO-068 属于串行编码器通讯链路问题，应优先检查串行编码器通讯链路。\n\n> **注意**：本课程为入门级别，仅需了解该报警的存在和处理方向。具体排查步骤属于进阶内容，此处不再展开。\n\n## 总结\n\n1. **机器人坐标系**：所有品牌都遵循从“大地”到“工具”的层次关系，FANUC、ABB、KUKA 的坐标系名称不同但功能对应。\n2. **运动指令**：FANUC（J/L/C）、ABB（MoveJ/MoveL/MoveC）、KUKA（PTP/LIN/CIRC）三大品牌指令功能一一对应。\n3. **仿真工具**：ABB RobotStudio 和 FANUC ROBOGUIDE 是两大主流工具，可零风险练习编程。\n4. **故障代码**：SRVO-068 是 FANUC 串行编码器通讯链路问题。\n\n\n> **通用原理声明**：本课程内容为工业机器人通用原理，具体操作细节以对应品牌官方手册为准。\n\n## 事实溯源\n- 【生成陈述】ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力【KB原文出处】ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。【来源】K1_20260811_机器人坐标系_001#chunk_0\n- 【生成陈述】FANUC机器人示教器上会看到UTOOL(10)和UFRAME(10)的设置选项【KB原文出处】坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】ABB机器人在RobotStudio软件中会看到tooldata和wobjdata的数据类型【KB原文出处】坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】KUKA机器人会接触到WORLD/ROBROOT/BASE/TOOL五大坐标系【KB原文出处】详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）【来源】K2_005_kuka_krl_offline_simulation_guide#chunk_1\n- 【生成陈述】FANUC运动指令为J（关节运动）、L（直线运动）、C（圆弧运动）【KB原文出处】运动指令 | J / L / C | MoveJ / MoveL / MoveC【来源】K2_009_fanuc_roboguide_guide#chunk_23\n- 【生成陈述】ABB运动指令为MoveJ（关节运动）、MoveL（直线运动）、MoveC（圆弧运动）【KB原文出处】ABB IRC5 机器人支持三种基础运动指令：MoveJ（Joint Movement）、MoveL（Linear Movement）、MoveC（Circular Movement）【来源】K1_20260811_机器人点位示教编程_006#chunk_3\n- 【生成陈述】KUKA运动指令为PTP（点到点运动）、LIN（直线运动）、CIRC（圆弧运动）【KB原文出处】PTP/LIN/CIRC 运动指令与逼近参数（C_PTP/C_DIS）【来源】K2_005_kuka_krl_offline_simulation_guide#chunk_1\n- 【生成陈述】SRVO-068（DTERR）属于串行编码器通讯链路问题，应优先检查串行编码器通讯链路【KB原文出处】SRVO-068（DTERR，串行脉冲编码器数据传输错误）...SRVO-068 优先检查串行编码器通讯链路。【来源】K3_20260805_002_fanuc_srvo062_bzal_error_fix#chunk_10",
+            "citations": [
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 0,
+                "original_text": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_005_kuka_krl_offline_simulation_guide",
+                "doc_title": "K2_005_kuka_krl_offline_simulation_guide",
+                "chunk_index": 1,
+                "original_text": "详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 23,
+                "original_text": "运动指令 | J / L / C | MoveJ / MoveL / MoveC",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人点位示教编程_006",
+                "doc_title": "",
+                "chunk_index": 3,
+                "original_text": "ABB IRC5 机器人支持三种基础运动指令：MoveJ（Joint Movement）、MoveL（Linear Movement）、MoveC（Circular Movement）",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_005_kuka_krl_offline_simulation_guide",
+                "doc_title": "K2_005_kuka_krl_offline_simulation_guide",
+                "chunk_index": 1,
+                "original_text": "PTP/LIN/CIRC 运动指令与逼近参数（C_PTP/C_DIS）",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                "doc_title": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                "chunk_index": 10,
+                "original_text": "SRVO-068（DTERR，串行脉冲编码器数据传输错误）...SRVO-068 优先检查串行编码器通讯链路。",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握工业机器人四大坐标系（基坐标系、工具坐标系、用户坐标系、大地坐标系）的基本概念与层次关系，能识别FANUC、ABB、KUKA三大品牌的坐标系名称",
+              "理解三大品牌运动指令（FANUC: J/L/C、ABB: MoveJ/MoveL/MoveC、KUKA: PTP/LIN/CIRC）的功能对应关系",
+              "认识ABB RobotStudio和FANUC ROBOGUIDE两大仿真工具的核心功能，了解SRVO-068报警的基本含义"
+            ],
+            "_trace": {
+              "sentences_total": 130,
+              "sentences_removed": 40,
+              "kept_ratio": 0.3443,
+              "removed_sentences": [
+                "欢迎来到本课程。",
+                "根据你的前置测试结果，当前最需要优先补强的是**机器人坐标系**、**运动指令**以及**仿真工具**等基础知识点。",
+                "本课程将严格基于权威知识库资料（ISO 10218-1:2025标准、国家高等教育智慧教育平台课程、FANUC/KUKA官方资料汇编），采用「先做，再理解」的方式，带你快速建立机器人编程的基石。",
+                "不同品牌的坐标系虽然名称不同，但都遵循从“大地”到“工具”的层次关系。",
+                "不同品牌的运动指令名称不同，但功能对应。",
+                "仿真工具允许你在电脑上搭建虚拟工作站，练习编程和调试，而无需操作真实机器人，这大大降低了学习门槛和安全风险。",
+                "当你开始接触真实机器人时，可能会遇到报警代码。",
+                "理解这些代码的含义是故障诊断的第一步。",
+                "本课程通过「先做，再理解」的方式，带你初步认识了：",
+                "下一步，建议你选择一个仿真工具（如 RobotStudio），动手搭建一个虚拟工作站，练习创建坐标系和编写简单的运动指令。"
+              ],
+              "regenerated": true,
+              "sentences_removed_after_regen": 10,
+              "kept_ratio_after_regen": 0.4444
+            },
+            "resource_type": "lecture",
+            "resource_id": "51c63df7-202d-41ef-8a4c-7c2748e8afcd",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "运动指令",
+              "机器人坐标系",
+              "安全急停链路"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [
+              "在进行任何坐标系设置或修改前，请确保机器人处于手动模式，并确认工作区间内无人员。"
+            ],
+            "robot_metadata": {
+              "brand": "FANUC",
+              "controller_version": "未标注",
+              "applicable_model": "未标注"
+            },
+            "instruction_links": [
+              {
+                "brand": "ABB",
+                "name": "MoveC",
+                "doc_id": "K1_20260826_ABB RAPID MoveC圆弧运动_029",
+                "doc_title": "ABB RAPID MoveC圆弧运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveJ",
+                "doc_id": "K1_20260826_ABB RAPID MoveJ关节运动_027",
+                "doc_title": "ABB RAPID MoveJ关节运动"
+              },
+              {
+                "brand": "ABB",
+                "name": "MoveL",
+                "doc_id": "K1_20260826_ABB RAPID MoveL直线运动_028",
+                "doc_title": "ABB RAPID MoveL直线运动"
+              }
+            ],
+            "alarm_links": [
+              {
+                "brand": "FANUC",
+                "code": "SRVO-068",
+                "doc_id": "K3_20260805_001_fanuc_srvo068_error_fix",
+                "doc_title": "FANUC SRVO-068 故障代码解析与处理指南",
+                "fault_name": "DTERR alarm"
+              }
+            ],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "从零开始：FANUC机器人的坐标系与运动指令——动手实操第一步",
+            "content": "## 概述\n\n你好！欢迎来到这份实操指南。虽然你有十年的装备制造经验，但我们的前置测试显示，在机器人编程的基石——**坐标系**和**运动指令**上，目前的基础还比较薄弱。这完全没关系，就像盖高楼一样，地基打得牢，后面才能建得高。\n\n这份指南的目标，就是带你**亲手**把这两个最核心的概念搞懂。我们会采用“先做、再理解”的方式，让你在操作中直接感受到它们的作用。\n\n**请注意**：本指南以 **FANUC** 机器人为例进行讲解，涉及的具体操作和指令均针对 FANUC 品牌。对于其他品牌（如 KUKA、ABB），原理相通，但具体指令和操作界面会有所不同，**具体以对应品牌官方手册为准**。\n\n## 前置准备\n\n在开始动手之前，请确保你具备以下条件：\n\n1.  **一台 FANUC 机器人**（或 FANUC ROBOGUIDE 仿真软件）。\n2.  **FANUC 官方操作手册**（用于查阅你所用具体型号的详细说明）。\n3.  一个安全的操作环境。\n\n> **【重要概念先知道】**\n> - **坐标系**：想象一下，你要告诉朋友一个东西放在哪里，是不是需要一个“参照物”和一套“度量方式”？坐标系就是机器人的“度量方式”。它是一套规则，用来定义机器人空间中的位置和方向。\n> - **运动指令**：这是你给机器人下的“行动命令”。告诉它“去这里”或“去那里”，以及“怎么去”。\n\n## 分步操作：动手认识坐标系\n\n### 第一步：认识机器人的“世界”——基坐标系\n\n**基坐标系**是机器人的“绝对零点”，它固定在机器人底座上，是所有运动的根本参照。\n\n1.  打开你的 FANUC 机器人控制器（或 ROBOGUIDE 软件）。\n2.  将示教器切换到 **手动模式（T1）**。\n3.  在示教器屏幕上，找到坐标系切换按键，切换到 **WORLD**（世界坐标系）或 **BASE**（基坐标系）。\n\n> ⚠️ 安全提示：在进行任何手动操作前，请确认机器人工作区域内没有其他人员，并准备好随时按下急停按钮。\n\n4.  按住示教器上的使能开关，然后使用方向键 **点动** 机器人。\n5.  观察机器人运动。你会发现，无论机器人处于什么姿态，它的运动方向都是相对于固定在底座的那个“世界坐标”来进行的。向前、向后、向左、向右，都是沿着这个坐标系的轴在动。\n\n**你看到了什么？** 这就是基坐标系的作用——它给机器人的运动提供了一个“绝对”的参考。\n\n### 第二步：认识机器人的“手”——工具坐标系\n\n**工具坐标系**是定义在机器人末端（比如它抓取东西的“手”）上的坐标系。它描述的是“手”相对于机器人腕部的位姿。\n\n1.  在示教器上，找到 **TOOL**（工具）坐标系切换按键并切换到它。\n2.  再次使用方向键 **点动** 机器人。\n\n> ⚠️ 安全提示：点动时请使用低速模式，并密切观察机器人运动方向，防止误操作导致碰撞。\n\n3.  你会发现，机器人的运动方向变成了相对于“手”的方向。比如，你按“向前”，机器人会沿着它“手”指的方向前进，而不是沿着基座标系的“向前”。\n\n**你看到了什么？** 这就是工具坐标系的威力。它让编程变得非常直观——你不需要去计算复杂的几何关系，只需要告诉机器人“沿着你手的方向移动”即可。\n\n### 第三步：认识机器人的“工作台”——用户坐标系\n\n**用户坐标系**是定义在工件或工作台上的坐标系。当工件摆放位置与机器人基座标系不平行时，用它来编程会非常方便。\n\n1.  在示教器上，找到 **USER**（用户）坐标系切换按键并切换到它。\n\n> ⚠️ 安全提示：在切换坐标系后，务必先以低速点动，确认机器人的运动方向符合你的预期。\n\n2.  再次点动机器人，观察运动方向的变化。\n\n**你看到了什么？** 如果你定义了一个与工作台平行的用户坐标系，那么沿着这个坐标系的轴运动，就等同于沿着工作台的边缘运动，这对于直线轨迹的编程非常有用。\n\n## 分步操作：动手编写第一条运动指令\n\n现在，我们来写第一行真正的运动程序。在 FANUC 机器人上，我们使用 **TP（Teach Pendant）语言**。\n\n### 第四步：创建你的第一个程序\n\n1.  在示教器上，按下 **SELECT** 键，进入程序列表界面。\n2.  按 **F1 [CREATE]**（创建）按钮，输入一个程序名，例如 `TEST1`，然后按回车确认。\n3.  现在，你进入了程序编辑界面。\n\n### 第五步：编写运动指令\n\nFANUC 的运动指令主要有三个：`J`（关节运动）、`L`（直线运动）、`C`（圆弧运动）。我们先从最简单的 `J` 指令开始。\n\n1.  在编辑界面，按下 **F1 [INST]**（指令）按钮。\n2.  在指令列表中，选择 **J**（关节运动）指令，然后按回车。\n3.  屏幕上会出现一行代码，类似这样：\n\n```\nJ P[1] 100% FINE\n```\n\n**我们来逐字解释一下这行代码：**\n\n-   `J`：表示这是一个**关节运动**指令。意思是，机器人各个关节会以最快的路径协调运动到目标点，不关心中间轨迹是不是直线。\n-   `P[1]`：表示目标位置。`P[1]` 是第一个位置寄存器，里面存储了机器人在某个坐标系下的坐标值。\n-   `100%`：表示运动速度，这里是最大速度的 100%。\n-   `FINE`：表示到位精度，意思是机器人必须精确到达目标点后才执行下一条指令。\n\n### 第六步：记录一个位置点\n\n1.  使用手动模式，将机器人移动到你想让它去的位置。\n\n> ⚠️ 安全提示：在手动移动机器人时，务必使用低速模式，并时刻注意机器人周围环境，确保安全。\n\n2.  光标移动到 `P[1]` 上，按下 **F5 [POSN]**（位置）键。\n3.  在弹出的菜单中，选择 **[RECORD]**（记录）按钮。\n4.  这样，机器人当前的位置就被保存到了 `P[1]` 中。\n\n### 第七步：运行你的程序\n\n1.  按下 **FWD**（前进）键，程序会开始运行。\n\n> ⚠️ 安全提示：在运行程序前，请再次确认安全门已关闭，急停按钮位置清晰，工作区域内无人员。建议先在低速模式下运行。\n\n2.  观察机器人，它会以关节运动的方式移动到 `P[1]` 点。\n\n**恭喜你！** 你刚刚完成了第一条机器人运动程序。\n\n## 常见问题\n\n**Q1: 我切换了坐标系，但机器人的运动方向没变，为什么？**\n\nA1: 请确认你是否在手动模式下，并且正确切换了坐标系。另外，有些操作界面需要先激活坐标系选择，再使用方向键。如果问题依旧，**以官方手册为准**检查你的操作步骤。\n\n**Q2: `J` 指令和 `L` 指令有什么区别？**\n\nA2: `J`（关节）运动不关心路径，速度快，用于大范围移动；`L`（直线）运动保证工具末端走直线，用于需要精确路径的场合，比如焊接、涂胶。\n\n**Q3: 我的程序运行时报错，提示位置无效，怎么办？**\n\nA3: 这通常是因为 `P[1]` 等位置寄存器没有数据。请检查你是否执行了“记录位置”的步骤。如果确认无误，请检查位置数据是否超出了机器人的工作范围。**具体报警代码的含义，以官方手册为准**。\n\n## 安全操作确认清单\n\n在进行任何示教、点动或程序运行操作前，请务必逐项确认以下事项：\n\n- [ ] **安全门状态确认**：机器人工作区域的安全门已关闭并锁定。\n- [ ] **急停按钮位置确认**：我已确认急停按钮的位置，并确保随时可以按下。\n- [ ] **使能键使用规范**：我了解使能键是“三段式”开关，只有轻握在中间档位时，机器人才能动作。松开或用力握紧都会使机器人停止。\n- [ ] **工作区间无人员确认**：我已确认机器人工作区域内没有任何人员。\n- [ ] **减速模式开启要求**：在首次运行或调试程序时，我已将机器人置于 **T1（低速）模式**，确保运行速度受限。\n\n## 常见异常与排错\n\n| 异常现象 | 可能原因 | 排查方法 |\n| :--- | :--- | :--- |\n| 点动时机器人不动 | 1. 未握住使能键。<br>2. 模式开关不在手动档位。<br>3. 急停被按下。 | 1. 检查使能键是否在中间档位。<br>2. 确认模式开关在 T1/T2 档。<br>3. 旋转急停按钮解除急停状态。 |\n| 程序运行时速度过快 | 程序中的速度百分比设置过高。 | 在程序编辑界面，将速度百分比调低（如 10%），并重新运行。 |\n| 程序运行时报警 | 原因多样，如位置超限、通讯故障等。 | 记录报警代码，查阅 **FANUC 官方手册** 获取具体含义和解决方案。 |\n| 坐标系切换后运动方向混乱 | 对所选坐标系的理解有误。 | 停止操作，重新阅读本指南关于“基坐标系”、“工具坐标系”、“用户坐标系”的描述，并在低速下小心验证。 |\n\n## 事实溯源\n- 【生成陈述】FANUC机器人的运动指令主要有三个：J（关节运动）、L（直线运动）、C（圆弧运动）【KB原文出处】FANUC 机器人支持三种基本运动指令：| 指令 | 全称 | 运动方式 | 适用场景 |------|------|----------|----------| **PTP** | Point-to-Point | 各关节独立运动，路径不…【来源】K1_20260811_机器人点位示教编程_006#chunk_1\n- 【生成陈述】J指令表示关节运动，机器人各个关节会以最快的路径协调运动到目标点，不关心中间轨迹是不是直线【KB原文出处】**PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 |【来源】K1_20260811_机器人点位示教编程_006#chunk_1\n- 【生成陈述】L指令保证工具末端走直线，用于需要精确路径的场合，比如焊接、涂胶【KB原文出处】**LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 |【来源】K1_20260811_机器人点位示教编程_006#chunk_1\n- 【生成陈述】FANUC机器人使用TP（Teach Pendant）语言进行编程【KB原文出处】FANUC 使用 **TP（Teach Pendant）语言** 编程，核心指令如下：【来源】K2_009_fanuc_roboguide_guide#chunk_7\n- 【生成陈述】基坐标系固定在机器人底座上，是所有运动的根本参照【KB原文出处】2. 基坐标系 (Base/基座) - 挂载于大地坐标系之下 - 定义：机器人底座中心为原点 - 用途：描述机器人本身的位置和姿态【来源】K1_20260811_机器人坐标系_001#chunk_3\n- 【生成陈述】工具坐标系是定义在机器人末端上的坐标系，描述的是手相对于机器人腕部的位姿【KB原文出处】4. 工具坐标系 (Tool/TCP) - 挂载于用户坐标系之下 - 定义：以工具末端（TCP）为原点的坐标系 - 作用：描述工具位置和姿态，使示教编程更加灵活【来源】K1_20260811_机器人坐标系_001#chunk_3\n- 【生成陈述】用户坐标系是定义在工件或工作台上的坐标系，当工件摆放位置与机器人基座标系不平行时，用它来编程会非常方便【KB原文出处】3. 用户坐标系 (User Frame/工件坐标) - 挂载于基坐标系之下 - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动【来源】K1_20260811_机器人坐标系_001#chunk_3\n- 【生成陈述】FANUC机器人示教器上坐标系切换按键包括WORLD（世界坐标系）、BASE（基坐标系）、TOOL（工具）和USER（用户）【KB原文出处】| **基坐标系** | BASE | Base | Base Frame | 机器人安装基础坐标系 | | **工具坐标系** | UTOOL | Tool | Tool Frame (tooldata) | 末端执行器参考系 | | *…【来源】K1_20260811_机器人坐标系_001#chunk_1",
+            "citations": [
+              {
+                "doc_id": "K1_20260811_机器人点位示教编程_006",
+                "doc_title": "",
+                "chunk_index": 1,
+                "original_text": "FANUC 机器人支持三种基本运动指令：| 指令 | 全称 | 运动方式 | 适用场景 |------|------|----------|----------| **PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 | **LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 | **CIRC** | Circular | 末端沿圆弧运动 | 圆弧焊缝、圆形轨迹 |",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人点位示教编程_006",
+                "doc_title": "",
+                "chunk_index": 1,
+                "original_text": "**PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 |",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人点位示教编程_006",
+                "doc_title": "",
+                "chunk_index": 1,
+                "original_text": "**LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 |",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K2_009_fanuc_roboguide_guide",
+                "doc_title": "K2_009_fanuc_roboguide_guide",
+                "chunk_index": 7,
+                "original_text": "FANUC 使用 **TP（Teach Pendant）语言** 编程，核心指令如下：",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 3,
+                "original_text": "2. 基坐标系 (Base/基座) - 挂载于大地坐标系之下 - 定义：机器人底座中心为原点 - 用途：描述机器人本身的位置和姿态",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 3,
+                "original_text": "4. 工具坐标系 (Tool/TCP) - 挂载于用户坐标系之下 - 定义：以工具末端（TCP）为原点的坐标系 - 作用：描述工具位置和姿态，使示教编程更加灵活",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 3,
+                "original_text": "3. 用户坐标系 (User Frame/工件坐标) - 挂载于基坐标系之下 - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动",
+                "relevance_score": 1.0
+              },
+              {
+                "doc_id": "K1_20260811_机器人坐标系_001",
+                "doc_title": "K1_20260811_机器人坐标系_001",
+                "chunk_index": 1,
+                "original_text": "| **基坐标系** | BASE | Base | Base Frame | 机器人安装基础坐标系 |\n| **工具坐标系** | UTOOL | Tool | Tool Frame (tooldata) | 末端执行器参考系 |\n| **用户坐标系** | UFRAME | Workpiece | User Frame (wobjdata) | 工件参考系 |\n| **大地坐标系** | WORLD | World | World Frame | 全局绝对参考 |",
+                "relevance_score": 1.0
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "能够识别并理解 FANUC 机器人基坐标系、工具坐标系、用户坐标系三种核心坐标系的作用与区别。",
+              "能够在示教器上熟练切换不同坐标系，并通过点动操作直观感受其对机器人运动方向的影响。",
+              "能够使用 FANUC TP 语言创建第一个包含 J（关节）运动指令的简单程序，并成功运行。"
+            ],
+            "resource_type": "guide",
+            "resource_id": "9c84534b-3870-48c8-b1fd-3ffb09bf14fd",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "运动指令",
+              "机器人坐标系",
+              "安全急停链路"
+            ],
+            "risk_level": "high_risk",
+            "safety_warnings": [
+              "在进行任何手动操作前，请确认机器人工作区域内没有其他人员，并准备好随时按下急停按钮。",
+              "点动时请使用低速模式，并密切观察机器人运动方向，防止误操作导致碰撞。",
+              "在切换坐标系后，务必先以低速点动，确认机器人的运动方向符合你的预期。",
+              "在手动移动机器人时，务必使用低速模式，并时刻注意机器人周围环境，确保安全。",
+              "在运行程序前，请再次确认安全门已关闭，急停按钮位置清晰，工作区域内无人员。建议先在低速模式下运行。"
+            ],
+            "robot_metadata": {
+              "brand": "FANUC",
+              "controller_version": "未标注",
+              "applicable_model": "未标注"
+            },
+            "instruction_links": [],
+            "alarm_links": [],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8,
+            "_traceability_bound": true
+          },
+          {
+            "title": "工业机器人坐标系与运动指令基础自测（FANUC/ABB/KUKA）",
+            "content": "# 工业机器人坐标系与运动指令基础自测（FANUC/ABB/KUKA）\n\n> 本测试面向有装备制造行业经验、但需系统重建机器人基础的学习者。\n> 难度：**入门（beginner）** ｜ 风格：**先练后讲（practice_first）**\n> 请先完成题目，再看答案与解析，最后回到知识库资料补强薄弱点。\n\n---\n\n## 第1题：坐标系识别（选择题）\n\n你在 FANUC 示教器上看到当前激活的坐标系为 **UTOOL(1)**。请问这个坐标系代表什么？\n\nA. 大地坐标系，固定在机器人安装底座上  \nB. 工具坐标系，固定在机器人末端法兰盘上  \nC. 用户坐标系，由用户自定义在工作台面上  \nD. 关节坐标系，每个轴独立运动  \n\n答案：B  \n解析：UTOOL 是 FANUC 的工具坐标系编号（UTO​​OL(10) 表示最多可定义 10 个工具坐标系），固定在机器人末端法兰盘上，用于描述工具中心点（TCP）的位置和姿态。\n\n---\n\n## 第2题：坐标系类型对比（选择题）\n\nKUKA 机器人的 KRL 编程中，坐标系分为 WORLD / ROBROOT / BASE / TOOL 等。其中 **BASE** 坐标系的作用是什么？\n\nA. 固定在机器人底座，是机器人的绝对参考  \nB. 由用户自定义，通常设定在工作台或夹具上  \nC. 固定在末端执行器上，随工具移动  \nD. 用于描述机器人各关节的角度  \n\n答案：B  \n解析：BASE 坐标系是用户自定义的坐标系，通常设定在工作台或夹具上，用于简化编程——让机器人相对于工件坐标系运动，而不是相对于机器人底座。\n\n---\n\n## 第3题：运动指令匹配（选择题）\n\n你在 ABB RobotStudio 中编写 RAPID 程序，需要让机器人从当前点走一条**直线**到目标点。应该使用哪条指令？\n\nA. MoveJ  \nB. MoveL  \nC. MoveC  \nD. MoveAbsJ  \n\n答案：B  \n解析：MoveL 是线性运动指令，机器人 TCP 沿直线轨迹运动到目标点。MoveJ 是关节运动，MoveC 是圆弧运动。\n\n---\n\n## 第4题：仿真工具与品牌匹配（选择题）\n\n你的项目需要为 **FANUC** 机器人做离线仿真和程序验证。以下哪个仿真工具是匹配的？\n\nA. RobotStudio  \nB. ROBOGUIDE  \nC. KUKA.Sim  \nD. Gazebo  \n\n答案：B  \n解析：ROBOGUIDE 是 FANUC 的官方离线仿真软件，运行真实控制器固件，使用 TP/KAREL 语言（来源：K2_009_fanuc_roboguide_guide，段落 23）。RobotStudio 对应 ABB，KUKA.Sim 对应 KUKA，Gazebo 是开源通用仿真平台。\n\n---\n\n## 第5题：坐标系标定方法（简答题）\n\nKUKA 机器人的 **TCP（工具中心点）** 标定通常使用什么方法？请简述。\n\n答案：4 点法 TCP 标定  \n解析：KUKA 机器人使用 4 点法进行 TCP 标定——将工具尖端对准一个固定参考点，从 4 个不同姿态逼近该点，系统通过 4 组关节角度计算出 TCP 相对于法兰盘的位置偏移。\n\n---\n\n## 第6题：SRVO-068 故障处理（选择题）\n\nFANUC 机器人报警 **SRVO-068**（数据传输故障）时，以下哪项排查方向是正确的？\n\nA. 优先检查备份供电与标定  \nB. 优先检查串行编码器通讯链路  \nC. 直接更换伺服电机  \nD. 重新刷写控制器固件  \n\n答案：B  \n解析：SRVO-068（DTERR，串行脉冲编码器数据传输错误）优先检查串行编码器通讯链路。注意区分：SRVO-062（绝对位置丢失）才优先检查备份供电与标定。\n\n---\n\n## 第7题：安全操作规范（选择题）\n\n在示教模式下进行机器人点动操作前，以下哪项**不是**必须确认的安全事项？\n\nA. 安全门状态已确认关闭  \nB. 急停按钮位置已确认  \nC. 使能键使用规范已掌握  \nD. 已开启自动运行模式  \n\n答案：D  \n解析：示教/点动操作应在手动减速模式下进行，不应开启自动运行模式。安全操作确认清单包括：安全门状态、急停按钮位置、使能键使用规范、工作区间无人员、减速模式开启。\n\n---\n\n## 第8题：坐标系数量对比（选择题）\n\n关于 FANUC 与 ABB 的坐标系数量，以下说法正确的是？\n\nA. FANUC 支持 UTOOL(10) + UFRAME(10)，ABB 的 tooldata + wobjdata 不限数量  \nB. FANUC 支持 UTOOL(5) + UFRAME(5)，ABB 最多 10 个  \nC. 两者都最多支持 6 个坐标系  \nD. 两者都不限制坐标系数量  \n\n答案：A  \n解析：根据资料对比，FANUC 的坐标系数量为 UTOOL(10) + UFRAME(10)，ABB 的 tooldata + wobjdata 不限数量。\n\n---\n\n## 第9题：仿真工具选择（简答题）\n\n你需要为一个**多品牌**（FANUC + ABB + KUKA）混合产线做方案设计，但当前预算有限，希望先用开源工具做初步验证。你会选择哪个工具？为什么？\n\n答案：选择 ROS2 + Gazebo 仿真平台  \n解析：ROS2/Gazebo 是开源机器人仿真平台，支持 URDF 建模和 Gazebo 仿真环境搭建，不依赖特定品牌，适合多品牌方案的前期验证。但需注意：Gazebo 是通用仿真平台，与品牌官方仿真工具（ROBOGUIDE/RobotStudio/KUKA.Sim）不同，不运行真实控制器固件，程序验证仍需在官方工具中完成。\n\n---\n\n## 第10题：坐标系与编程的关系（简答题）\n\n为什么说“坐标系是所有机器人编程和调试的基石”？请结合你学到的知识简要说明。\n\n答案：因为机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。ISO 10218-1:2025 标准第 5.3 节明确规定了工业机器人必须具备的坐标系配置能力。\n\n解析：无论是 FANUC 的 UTOOL/UFRAME、KUKA 的 WORLD/ROBROOT/BASE/TOOL，还是 ABB 的 tooldata/wobjdata，坐标系都是描述机器人位置和姿态的基础框架。坐标系设置错误会导致机器人运动轨迹错误，甚至引发安全事故。\n\n---\n\n## 学习建议\n\n根据你的测试结果（20/120），建议按以下顺序系统重建知识体系：\n\n1. **坐标系**（当前 0.2 → 目标 0.7）：先掌握各类坐标系的定义与作用，再练习标定方法（KUKA 4 点法 TCP、3 点法 BASE）\n2. **运动指令**（当前 0.1 → 目标 0.7）：对比学习 FANUC J/L/C、ABB MoveJ/MoveL/MoveC、KUKA PTP/LIN/CIRC\n3. **仿真工具**（当前 0.0-0.1 → 目标 0.7）：从品牌官方工具（ROBOGUIDE/RobotStudio/KUKA.Sim）入手，再了解 ROS2/Gazebo\n4. **故障诊断**（当前 0.1 → 目标 0.7）：重点掌握 SRVO-068 等常见报警的排查方向\n\n> ⚠️ 安全提示：所有实操练习必须在安全门关闭、急停可用、使能键规范使用、工作区间无人员、减速模式下进行。具体安全规范数值以对应品牌官方手册为准。\n",
+            "citations": [
+              {
+                "ref_index": 1,
+                "original_text": "工业机器人的所有运动都需要在特定坐标系下进行描述。理解并正确设置坐标系是安全、高效操作机器人的基础。ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                "usage": "第10题答案与解析，说明坐标系的重要性"
+              },
+              {
+                "ref_index": 2,
+                "original_text": "虚拟工作站搭建、工具/工件坐标系创建（5点/6点法 TCP 标定）、RAPID 运动指令编程（MoveJ/MoveL/MoveC）",
+                "usage": "第3题解析，说明 ABB RAPID 运动指令 MoveJ/MoveL/MoveC 的用途"
+              },
+              {
+                "ref_index": 3,
+                "original_text": "| 机器人品牌 | FANUC | ABB |\n| 程序语言 | TP / KAREL | RAPID |\n| 虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件 |\n| 运动指令 | J / L / C | MoveJ / MoveL / MoveC |\n| 工艺包覆盖 | Handling / Welding / Painting / Dispensing | Palletizing / Welding / Painting / Machining |\n| 坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量） |",
+                "usage": "第4题、第8题解析，对比 FANUC 与 ABB 的仿真工具、运动指令和坐标系数量"
+              },
+              {
+                "ref_index": 4,
+                "original_text": "详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）、PTP/LIN/CIRC 运动指令与逼近参数（C_PTP/C_DIS）、E6POS 位置数据结构",
+                "usage": "第2题、第5题解析，说明 KUKA 坐标系类型和 TCP 标定方法"
+              },
+              {
+                "ref_index": 5,
+                "original_text": "它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。",
+                "usage": "第6题解析，说明 SRVO-068 故障排查方向"
+              },
+              {
+                "ref_index": 6,
+                "original_text": "URDF 建模模板、Gazebo 仿真环境搭建方案",
+                "usage": "第9题解析，说明 ROS2/Gazebo 仿真平台的用途"
+              }
+            ],
+            "difficulty_level": "beginner",
+            "estimated_duration_minutes": 30,
+            "key_takeaways": [
+              "掌握工业机器人四大坐标系（基坐标系、工具坐标系、用户坐标系、大地坐标系）的定义与作用，能识别 FANUC UTOOL/UFRAME、KUKA WORLD/ROBROOT/BASE/TOOL、ABB tooldata/wobjdata 等坐标系类型",
+              "理解三大品牌运动指令的对应关系：FANUC J/L/C、ABB MoveJ/MoveL/MoveC、KUKA PTP/LIN/CIRC，并能根据任务选择合适的指令",
+              "了解品牌官方仿真工具（ROBOGUIDE/RobotStudio/KUKA.Sim）与开源工具（ROS2/Gazebo）的适用场景与差异",
+              "掌握 SRVO-068 数据传输故障的排查方向（优先检查串行编码器通讯链路），并能区分 SRVO-062 与 SRVO-068 的不同处理重点",
+              "建立安全操作意识，明确示教/点动操作前的安全确认事项（安全门、急停、使能键、工作区间、减速模式）"
+            ],
+            "resource_type": "quiz",
+            "resource_id": "d821f189-909d-41bc-a7e1-1205e9e1caef",
+            "learner_id": "",
+            "target_skill_gaps": [
+              "ROS2/Gazebo仿真",
+              "RobotStudio仿真",
+              "SRVO-068数据传输故障",
+              "运动指令",
+              "机器人坐标系",
+              "安全急停链路"
+            ],
+            "risk_level": "theory",
+            "safety_warnings": [
+              "所有实操练习必须在安全门关闭、急停可用、使能键规范使用、工作区间无人员、减速模式下进行。具体安全规范数值以对应品牌官方手册为准。"
+            ],
+            "_was_corrected": true,
+            "_arbitration_applied": true,
+            "_arbitration_log_count": 8
+          }
+        ],
+        "generation_errors": [],
+        "audit": [
+          {
+            "resource_index": 0,
+            "resource_type": "lecture",
+            "title": "从零开始：工业机器人坐标系与运动指令入门（FANUC/ABB/KUKA通用原理）",
+            "verdict": "approved",
+            "issues": [],
+            "fact_check": {
+              "overall_accuracy": 1.0,
+              "items": [
+                {
+                  "claim": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ISO 10218-1:2025标准第5.3节明确规定了工业机器人必须具备的坐标系配置能力。",
+                  "authority_level": "A",
+                  "explanation": "A级原文直接支持该断言，核心事实与细节均匹配。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "FANUC机器人示教器上会看到UTOOL(10)和UFRAME(10)的设置选项",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确列出UTOOL(10)和UFRAME(10)，核心事实被支持，但未明确提及示教器界面。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "ABB机器人在RobotStudio软件中会看到tooldata和wobjdata的数据类型",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确列出tooldata和wobjdata，核心事实被支持，但未明确提及RobotStudio界面。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "KUKA机器人会接触到WORLD/ROBROOT/BASE/TOOL五大坐标系",
+                  "citation_ref": "K2_005_kuka_krl_offline_simulation_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确列出WORLD/ROBROOT/BASE/TOOL，核心事实被支持，但未明确提及五大坐标系的具体名称。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "FANUC运动指令为J（关节运动）、L（直线运动）、C（圆弧运动）",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "运动指令 | J / L / C | MoveJ / MoveL / MoveC",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确列出J/L/C，核心事实被支持，但未明确说明全称。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "ABB运动指令为MoveJ（关节运动）、MoveL（直线运动）、MoveC（圆弧运动）",
+                  "citation_ref": "K1_20260811_机器人点位示教编程_006",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "ABB IRC5 机器人支持三种基础运动指令：MoveJ（Joint Movement）、MoveL（Linear Movement）、MoveC（Circular Movement）",
+                  "authority_level": "A",
+                  "explanation": "A级和B级原文均支持该断言，核心事实与细节匹配。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "KUKA运动指令为PTP（点到点运动）、LIN（直线运动）、CIRC（圆弧运动）",
+                  "citation_ref": "K2_005_kuka_krl_offline_simulation_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "PTP/LIN/CIRC 运动指令与逼近参数（C_PTP/C_DIS）",
+                  "authority_level": "B",
+                  "explanation": "B级原文明确列出PTP/LIN/CIRC，核心事实被支持，但未明确说明全称。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "SRVO-068（DTERR）属于串行编码器通讯链路问题，应优先检查串行编码器通讯链路",
+                  "citation_ref": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "SRVO-068（DTERR，串行脉冲编码器数据传输错误）...SRVO-068 优先检查串行编码器通讯链路。",
+                  "authority_level": "A",
+                  "explanation": "A级原文明确支持该断言，核心事实与细节匹配。",
+                  "chunk_index": 10
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 0,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 1,
+            "resource_type": "guide",
+            "title": "从零开始：FANUC机器人的坐标系与运动指令——动手实操第一步",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：FANUC机器人的运动指令主要有三个：J（关节运动）、L（直线运动）、C（圆弧运动）",
+                "kb_evidence": "FANUC 机器人支持三种基本运动指令：| 指令 | 全称 | 运动方式 | 适用场景 | |------|------|----------|----------| | **PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 | | **LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 | | **CIRC** | Circular | 末端沿圆弧运动 | 圆弧焊缝、圆形轨迹 |"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：J指令表示关节运动，机器人各个关节会以最快的路径协调运动到目标点，不关心中间轨迹是不是直线",
+                "kb_evidence": "**PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 |"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：基坐标系固定在机器人底座上，是所有运动的根本参照",
+                "kb_evidence": "基坐标系 (Base/基座) - 定义：机器人底座中心为原点 - 用途：描述机器人本身的位置和姿态"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：工具坐标系是定义在机器人末端上的坐标系，描述的是手相对于机器人腕部的位姿",
+                "kb_evidence": "工具坐标系 (Tool/TCP) - 定义：以工具末端（TCP）为原点的坐标系 - 作用：描述工具位置和姿态，使示教编程更加灵活"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：用户坐标系是定义在工件或工作台上的坐标系，当工件摆放位置与机器人基座标系不平行时，用它来编程会非常方便",
+                "kb_evidence": "用户坐标系 (User Frame/工件坐标) - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：在FANUC示教器上，按下SELECT键进入程序列表界面，按F1 [CREATE]创建程序",
+                "kb_evidence": "| **SELECT** | 程序选择/创建 |"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.25,
+              "items": [
+                {
+                  "claim": "FANUC机器人的运动指令主要有三个：J（关节运动）、L（直线运动）、C（圆弧运动）",
+                  "citation_ref": "K1_20260811_机器人点位示教编程_006",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "FANUC 机器人支持三种基本运动指令：| 指令 | 全称 | 运动方式 | 适用场景 | |------|------|----------|----------| | **PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 | | **LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 | | **CIRC** | Circular | 末端沿圆弧运动 | 圆弧焊缝、圆形轨迹 |",
+                  "authority_level": "A",
+                  "explanation": "核心事实（三种运动指令）被A级原文支持，但原文使用PTP/LIN/CIRC而非J/L/C，属于同义转述细节未逐字匹配。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "J指令表示关节运动，机器人各个关节会以最快的路径协调运动到目标点，不关心中间轨迹是不是直线",
+                  "citation_ref": "K1_20260811_机器人点位示教编程_006",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "**PTP** | Point-to-Point | 各关节独立运动，路径不可控 | 空行程、无碰撞风险的快速移动 |",
+                  "authority_level": "A",
+                  "explanation": "核心事实（关节运动、路径不可控）被A级原文支持，但'最快的路径协调运动'和'不关心中间轨迹'属于同义转述，未逐字匹配。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "L指令保证工具末端走直线，用于需要精确路径的场合，比如焊接、涂胶",
+                  "citation_ref": "K1_20260811_机器人点位示教编程_006",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "**LIN** | Linear | 末端沿直线运动 | 焊接、涂胶等需要精确路径的场景 |",
+                  "authority_level": "A",
+                  "explanation": "核心事实和次要细节（直线运动、焊接涂胶场景）均被A级原文支持，仅指令名称用LIN而非L，属于同义转述。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "基坐标系固定在机器人底座上，是所有运动的根本参照",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "基坐标系 (Base/基座) - 定义：机器人底座中心为原点 - 用途：描述机器人本身的位置和姿态",
+                  "authority_level": "A",
+                  "explanation": "核心事实（基坐标系固定在底座）被A级原文支持，但'所有运动的根本参照'属于同义转述，未逐字匹配。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "工具坐标系是定义在机器人末端上的坐标系，描述的是手相对于机器人腕部的位姿",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "工具坐标系 (Tool/TCP) - 定义：以工具末端（TCP）为原点的坐标系 - 作用：描述工具位置和姿态，使示教编程更加灵活",
+                  "authority_level": "A",
+                  "explanation": "核心事实（工具坐标系定义在末端）被A级原文支持，但'手相对于腕部'的表述未在原文中出现，属于同义转述细节。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "用户坐标系是定义在工件或工作台上的坐标系，当工件摆放位置与机器人基座标系不平行时，用它来编程会非常方便",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "用户坐标系 (User Frame/工件坐标) - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动",
+                  "authority_level": "A",
+                  "explanation": "核心事实（用户坐标系定义在工件上）被A级原文支持，但'工件摆放位置不平行时方便编程'的细节未在原文中明确，属于次要修饰。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "FANUC机器人使用TP（Teach Pendant）语言编写程序",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "FANUC 使用 **TP（Teach Pendant）语言** 编程，核心指令如下：",
+                  "authority_level": "A",
+                  "explanation": "核心事实（FANUC使用TP语言）被A级原文明确支持，且B级原文也确认，无缺失。",
+                  "chunk_index": 7
+                },
+                {
+                  "claim": "在FANUC示教器上，按下SELECT键进入程序列表界面，按F1 [CREATE]创建程序",
+                  "citation_ref": "K1_20260811_机器人示教器基本操作_005",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "| **SELECT** | 程序选择/创建 |",
+                  "authority_level": "A",
+                  "explanation": "核心事实（SELECT键用于程序选择/创建）被A级原文支持，但'按F1 [CREATE]创建程序'的细节未在原文中明确，属于次要细节缺失。",
+                  "chunk_index": 1
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 6,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          },
+          {
+            "resource_index": 2,
+            "resource_type": "quiz",
+            "title": "工业机器人坐标系与运动指令基础自测（FANUC/ABB/KUKA）",
+            "verdict": "approved",
+            "issues": [
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：KUKA 的 BASE 坐标系是用户自定义的坐标系，通常设定在工作台或夹具上",
+                "kb_evidence": "用户坐标系 (User Frame/工件坐标) - 挂载于基坐标系之下 - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动"
+              },
+              {
+                "severity": "warning",
+                "detail": "次要细节缺失：KUKA 机器人使用 4 点法进行 TCP 标定，通过 4 组关节角度计算出 TCP 相对于法兰盘的位置偏移",
+                "kb_evidence": "详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）"
+              }
+            ],
+            "fact_check": {
+              "overall_accuracy": 0.75,
+              "items": [
+                {
+                  "claim": "UTOOL 是 FANUC 的工具坐标系编号，固定在机器人末端法兰盘上，用于描述工具中心点（TCP）的位置和姿态",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "工具坐标系 (Tool/UTOOL) - 定义：以工具末端（TCP）为原点的坐标系 - 作用：描述工具位置和姿态，使示教编程更加灵活 - 默认值：原点位于J6轴法兰中心",
+                  "authority_level": "A",
+                  "explanation": "核心事实（UTOOL为FANUC工具坐标系、描述TCP位置姿态）被A级原文支持；'固定在机器人末端法兰盘上'为同义转述，原文表述为'原点位于J6轴法兰中心'，细节匹配。",
+                  "chunk_index": 4
+                },
+                {
+                  "claim": "FANUC 最多可定义 10 个工具坐标系（UTOOL(10)）",
+                  "citation_ref": "K1_20260811_FANUC 机器人坐标系设置_002",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "可定义数量：最多10个工具坐标系 (UTOOL 0-9)",
+                  "authority_level": "A",
+                  "explanation": "核心事实（最多10个工具坐标系）被A级原文支持，B级原文亦佐证；'UTOOL(10)'为同义转述，细节匹配。",
+                  "chunk_index": 0
+                },
+                {
+                  "claim": "KUKA 的 BASE 坐标系是用户自定义的坐标系，通常设定在工作台或夹具上",
+                  "citation_ref": "K1_20260811_机器人坐标系_001",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "用户坐标系 (User Frame/工件坐标) - 挂载于基坐标系之下 - 定义：用户自定义的工作平面坐标系 - 作用：以工件为基准来描述TCP运动",
+                  "authority_level": "A",
+                  "explanation": "核心事实（BASE为用户自定义坐标系，设定在工件/工作台）被A级原文支持，但原文未明确提及'工作台或夹具'，仅以'工件'表述，属次要细节缺失。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "ABB RAPID 中 MoveL 是线性运动指令，机器人 TCP 沿直线轨迹运动到目标点",
+                  "citation_ref": "K1_20260811_机器人点位示教编程_006",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "MoveL | Linear Movement | 末端沿直线运动 | 抓取、放置、涂胶等需要精确直线路径场景",
+                  "authority_level": "A",
+                  "explanation": "核心事实（MoveL为线性运动、TCP沿直线运动）被A级原文支持；'到目标点'为同义转述，细节匹配。",
+                  "chunk_index": 3
+                },
+                {
+                  "claim": "ROBOGUIDE 是 FANUC 的官方离线仿真软件，运行真实控制器固件，使用 TP/KAREL 语言",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "机器人品牌 | FANUC | ABB | 程序语言 | TP / KAREL | RAPID | 虚拟控制器 | 运行真实控制器固件 | 运行真实控制器固件",
+                  "authority_level": "B",
+                  "explanation": "核心事实（ROBOGUIDE为FANUC官方仿真软件、运行真实控制器固件、使用TP/KAREL）被B级原文支持；'官方'为同义转述，细节匹配。",
+                  "chunk_index": 23
+                },
+                {
+                  "claim": "KUKA 机器人使用 4 点法进行 TCP 标定，通过 4 组关节角度计算出 TCP 相对于法兰盘的位置偏移",
+                  "citation_ref": "K2_005_kuka_krl_offline_simulation_guide",
+                  "verdict": "partially_supported",
+                  "is_accurate": null,
+                  "evidence_from_kb": "详解 WORLD/ROBROOT/BASE/TOOL 五大坐标系标定（3 点法 BASE + 4 点法 TCP）",
+                  "authority_level": "B",
+                  "explanation": "核心事实（KUKA使用4点法TCP标定）被B级原文支持；'通过4组关节角度计算TCP相对法兰盘偏移'为同义转述，原文未逐字写出，属次要细节缺失。",
+                  "chunk_index": 1
+                },
+                {
+                  "claim": "FANUC 报警 SRVO-068（DTERR，串行脉冲编码器数据传输错误）优先检查串行编码器通讯链路",
+                  "citation_ref": "K3_20260805_002_fanuc_srvo062_bzal_error_fix",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "它与 SRVO-068（DTERR，串行脉冲编码器数据传输错误）形成互补：SRVO-062 优先检查备份供电与标定，SRVO-068 优先检查串行编码器通讯链路。",
+                  "authority_level": "A",
+                  "explanation": "核心事实（SRVO-068为DTERR、优先检查串行编码器通讯链路）被A级原文明确支持，细节匹配。",
+                  "chunk_index": 10
+                },
+                {
+                  "claim": "FANUC 的坐标系数量为 UTOOL(10) + UFRAME(10)，ABB 的 tooldata + wobjdata 不限数量",
+                  "citation_ref": "K2_009_fanuc_roboguide_guide",
+                  "verdict": "accurate",
+                  "is_accurate": true,
+                  "evidence_from_kb": "坐标系数量 | UTOOL(10) + UFRAME(10) | tooldata + wobjdata（不限数量）",
+                  "authority_level": "B",
+                  "explanation": "核心事实（FANUC坐标系数量为UTOOL(10)+UFRAME(10)，ABB不限数量）被B级原文明确支持，细节匹配。",
+                  "chunk_index": 23
+                }
+              ],
+              "hallucination_count": 0,
+              "unverifiable_count": 0,
+              "partially_supported_count": 2,
+              "kb_alignment_rate": 1.0,
+              "kb_aligned_count": 8
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": false
+          }
+        ],
+        "agent_log": [
+          {
+            "agent": "学情诊断Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "diagnosis",
+            "status": "done"
+          },
+          {
+            "agent": "retrieval",
+            "status": "done",
+            "count": 8
+          },
+          {
+            "agent": "知识生成Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "generation",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit",
+            "status": "done"
+          },
+          {
+            "agent": "debate",
+            "status": "done",
+            "count": 24
+          },
+          {
+            "agent": "保真修正Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "correction",
+            "status": "done"
+          },
+          {
+            "agent": "审核Agent",
+            "level": "info",
+            "stage": "complete",
+            "message": "执行完成"
+          },
+          {
+            "agent": "audit_recheck",
+            "status": "done"
+          }
+        ],
+        "mode": "api"
+      }
+    }
+  ]
+}
