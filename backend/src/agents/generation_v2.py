@@ -86,6 +86,15 @@ SYSTEM_PROMPT = """你是一个垂直领域的知识专家和教育内容创作�
 - **禁止自行脑补或改写难度与学习风格**：输出 difficulty_level 必须与传入 difficulty 完全一致，
   表达方式必须与传入 learning_style 一致，不得混用其他风格
 
+## 严格对齐知识库（最高优先级，凌驾于以上所有生成规则）
+- 你只能使用提示中给出的"知识库参考资料"原文作答，禁止调用自身通用常识、行业经验
+  或外部知识进行补充、解释、延伸、润色、联想。
+- 生成模式为**原文摘抄式整合**：关键知识点必须以知识库原文句子为素材，允许合并、调整
+  语序、做必要的衔接过渡，但不得新增原文中不存在的事实、定义、参数、型号、步骤、报警码。
+- 若"知识库参考资料"未覆盖某个知识点（无对应原文），该位置必须直接回复"暂无相关内容"，
+  严禁编造、推测，严禁用"一般地""通常""可能""建议"等措辞兜底。
+- 代码示例、命令行、参数编号、报警码、复位步骤等硬性事实必须逐字来源于知识库原文。
+
 输出必须为严格的 JSON 格式。
 
 ## 主题锁定铁律（最高优先级，不可违反）
@@ -747,6 +756,51 @@ relevant to the learner profile and the retrieved knowledge.
             self.log(f"❌ {rtype} 主题漂移无法纠正，丢弃结果: {drift_reason}")
             return {"_topic_drift_error": drift_reason}
 
+        # ── ④ 输出前句子级溯源校验（严格对齐知识库）──
+        # 生成链路末尾逐句与检索到的知识库原文比对，复用覆盖率阈值 0.5
+        # （多 chunk 合并证据，与 audit.py _RULE_SUPPORT_THRESHOLD 对齐）。
+        # 无原文支撑的句子自动剔除；剔除过甚时触发一次重生成（携带剔除反馈）。
+        if isinstance(result, dict) and result.get("content"):
+            content = str(result.get("content", ""))
+            cleaned, removed, kept_ratio = self._sentence_level_trace_check(
+                content, relevant_chunks or []
+            )
+            trace = {
+                "sentences_total": self._count_sentences(content),
+                "sentences_removed": len(removed),
+                "kept_ratio": round(kept_ratio, 4),
+                "removed_sentences": removed,
+            }
+            if removed:
+                self.log(
+                    f"句子级溯源: 剔除 {len(removed)} 个无原文支撑句子 (保留率 {kept_ratio:.2f})"
+                )
+                # 剔除过甚（内容大量塌缩）→ 触发一次重生成，携带被剔除句子反馈
+                if kept_ratio < 0.6 and rtype != "quiz":
+                    regen = await self._regenerate_with_trace_feedback(prompt, removed, rtype)
+                    if isinstance(regen, dict) and regen.get("content"):
+                        cleaned2, removed2, kept_ratio2 = self._sentence_level_trace_check(
+                            str(regen.get("content", "")), relevant_chunks or []
+                        )
+                        if kept_ratio2 >= kept_ratio and len(removed2) <= len(removed):
+                            result = regen
+                            trace.update(
+                                {
+                                    "regenerated": True,
+                                    "sentences_removed_after_regen": len(removed2),
+                                    "kept_ratio_after_regen": round(kept_ratio2, 4),
+                                    "removed_sentences": removed2,
+                                }
+                            )
+                            cleaned, removed, kept_ratio = cleaned2, removed2, kept_ratio2
+                result["content"] = cleaned or content
+                result["_trace"] = trace
+                if not cleaned.strip():
+                    # 全部句子被剔除：保留空内容，交由下游审核拒绝
+                    self.log("句子级溯源: 内容全部被剔除，置空交由审核拦截")
+        elif isinstance(result, dict):
+            result["_trace"] = {"sentences_total": 0, "sentences_removed": 0, "kept_ratio": 1.0}
+
         failure = self._quiz_contract_failure(result)
         if rtype == "quiz" and failure is not None:
             # A quiz without an answer key cannot be submitted, reviewed, or exported
@@ -1407,3 +1461,130 @@ Knowledge context:
         if safety_count / len(blocks) < 0.20:
             return f"安全规范类题目占比不足：{safety_count}/{len(blocks)} < 20%"
         return None
+
+    # ═══════════════════════════════════════════════════════════
+    # 句子级溯源校验（严格对齐知识库 · 改造④）
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def _extract_tokens(text: str) -> set[str]:
+        """提取比对关键词：英文单词 + 中文双字 bigram（与 audit.py 对齐）。"""
+        normalized = re.sub(r"\s+", "", str(text).lower())
+        tokens: set[str] = set()
+        tokens.update(re.findall(r"[a-z0-9]{2,}", normalized))
+        cjk = re.sub(r"[^一-龥]", "", normalized)
+        for i in range(len(cjk) - 1):
+            tokens.add(cjk[i : i + 2])
+        return {t for t in tokens if len(t) >= 2}
+
+    @staticmethod
+    def _is_structure_line(line: str) -> bool:
+        """判断是否为 Markdown 结构行 / quiz 结构行（直接保留，不参与句子溯源）。"""
+        s = line.strip()
+        if not s:
+            return True
+        # Markdown 标题 / 列表 / 引用 / 表格 / 代码围栏 / 分割线
+        if s.startswith(("#", "-", "*", ">", "|", "```", "~~~", "---", "===")):
+            return True
+        # 有序列表项
+        if re.match(r"^\d+\s*[.、)]\s", s):
+            return True
+        # quiz 选项行（A-D）
+        if re.match(r"^[\(\uff08]?[A-D][\)\uff09]\s*", s):
+            return True
+        # quiz 答案 / 解析 / 题号行
+        if re.match(
+            r"^(?:\u7b54\u6848|\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u89e3\u6790"
+            r"|answer|explanation)\s*[:\uff1a=]?\s*\S",
+            s,
+            re.IGNORECASE,
+        ):
+            return True
+        if re.match(r"^\u7b2c\s*[0-9\u4e00-\u5341]+\s*\u9898", s):
+            return True
+        return False
+
+    def _sentence_level_trace_check(self, content: str, chunks: list) -> tuple[str, list, float]:
+        """句子级原文匹配：逐句与检索到的知识库原文合并比对。
+
+        覆盖率判定与 audit.py 完全对齐：
+          - 关键词提取：英文单词 + 中文双字 bigram
+          - 覆盖率阈值 0.5（多 chunk 合并证据）
+        无原文支撑（覆盖率 < 0.5）的正文句子剔除；Markdown / quiz 结构行保留。
+
+        Returns:
+            (清洗后 content, 被剔除句子列表, 保留率)
+        """
+        if not content or not chunks:
+            return content, [], 1.0
+        merged_norm = re.sub(
+            r"\s+", "", "\n".join(str(c.get("content", "")) for c in chunks)
+        ).lower()
+        if not merged_norm:
+            return content, [], 1.0
+
+        kept: list[str] = []
+        removed: list[str] = []
+        for raw_line in content.split("\n"):
+            line = raw_line.rstrip()
+            stripped = line.strip()
+            if not stripped:
+                kept.append(line)
+                continue
+            if self._is_structure_line(line):
+                kept.append(line)
+                continue
+            # 长段落按句号等标点拆成句子逐句判定
+            sentences = re.split(r"(?<=[\u3002\uff01\uff1f!?;；])", stripped)
+            for sentence in sentences:
+                s = sentence.strip()
+                if not s:
+                    continue
+                tokens = self._extract_tokens(s)
+                if not tokens:
+                    kept.append(s)
+                    continue
+                hits = sum(1 for t in tokens if t in merged_norm)
+                ratio = hits / len(tokens)
+                if ratio >= 0.5:
+                    kept.append(s)
+                else:
+                    removed.append(s)
+        cleaned = "\n".join(kept).strip()
+        total_checked = len(removed) + sum(
+            1
+            for raw_line in content.split("\n")
+            if raw_line.strip() and not self._is_structure_line(raw_line)
+        )
+        kept_ratio = (total_checked - len(removed)) / total_checked if total_checked else 1.0
+        return cleaned, removed, kept_ratio
+
+    @staticmethod
+    def _count_sentences(content: str) -> int:
+        if not content:
+            return 0
+        return len(
+            [
+                s
+                for raw_line in content.split("\n")
+                for s in re.split(r"(?<=[\u3002\uff01\uff1f!?;；])", raw_line)
+                if s.strip()
+            ]
+        )
+
+    async def _regenerate_with_trace_feedback(
+        self, original_prompt: str, removed: list[str], rtype: str
+    ) -> dict:
+        """溯源剔除过甚时触发重生成：携带被剔除句子作为约束反馈。"""
+        feedback = "\n".join(f"- {s}" for s in removed[:10])
+        tail = f"""
+
+## 溯源修正要求（上轮生成被拦截）
+上轮生成内容中有 {len(removed)} 个句子在知识库原文中找不到支撑，已被系统剔除：
+{feedback}
+请仅使用知识库参考资料原文内容重写，删除所有无原文支撑的句子；
+无法覆盖的知识点位置直接回复"暂无相关内容"，不得用常识补充。
+"""
+        if rtype == "quiz":
+            tail += "保持题号、A-D选项、答案、解析结构完整（每题题干与答案必须基于知识库原文）。\n"
+        return await self.call_llm_json(original_prompt + tail)

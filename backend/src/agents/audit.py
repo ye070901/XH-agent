@@ -171,19 +171,32 @@ class AuditAgent(BaseAgent):
         diagnosis = state.get("diagnosis_result", {})
         downgrade_mode = bool(state.get("downgrade_mode", False))
         retrieved_chunks = state.get("retrieved_chunks", []) or []
+        # 双模式：demo=演示交付（全部分级逻辑）/ eval=能力评测（仅 LLM 原生判定，关闭确定性硬规则）
+        audit_mode = str(state.get("audit_mode") or "demo").lower()
 
         audit_results: list[dict] = []
-        for i, resource in enumerate(resources):
-            try:
-                report = await self._audit_one(
-                    i, resource, diagnosis, downgrade_mode, retrieved_chunks
-                )
-            except Exception as e:  # 单资源失败不阻断整批审核
-                self.log(f"资源 {i} 审核异常 ({type(e).__name__})，使用兜底报告")
-                report = self._fallback_report(i, resource, str(e))
-            audit_results.append(report)
+        if not resources:
+            # 生成阶段空产出边界 case：不返回空列表（会导致 audit 为空、无幻觉率输出），
+            # 改为输出"空产出兜底报告"，保证 metrics 可算且所有 case 都有幻觉率。
+            self.log("生成资源为空，输出空产出兜底报告（保持 audit 非空）")
+            audit_results.append(self._empty_resources_report(downgrade_mode))
+        else:
+            for i, resource in enumerate(resources):
+                try:
+                    report = await self._audit_one(
+                        i,
+                        resource,
+                        diagnosis,
+                        downgrade_mode,
+                        retrieved_chunks,
+                        audit_mode,
+                    )
+                except Exception as e:  # 单资源失败不阻断整批审核
+                    self.log(f"资源 {i} 审核异常 ({type(e).__name__})，使用兜底报告")
+                    report = self._fallback_report(i, resource, str(e))
+                audit_results.append(report)
 
-        self.log(f"审核完成: {len(audit_results)} 个资源")
+        self.log(f"审核完成: {len(audit_results)} 个资源（mode={audit_mode}）")
         return {"audit_result": audit_results}
 
     # ═══════════════════════════════════════════════════════════
@@ -197,6 +210,7 @@ class AuditAgent(BaseAgent):
         diagnosis: dict,
         downgrade_mode: bool,
         retrieved_chunks: list[dict],
+        audit_mode: str = "demo",
     ) -> dict:
         """审核单个资源：无 KB 模式走一致性检查，否则走 KB 逐条比对。"""
         if downgrade_mode:
@@ -208,8 +222,8 @@ class AuditAgent(BaseAgent):
         # 2. 逐条检索 KB 原文，汇总为证据池（带权威等级）
         evidence_pool = await self._collect_evidence(claims, retrieved_chunks)
 
-        # 3. 逐条比对（LLM 语义判断 + 代码权威裁决）
-        items = await self._classify_claims(claims, evidence_pool)
+        # 3. 逐条比对（demo=LLM 语义判断 + 代码权威裁决；eval=仅 LLM 原生判定）
+        items = await self._classify_claims(claims, evidence_pool, audit_mode)
 
         # 4. 汇总为审核报告（四态 → verdict + issues，向后兼容）
         return self._build_report(index, resource, items)
@@ -369,10 +383,20 @@ class AuditAgent(BaseAgent):
     # 3. 逐条比对（LLM 语义判断 → 代码权威裁决）
     # ═══════════════════════════════════════════════════════════
 
-    async def _classify_claims(self, claims: list[str], evidence_pool: list[dict]) -> list[dict]:
-        """逐条比对 KB：LLM 填支撑/反驳证据，代码按 A>B 裁决三态。"""
+    async def _classify_claims(
+        self, claims: list[str], evidence_pool: list[dict], audit_mode: str = "demo"
+    ) -> list[dict]:
+        """逐条比对 KB。
+
+        demo 模式：LLM 填支撑/反驳证据，代码按 A>B 权威裁决四态（全部分级逻辑）。
+        eval 模式：关闭所有确定性硬规则与规则兜底，仅由 LLM 直接给出四态原生判定
+        （能力评测，反映模型真实能力；LLM 失败/无证据一律落 unverifiable）。
+        """
         if not claims:
             return []
+
+        if audit_mode == "eval":
+            return await self._llm_classify_eval(claims, evidence_pool)
 
         llm_items = await self._llm_classify(claims, evidence_pool)
 
@@ -468,6 +492,106 @@ class AuditAgent(BaseAgent):
                 if isinstance(idx, int):
                     ordered[idx] = it
         return [ordered.get(i, {}) for i in range(len(claims))]
+
+    async def _llm_classify_eval(self, claims: list[str], evidence_pool: list[dict]) -> list[dict]:
+        """能力评测模式：LLM 直接给出四态原生判定。
+
+        与 demo 模式的关键差异（对应 P2「双模式隔离」）：
+          - 不启用规则兜底（_fallback_classify）、不补齐反驳槽（_backfill_contradict）、
+            不做跨 chunk 合并覆盖判定（_rule_support_level_merged）、不按 A>B 权威裁决。
+          - LLM 输出即最终裁决；LLM 失败 / 未给出合法四态 / 无任何证据支撑 → 一律
+            unverifiable（如实反映模型原生能力，不放大也不美化）。
+        """
+        if not evidence_pool:
+            # 无 KB 原文：模型无从比对，全部如实落 unverifiable
+            return [
+                self._build_item(
+                    c,
+                    "unverifiable",
+                    {"explanation": "能力评测模式：无知识库原文可比对，原生判定为 unverifiable"},
+                )
+                for c in claims
+            ]
+
+        evidence_block = self._fmt_evidence(evidence_pool)
+        claims_block = "\n".join(f"- [{i}] {c}" for i, c in enumerate(claims))
+
+        prompt = f"""## 待审核断言（编号见下方）
+{claims_block}
+
+## 知识库原文
+{evidence_block}
+
+## 任务
+逐条比对知识库原文，对每条断言直接给出四态裁决之一：
+- accurate            原文明确支持该断言（核心事实与次要细节均匹配）
+- partially_supported 核心事实被原文支持，仅次要修饰/参数/同义转述细节缺失
+- hallucination       原文明确反驳该断言（事实错误）
+- unverifiable        原文未覆盖该断言核心事实（超纲），无法验证
+
+## 严格对齐判定标准（强制）
+- 只依据上面给定的知识库原文，禁止凭自身知识补充
+- **每个核心信息点都必须有明确的原文对应**，无原文支撑的信息点一律判 unverifiable（超纲/不合规）
+- 原文明确反驳（如"并非/不是/不支持/与...无关/错误"）才判 hallucination
+- 核心事实有原文依据但细节未逐字匹配 → partially_supported（严禁一步降 unverifiable）
+- 原文完全没有覆盖核心事实 → unverifiable（超纲）
+- 同一条原文不能同时作为支撑与反驳
+- evidence 必须引用知识库原文中的原句，禁止自编摘要作为证据
+
+仅输出纯 JSON（不要 markdown 代码块）：
+{{"claims": [
+  {{
+    "index": 0,
+    "claim": "断言原文",
+    "verdict": "accurate|partially_supported|hallucination|unverifiable",
+    "evidence": "命中的原文摘录（无则 null）",
+    "explanation": "一句话说明"
+  }}
+]}}"""
+
+        try:
+            result = await self.call_llm_json(prompt)
+        except Exception as e:
+            self.log(f"[eval] 能力评测逐条比对 LLM 异常 ({type(e).__name__})，全部落 unverifiable")
+            result = {}
+
+        items = result.get("claims") if isinstance(result, dict) else None
+        if not isinstance(items, list):
+            items = []
+
+        ordered: dict[int, dict] = {}
+        for it in items:
+            if isinstance(it, dict) and isinstance(it.get("index"), int):
+                ordered[it["index"]] = it
+
+        resolved: list[dict] = []
+        valid = {"accurate", "partially_supported", "hallucination", "unverifiable"}
+        for i, claim in enumerate(claims):
+            raw = ordered.get(i) or {}
+            verdict = str(raw.get("verdict") or "").strip().lower()
+            if verdict not in valid:
+                verdict = "unverifiable"  # LLM 未给出合法四态 → 如实落 unverifiable
+            item = self._build_item(
+                claim,
+                verdict,
+                {
+                    "explanation": str(raw.get("explanation") or ""),
+                    "support_a": (
+                        str(raw.get("evidence") or "")
+                        if verdict in ("accurate", "partially_supported")
+                        else None
+                    ),
+                    "contradict_a": (
+                        str(raw.get("evidence") or "") if verdict == "hallucination" else None
+                    ),
+                },
+            )
+            resolved.append(item)
+            self.log(
+                f"[eval][裁决] claim[{i}]={claim[:60]!r} → {verdict} "
+                f"evidence={str(item.get('evidence_from_kb') or '')[:80]!r}"
+            )
+        return resolved
 
     # ── 权威裁决（纯代码规则，不调 LLM）──
 
@@ -776,10 +900,12 @@ class AuditAgent(BaseAgent):
                         }
                     )
                 elif v == "unverifiable":
+                    # 严格对齐升级：unverifiable 由"中性结果"调整为"不合规结果"
+                    # （无原文支撑/超纲 → error 级，触发 needs_revision）
                     issues.append(
                         {
-                            "severity": "warning",
-                            "detail": f"无权威参考：{it.get('claim', '')}",
+                            "severity": "error",
+                            "detail": f"无原文支撑（超纲/不合规）：{it.get('claim', '')}",
                             "kb_evidence": "",
                         }
                     )
@@ -826,6 +952,11 @@ class AuditAgent(BaseAgent):
                 "hallucination_count": hallucination_count,
                 "unverifiable_count": unverifiable_count,
                 "partially_supported_count": partially_supported_count,
+                # 新口径：知识库对齐率 = 有原文依据信息点 / 回答总信息点
+                "kb_alignment_rate": round((accurate_count + partially_supported_count) / total, 4)
+                if total
+                else 1.0,
+                "kb_aligned_count": accurate_count + partially_supported_count,
             },
             "hallucination_flags": hallucination_flags,
             "hallucination_rate": hallucination_rate,
@@ -895,8 +1026,43 @@ class AuditAgent(BaseAgent):
                 "hallucination_count": 0,
                 "unverifiable_count": 0,
                 "partially_supported_count": 0,
+                "kb_alignment_rate": 0.0,
+                "kb_aligned_count": 0,
             },
             "hallucination_flags": [],
             "hallucination_rate": 0.0,
             "no_kb_mode": False,
+        }
+
+    def _empty_resources_report(self, downgrade_mode: bool = False) -> dict:
+        """生成阶段空产出（resources=[]）时的兜底报告。
+
+        保证 audit 永不为空：即便生成阶段产出 0 条资源，也输出一条含
+        fact_check / hallucination_rate 的占位报告，使 metrics 可算、
+        所有 case 都有幻觉率输出（P2 修复 P3-02-K2-HIGH-005 audit 为空）。
+        """
+        return {
+            "resource_index": 0,
+            "resource_type": "",
+            "title": "（空产出）",
+            "verdict": "approved",
+            "issues": [
+                {
+                    "severity": "info",
+                    "detail": "生成阶段未产出资源，本次无事实断言可比对",
+                    "kb_evidence": "",
+                }
+            ],
+            "fact_check": {
+                "overall_accuracy": 1.0,
+                "items": [],
+                "hallucination_count": 0,
+                "unverifiable_count": 0,
+                "partially_supported_count": 0,
+                "kb_alignment_rate": 1.0,
+                "kb_aligned_count": 0,
+            },
+            "hallucination_flags": [],
+            "hallucination_rate": 0.0,
+            "no_kb_mode": downgrade_mode,
         }

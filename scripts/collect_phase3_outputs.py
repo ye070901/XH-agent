@@ -59,6 +59,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--case-id", action="append", default=[])
     parser.add_argument("--limit", type=int)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--mode",
+        choices=["demo", "eval"],
+        default=None,
+        help=(
+            "双模式隔离：向请求体注入 audit_mode 字段（demo=演示交付全部分级 / "
+            "eval=能力评测仅LLM原生判定）。不传则不注入（保持基线行为）。"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -91,8 +100,11 @@ def main() -> int:
     for index, case in enumerate(cases, start=1):
         started_at = datetime.now(timezone.utc).isoformat()
         started = time.perf_counter()
+        payload = dict(case["input"])
+        if args.mode is not None:
+            payload["audit_mode"] = args.mode  # 双模式隔离：注入评测模式
         try:
-            status, response = post_json(endpoint, case["input"], args.timeout)
+            status, response = post_json(endpoint, payload, args.timeout)
             error = None
         except urllib.error.URLError as exc:
             status = 0

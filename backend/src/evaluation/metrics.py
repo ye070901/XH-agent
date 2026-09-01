@@ -384,6 +384,11 @@ class EvaluationMetrics:
         )
         numerator = counts["hallucination"] + counts["unverifiable"]
         rate = numerator / total if total else 0.0
+        # 知识库对齐率（新口径，与旧口径并存）：
+        #   有原文依据信息点 = accurate + partially_supported（核心事实有原文支撑）
+        #   回答总信息点     = total（所有有效事实断言）
+        aligned = counts["accurate"] + counts["partially_supported"]
+        kb_alignment_rate = aligned / total if total else 0.0
         return {
             "rate": round(rate, 4),
             "pass": bool(total and rate < self.hallucination_threshold),
@@ -395,6 +400,9 @@ class EvaluationMetrics:
             "invalid_verdict_count": invalid_count,
             "total": total,
             "reason": None if total else "no_fact_claims",
+            # 新口径：知识库对齐率（有原文依据信息点 / 回答总信息点）
+            "kb_alignment_rate": round(kb_alignment_rate, 4),
+            "kb_aligned_count": aligned,
         }
 
     def compute_adaptation(
@@ -658,6 +666,7 @@ def aggregate_case_results(
     )
     hallucination_bad = 0
     hallucination_total = 0
+    kb_aligned_count_total = 0
     coverage_covered = 0
     coverage_total = 0
     adaptation_rates: list[float] = []
@@ -686,6 +695,7 @@ def aggregate_case_results(
         hallucination_bad += int(hallucination.get("hallucination_count") or 0)
         hallucination_bad += int(hallucination.get("unverifiable_count") or 0)
         hallucination_total += int(hallucination.get("total") or 0)
+        kb_aligned_count_total += int(hallucination.get("kb_aligned_count") or 0)
         if adaptation.get("rate") is not None:
             adaptation_rates.append(float(adaptation["rate"]))
         adaptation_ground_truth_cases += int(bool(adaptation.get("ground_truth_provided")))
@@ -701,6 +711,7 @@ def aggregate_case_results(
         case_passed += int(bool(result.get("all_pass")))
 
     hallucination_rate = hallucination_bad / hallucination_total if hallucination_total else 0.0
+    kb_alignment_rate = kb_aligned_count_total / hallucination_total if hallucination_total else 0.0
     adaptation_rate = sum(adaptation_rates) / len(adaptation_rates) if adaptation_rates else 0.0
     coverage_rate = coverage_covered / coverage_total if coverage_total else 0.0
     hallucination_pass = bool(
@@ -736,6 +747,9 @@ def aggregate_case_results(
             "pass": hallucination_pass,
             "bad_claims": hallucination_bad,
             "total_claims": hallucination_total,
+            # 新口径：知识库对齐率（有原文依据信息点 / 回答总信息点）
+            "kb_alignment_rate": round(kb_alignment_rate, 4),
+            "kb_aligned_claims": kb_aligned_count_total,
         },
         "adaptation": {
             "rate": round(adaptation_rate, 4),
