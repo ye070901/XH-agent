@@ -132,3 +132,40 @@ def test_apply_arbitration_replace_truncates_and_flattens_kb_text() -> None:
     assert "长文" * 250 not in new_content  # 未整段内联（500 字原文被截到 200）
     assert "[来源: docX, 段落 2]" in new_content  # 来源标注保留
     assert logs[0]["action"] == "replaced"
+
+
+def test_remove_sentence_fallback_deletes_paraphrased_claim() -> None:
+    """退化路径：claim 是审核 Agent 的重述句，无法逐字命中正文时，
+    靠关键实体锚点删除承载该断言的整行（修复 unverifiable 残留漏删）。"""
+    content = (
+        "## 环境准备\n"
+        "- **操作系统**: Ubuntu 22.04 (Linux)\n"
+        "- **已安装包**: `ros-humble-desktop`, `ros-humble-gazebo-ros-pkgs`\n"
+        "- **开发环境**: 已 source ROS2 环境\n"
+    )
+    # 审核 Agent 的重述 claim（与正文无法逐字匹配）
+    claim = "ros-humble-desktop 是 ROS2 Humble 的桌面安装包"
+    new_content, matched = CorrectionAgent._remove_sentence(content, claim)
+    assert matched is True
+    assert "ros-humble-desktop" not in new_content  # 承载断言的整行被删
+    assert "ros-humble-gazebo-ros-pkgs" not in new_content  # 同列表项一并删除
+    assert "操作系统" in new_content  # 无关行保留
+
+
+def test_remove_sentence_exact_match_still_works() -> None:
+    """精确匹配路径回归：claim 逐字命中正文时仍按整句删除，行为不变。"""
+    content = "第一句。第二句是错误断言需要删除。第三句。"
+    new_content, matched = CorrectionAgent._remove_sentence(content, "第二句是错误断言需要删除")
+    assert matched is True
+    assert "第二句" not in new_content
+    assert "第一句" in new_content
+    assert "第三句" in new_content
+
+
+def test_remove_sentence_no_anchor_returns_unchanged() -> None:
+    """claim 既无法逐字命中、又无有效实体锚点时，原样返回、不误删。"""
+    content = "这是正文内容，没有任何技术实体。"
+    claim = "某种完全无关的重述描述"
+    new_content, matched = CorrectionAgent._remove_sentence(content, claim)
+    assert matched is False
+    assert new_content == content

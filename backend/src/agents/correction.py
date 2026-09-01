@@ -1432,28 +1432,98 @@ guide（实操指南），缺失以下强制章节：
     def _remove_sentence(content: str, claim: str) -> tuple[str, bool]:
         """删除包含 claim 的整句（纯字符串，不调 LLM）。
 
-        句边界为换行或中英文句末标点；claim 未定位时原样返回。
+        句边界为换行或中英文句末标点；claim 未逐字定位时，退化用「关键实体
+        token 锚点」在正文中定位承载该断言的句子/列表项（审核 Agent 对正文
+        做了同义重述，claim 常无法与正文逐字匹配，此前会直接漏删）。
         """
-        if not claim or claim not in content:
+        if not claim or not content:
             return content, False
-        start = content.find(claim)
-        i = start - 1
-        while i >= 0 and content[i] not in "\n。！？!?":
-            i -= 1
-        sent_start = i + 1
-        # 句尾：claim 若已含句末标点（。！？!?），则句尾即 claim 结束处，
-        # 否则向后扫描到本句的结束标点（避免误删相邻下一句）。
-        claim_end = start + len(claim)
-        if claim_end > 0 and content[claim_end - 1] in "。！？!?":
-            sent_end = claim_end
-        else:
-            j = claim_end
-            while j < len(content) and content[j] not in "\n。！？!?":
-                j += 1
-            sent_end = j
-            if sent_end < len(content) and content[sent_end] in "。！？!?":
-                sent_end += 1
-        return (content[:sent_start] + content[sent_end:]).strip(), True
+        if claim in content:
+            start = content.find(claim)
+            i = start - 1
+            while i >= 0 and content[i] not in "\n。！？!?":
+                i -= 1
+            sent_start = i + 1
+            # 句尾：claim 若已含句末标点（。！？!?），则句尾即 claim 结束处，
+            # 否则向后扫描到本句的结束标点（避免误删相邻下一句）。
+            claim_end = start + len(claim)
+            if claim_end > 0 and content[claim_end - 1] in "。！？!?":
+                sent_end = claim_end
+            else:
+                j = claim_end
+                while j < len(content) and content[j] not in "\n。！？!?":
+                    j += 1
+                sent_end = j
+                if sent_end < len(content) and content[sent_end] in "。！？!?":
+                    sent_end += 1
+            return (content[:sent_start] + content[sent_end:]).strip(), True
+
+        # ── 退化路径：claim 是重述句，无法逐字命中正文 ──
+        anchors = CorrectionAgent._entity_anchors(claim)
+        if not anchors:
+            return content, False
+        # 用最长的锚点命中正文（长锚点更具体，避免短词误伤）
+        for anchor in sorted(anchors, key=len, reverse=True):
+            line = CorrectionAgent._locate_line_with_anchor(content, anchor)
+            if line is None:
+                continue
+            new_content, removed = CorrectionAgent._remove_line(content, line)
+            if removed:
+                return new_content, True
+        return content, False
+
+    @staticmethod
+    def _entity_anchors(claim: str) -> list[str]:
+        """从重述句 claim 里提取可作为正文锚点的「关键实体 token」。
+
+        优先取技术专名 / 型号 / 参数 / 包名 / 代码标识符（如 ros-humble-desktop、
+        SRVO-068、FINE、250mm/s）；剔除常见停用词与纯叙述动词，避免误删正文。
+        """
+        if not claim:
+            return []
+        # 提取英文/数字标识符（含连字符、下划线、点、斜杠）与中文技术词片段
+        token_re = r"[A-Za-z][A-Za-z0-9._/-]{2,}|[0-9]+(?:\.[0-9]+)?(?:mm/s|ms|kg|s)?"
+        tokens = re.findall(token_re, claim)
+        # 停用词：泛化英文词，命中率高但无区分度，剔除
+        stop = {"the", "and", "for", "with", "that", "this", "from", "are", "not",
+                "可以", "能够", "表示", "用于", "一个", "进行", "需要", "以及"}
+        anchors: list[str] = []
+        for t in tokens:
+            low = t.lower()
+            if low in stop or len(t) < 3:
+                continue
+            if t not in anchors:
+                anchors.append(t)
+        return anchors
+
+    @staticmethod
+    def _locate_line_with_anchor(content: str, anchor: str) -> str | None:
+        """在正文中定位包含 anchor 的整行；anchor 未命中时返回 None。"""
+        if anchor not in content:
+            return None
+        idx = content.find(anchor)
+        start = content.rfind("\n", 0, idx) + 1
+        end = content.find("\n", idx)
+        if end == -1:
+            end = len(content)
+        return content[start:end]
+
+    @staticmethod
+    def _remove_line(content: str, line: str) -> tuple[str, bool]:
+        """删除正文中某一整行（连同行尾换行）。行不存在时原样返回。"""
+        if not line:
+            return content, False
+        pos = content.find(line)
+        if pos == -1:
+            return content, False
+        start = pos
+        end = pos + len(line)
+        # 连同行尾换行一起删，避免留下空行
+        if end < len(content) and content[end] == "\n":
+            end += 1
+        elif start > 0 and content[start - 1] == "\n":
+            start -= 1
+        return (content[:start] + content[end:]).strip(), True
 
     @staticmethod
     def _append_source_marker(
