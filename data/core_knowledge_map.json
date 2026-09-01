@@ -62,10 +62,16 @@
             "工具坐标系",
             "用户坐标系",
             "工件坐标系",
-            "WORLD"
+            "WORLD",
+            "关节坐标系",
+            "关节空间",
+            "JOINT",
+            "轴坐标",
+            "Joint"
           ],
           "source_documents": [
-            "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md"
+            "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md",
+            "data/raw/K1_robot_base/K1_20260901_关节坐标系基础_090.md"
           ]
         },
         {
