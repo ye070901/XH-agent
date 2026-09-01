@@ -56,24 +56,23 @@
 
 ## 知识库领域
 
-**大模型应用开发**，4 个子领域：
-1. RAG 系统设计与实现
-2. Prompt Engineering 方法论
-3. Agent/多智能体系统开发
-4. LLM API 集成与最佳实践
+**工业机器人编程与调试**（FANUC / KUKA / ABB 多品牌），12 个知识域（K1–K12）：
 
-共 32 篇文档，存储于 `data/knowledge_base/`
+基础操作与示教编程 · 离线编程与仿真 · 安全规范与故障诊断 · 机器人基础理论 · 机器视觉集成 · 协作机器人 · I/O 与现场总线 · 产线集成与 PLC · 工艺应用 · 多厂商机器人 · 机器人动力学与精度 · AI 机器人与智能应用
+
+- 领域文档存于 `data/raw/`（启动时自动向量化进 ChromaDB）；
+- 核心知识点清单见 `data/core_knowledge_map.json`（42 个 core/high 知识点，覆盖率指标的裁判依据）。
 
 ---
 
 ## 快速启动
 
-前后端分开启动（各占一个终端窗口）。
+前后端分开启动（各占一个终端窗口）。**完整部署说明见 [DEPLOY.md](DEPLOY.md)**。
 
 ### 后端
 
 ```bash
-# 首次：创建虚拟环境并安装依赖（或在 Windows 项目目录运行 .\start.bat 自动完成）
+# 首次：创建虚拟环境并安装依赖（Windows 也可直接双击 start.bat 自动完成）
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt    # Windows
 # Linux/Mac: .venv/bin/pip install -r requirements.txt
@@ -82,11 +81,11 @@ python -m venv .venv
 copy .env.example .env          # Windows
 # Linux/Mac: cp .env.example .env
 
-# 启动后端（Windows 也可在项目目录直接双击 start.bat）
+# 启动后端
 .venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-健康检查：http://localhost:8000/health（启动时会增量同步 `data/raw`：新文章自动向量化，已修改文章自动重建，未变更文章跳过）
+健康检查：http://localhost:8000/health（启动时会增量同步 `data/raw`：新文档自动向量化，已修改文档自动重建，未变更文档跳过）
 
 ### 前端
 
@@ -96,7 +95,7 @@ npm ci          # 首次安装依赖
 npm run dev     # 启动 Vite dev server
 ```
 
-打开 http://localhost:5173/option-b.html（方案 B 当前界面；方案 A 为 http://localhost:5173/）
+打开 http://localhost:5173/（方案 B 为默认入口）
 
 ---
 
@@ -104,45 +103,35 @@ npm run dev     # 启动 Vite dev server
 
 ```
 XH-agent/
+├── main.py              # FastAPI 服务入口（POST /api/generate + /api/knowledge/*）
 ├── backend/src/
 │   ├── agents/          # 4个Agent: diagnosis / generation / audit / correction
-│   ├── debate/          # 辩论协议引擎
-│   │   └── engine.py
-│   ├── evaluation/      # 三项硬指标 + 保真打分
-│   │   ├── metrics.py
-│   │   └── scoring.py
-│   ├── gateways/        # 三道质量闸门
-│   │   ├── input_validator.py
-│   │   ├── diagnosis_validator.py
-│   │   └── retrieval_validator.py
-│   ├── knowledge/       # ChromaDB 知识库
-│   │   ├── store.py
-│   │   └── parser.py
-│   ├── graph/           # 编排器
-│   │   └── orchestrator.py
-│   ├── llm/             # LLM 抽象层
-│   ├── api/             # FastAPI + WebSocket
-│   │   ├── main.py
-│   │   └── ws.py
-│   ├── config.py
-│   ├── schemas.py
+│   ├── debate/          # 博弈协议引擎（三态裁决）
+│   ├── quality_gate/    # 三道质量闸门（input / diagnosis / recall）
+│   │   └── gates/
+│   ├── evaluation/      # 三项硬指标评估 + 保真打分
+│   ├── knowledge/       # ChromaDB 知识库（store / parser）
+│   ├── graph/           # 编排器（orchestrator）
+│   ├── scheduler/       # 流水线调度
+│   ├── llm/             # LLM 抽象层（多模型支持）
+│   ├── api/             # FastAPI + WebSocket + profiles/pretests/exams
+│   ├── config.py        # 全局配置唯一入口
+│   ├── schemas.py       # 全员统一数据契约
 │   └── exceptions.py
-├── frontend/streamlit/  # 前端
-│   ├── app_v2.py
-│   └── components/      # 可视化组件
+├── frontend/            # React + Vite + TypeScript 前端
+│   ├── src/
+│   ├── package.json
+│   └── vite.config.ts
 ├── data/
-│   ├── knowledge_base/  # 知识库原始文档(4领域×8篇)
-│   ├── chroma/          # ChromaDB 持久化
-│   └── test_cases/      # 测试用例
-├── scripts/             # 工具脚本
-│   ├── import_kb.py
-│   ├── verify_kb_code.py
-│   └── evaluate.py
-└── docs/
-    ├── PHASE2_PLAN.md
-    ├── PROGRESS_TRACKER.md
-    ├── KB_REVIEW_STANDARD.md
-    └── roles/phase2/    # 8人分工文档
+│   ├── raw/             # 知识库原始文档（K1–K12 领域，启动自动向量化）
+│   ├── core_knowledge_map.json  # 核心知识点清单（覆盖率裁判）
+│   ├── evaluation/      # 画像 / 真值 / 测试用例
+│   ├── qa_dataset/      # 问答评测集
+│   └── chroma/          # ChromaDB 持久化（派生，可重建）
+├── submission_test_data/  # 提交用测试数据包（切片+画像+输入输出示例）
+├── submission/          # 提交打包脚本（pack.py + 打包清单）
+├── scripts/             # 工具脚本（评测 / 回归 / 防幻觉检查等）
+└── docs/                # 架构方案 / 分工 / 测试方案
 ```
 
 ---
