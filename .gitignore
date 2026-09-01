@@ -35,6 +35,12 @@ frontend/*.tsbuildinfo
 frontend-backup-*/
 deliverables/
 
+# 材料文档大文件（视频/压缩包不进 git，本地留档，打包时再放）
+submission/01_材料文档/*.mp4
+submission/01_材料文档/*.mov
+submission/01_材料文档/*.avi
+submission/01_材料文档/*.zip
+
 # 日志
 logs/*.log
 

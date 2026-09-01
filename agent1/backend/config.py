@@ -1,7 +1,9 @@
 """DeepSeek API 配置"""
 
-# DeepSeek API 密钥
-DEEPSEEK_API_KEY = "sk-f5170ce1e50847e1bc46f0aed4885d8b"
+import os
+
+# DeepSeek API 密钥（从环境变量读取，不硬编码；未设置时为空）
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 
 # DeepSeek API 基础地址
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
