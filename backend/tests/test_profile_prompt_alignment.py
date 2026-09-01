@@ -112,7 +112,7 @@ def test_demo_generation_reads_structured_params() -> None:
 
 
 def test_demo_correction_preserves_difficulty_and_robot_domain() -> None:
-    """demo 修正端：difficulty 透传（非硬编码 beginner）+ 机器人领域 + 无旧标准。"""
+    """demo 修正端：difficulty 透传 + 机器人领域 + citations 引用真实 KB 素材（非伪造 doc_id）。"""
     print("\n── demo：修正端读结构化参数 ──")
 
     client = _make_demo_client()
@@ -122,11 +122,19 @@ def test_demo_correction_preserves_difficulty_and_robot_domain() -> None:
         '"profile_tag": "hands_on_operator"}\n\n'
         "## 原始资源\n- 类型：guide\n- 标题：SRVO-068 排查\n\n"
         "### 原始内容\n# SRVO-068 排查\n\n检查示教器与主机间的通信链路。\n\n"
-        "## 审核发现的问题\n### 🔴 必须修正（error）\n无\n"
+        "## 审核发现的问题\n### 🔴 必须修正（error）\n无\n\n"
+        "## 知识库参考素材\n"
+        "### KB素材 1: fanuc_srvo_068.md#chunk_0 (相关度: 0.95)\n"
+        "```\nSRVO-068 为数据传输故障，需检查示教器与主机间的通信链路。\n```\n"
     )
     data = json.loads(client._demo_correction("你是一个内容修正专家", user_msg))
     check(data["difficulty_level"] == "intermediate", "difficulty=intermediate 透传")
     check("SRVO-068" in data["content"], "修正内容保留机器人故障领域")
+    check(len(data["citations"]) == 1, "citations 引用 1 条真实 KB 素材")
+    check(
+        data["citations"][0]["doc_id"] == "fanuc_srvo_068.md",
+        "doc_id 来自真实 KB 素材（非伪造 demo_robot_fault_kb.md）",
+    )
     check("SRVO-068" in data["citations"][0]["original_text"], "引用为机器人领域 KB 原文")
     check(
         "LangGraph" not in data["content"] and "Google" not in data["content"],

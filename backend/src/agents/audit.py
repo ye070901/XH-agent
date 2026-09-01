@@ -350,6 +350,7 @@ class AuditAgent(BaseAgent):
                 pool[key] = {
                     "doc_id": chunk.get("doc_id", ""),
                     "doc_title": chunk.get("doc_title", ""),
+                    "chunk_index": chunk.get("chunk_index", ""),
                     "content": content,
                     "authority": self._infer_authority(chunk),
                 }
@@ -423,6 +424,7 @@ class AuditAgent(BaseAgent):
 
             verdict = self._resolve_verdict(claim, evidence_pool, raw)
             item = self._build_item(claim, verdict, raw)
+            item = self._backfill_citation(item, evidence_pool)
             resolved.append(item)
             self.log(
                 f"[裁决] claim[{i}]={claim[:60]!r} → {verdict} "
@@ -620,6 +622,54 @@ class AuditAgent(BaseAgent):
             "authority_level": authority,
             "explanation": str(raw.get("explanation") or ""),
         }
+
+    def _backfill_citation(self, item: dict, evidence_pool: list[dict]) -> dict:
+        """按获胜证据原文反查 doc_id / chunk_index，回填 citation_ref。
+
+        evidence_from_kb 是 evidence_pool 中某 chunk 内容的逐字子串（规则兜底
+        截取 text[:300]，或 LLM 按「只摘录原文」返回的摘录），据此把溯源反填回
+        citation_ref，避免下游辩论/修正拿不到 doc_id 而兜底成字面量 "unknown"
+        （防幻觉铁律：溯源必须落到真实文档，禁止出现 "unknown" 假引用）。
+        """
+        out = dict(item or {})
+        if out.get("citation_ref"):
+            return out
+        evidence = str(out.get("evidence_from_kb") or "").strip()
+        if not evidence:
+            return out
+        norm = self._normalize(evidence)
+        if not norm:
+            return out
+
+        # 1. 逐字子串匹配（规则兜底的 text[:300] 前缀 / LLM 摘录原文）
+        for ev in evidence_pool:
+            doc_id = str(ev.get("doc_id") or "").strip()
+            if not doc_id:
+                continue
+            if norm in self._normalize(str(ev.get("content") or "")):
+                out["citation_ref"] = doc_id
+                out["chunk_index"] = ev.get("chunk_index", "")
+                return out
+
+        # 2. 兜底：LLM 可能轻微改写摘录 → 关键词重叠度最高的证据，阈值保护避免错配
+        ev_tokens = self._extract_tokens(evidence)
+        if not ev_tokens:
+            return out
+        best: tuple[float, dict | None] = (0.0, None)
+        for ev in evidence_pool:
+            doc_id = str(ev.get("doc_id") or "").strip()
+            if not doc_id:
+                continue
+            c_tokens = self._extract_tokens(str(ev.get("content") or ""))
+            if not c_tokens:
+                continue
+            overlap = len(ev_tokens & c_tokens) / len(ev_tokens)
+            if overlap > best[0]:
+                best = (overlap, ev)
+        if best[1] is not None and best[0] >= 0.6:
+            out["citation_ref"] = str(best[1].get("doc_id") or "")
+            out["chunk_index"] = best[1].get("chunk_index", "")
+        return out
 
     # ═══════════════════════════════════════════════════════════
     # 规则兜底比对（演示模式 / LLM 失败）

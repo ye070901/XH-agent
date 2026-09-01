@@ -1128,6 +1128,55 @@ class TestCorrectionAgent:
         assert "（来源：kb.md，段落 0）" in cr["content"]  # keep 标注生效
         assert "## 事实溯源" not in cr["content"]  # 非讲义/指南不绑定溯源块
 
+    def test_quiz_skips_destructive_arbitration(self):
+        """quiz 资源：只落实 keep 来源标注，跳过 delete/replace（避免破坏题面结构）。"""
+        state = deepcopy(CORRECTION_STATE)
+        state["generated_resources"][0]["resource_type"] = "quiz"
+        state["generated_resources"][0]["content"] = (
+            "问题1：LangGraph 是 Google 开发的框架。\n"
+            "问题2：LangGraph 是 OpenAI 开发的框架。\n"
+            "问题3：LangGraph 是 LangChain 团队开发的框架。\n"
+        )
+        state["debate_result"] = {
+            "adjudications": [
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 Google 开发的框架。",
+                    "decision": "delete",
+                    "doc_id": "unverified.md",
+                    "chunk_index": 0,
+                },
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 OpenAI 开发的框架。",
+                    "decision": "replace",
+                    "replacement_text": "LangGraph is built by the LangChain team",
+                    "doc_id": "langgraph_intro.md",
+                    "chunk_index": 2,
+                },
+                {
+                    "resource_id": "res-001",
+                    "claim": "LangGraph 是 LangChain 团队开发的框架。",
+                    "decision": "keep",
+                    "doc_id": "langgraph_intro.md",
+                    "chunk_index": 2,
+                },
+            ]
+        }
+        result, m = self._run(state, {"return_value": {}})
+        m.assert_not_awaited()
+        cr = result["corrected_resources"][0]
+        # delete 跳过：原句保留
+        assert "LangGraph 是 Google 开发的框架。" in cr["content"]
+        # replace 跳过：不被 KB 原文替换
+        assert "LangGraph 是 OpenAI 开发的框架。" in cr["content"]
+        assert "LangGraph is built by the LangChain team" not in cr["content"]
+        # keep 仍生效：来源标注追加
+        assert "（来源：langgraph_intro.md，段落 2）" in cr["content"]
+        # 无破坏性动作计入统计
+        assert result["correction_stats"].get("deletions_applied", 0) == 0
+        assert result["correction_stats"].get("replacements_applied", 0) == 0
+
     def test_normalize_adjudications_variants(self):
         """裁决规范化：dict / 扁平 list / DebateRecord rounds 三种形态 → 统一三态。"""
         agent = CorrectionAgent()

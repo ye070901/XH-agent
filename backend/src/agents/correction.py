@@ -1328,6 +1328,10 @@ guide（实操指南），缺失以下强制章节：
             if not claim:
                 continue
             decision = adj.get("decision", "keep")
+            # quiz 是结构化内容（题干/选项/标准答案/解析），逐句 delete/replace 会破坏
+            # 题面结构；quiz 只落实非破坏性的 keep（来源标注），跳过 delete/replace。
+            if resource_type == "quiz" and decision in ("delete", "replace"):
+                continue
             kb_text = str(adj.get("replacement_text") or "").strip()
             doc_id = str(adj.get("doc_id") or "unknown")
             chunk_idx = adj.get("chunk_index")

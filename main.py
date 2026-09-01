@@ -36,6 +36,7 @@ _BACKEND = _PROJECT_ROOT / "backend"
 if str(_BACKEND) not in sys.path:
     sys.path.insert(0, str(_BACKEND))
 
+from backend.src.agents.k1_pre_ask import pre_ask_pipeline  # noqa: E402
 from backend.src.api.exams import router as exams_router  # noqa: E402
 from backend.src.api.pretests import router as pretests_router  # noqa: E402
 from backend.src.api.profiles import router as profiles_router  # noqa: E402
@@ -43,10 +44,10 @@ from backend.src.api.ws import router as ws_router  # noqa: E402
 from backend.src.config import settings  # noqa: E402
 from backend.src.event_broadcast import EventType, event_bus  # noqa: E402
 from backend.src.exceptions import XHError  # noqa: E402
-from backend.src.graph.orchestrator import workflow_engine  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
 from backend.src.llm.client import llm  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
+from backend.src.scheduler.pipeline import scheduler  # noqa: E402
 from backend.src.schemas import EducationLevel, ResourceType  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
@@ -392,6 +393,24 @@ def _generation_inputs(request: GenerateRequest) -> tuple[dict[str, Any], list[s
     return learner_data, [resource_type.value for resource_type in request.resource_types]
 
 
+def _debate_summary(debate_result: dict[str, Any]) -> dict[str, Any]:
+    """把博弈引擎的裁决结果压成前端可渲染的紧凑摘要（修复「前端无辩论可视化」）。
+
+    只透出统计面（保留/替换/删除三态计数 + 未决断言数），不透出逐条 claim 文本，
+    避免把 debate_result 里的长断言一股脑塞给前端。
+    """
+    if not debate_result:
+        return {}
+    stats = debate_result.get("stats") or {}
+    decisions = stats.get("decisions") or {"keep": 0, "replace": 0, "delete": 0}
+    return {
+        "total_resources": stats.get("total_resources", 0),
+        "total_adjudications": stats.get("total_adjudications", 0),
+        "decisions": decisions,
+        "unresolved_count": stats.get("unresolved_count", 0),
+    }
+
+
 def _generation_response(result: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": result.get("task_id", ""),
@@ -400,8 +419,10 @@ def _generation_response(result: dict[str, Any]) -> dict[str, Any]:
         "resources": result.get("corrected_resources", []) or result.get("generated_resources", []),
         "generation_errors": result.get("generation_errors", []),
         "audit": result.get("audit_result", []),
+        "debate": _debate_summary(result.get("debate_result", {})),
         "agent_log": result.get("agent_log", []),
-        "mode": "demo" if settings.is_demo_mode else "real",
+        # 与前端 GenerationResult.mode 契约对齐：demo（本地演示）/ api（真实调用）。
+        "mode": "demo" if settings.is_demo_mode else "api",
     }
 
 
@@ -415,15 +436,20 @@ async def _run_generation_task(task_id: str, request: GenerateRequest) -> None:
 
     try:
         learner_data, resource_types = _generation_inputs(request)
-        result = await workflow_engine.run(
+        result = await scheduler.run_pipeline(
+            user_input={"learner_data": learner_data, "resource_types": resource_types},
             task_id=task_id,
-            learner_data=learner_data,
-            resource_types=resource_types,
         )
         record["status"] = result.get("status", "completed")
         record["result"] = _generation_response(result)
         if record["status"] == "error":
             record["error"] = str(result.get("error") or "生成工作流未能完成。")
+        elif record["status"] == "gate_blocked":
+            gate_name = result.get("gate_name", "")
+            violations = result.get("violations", [])
+            record["error"] = f"输入未通过 {gate_name} 闸门校验。" + (
+                f" 拦截原因：{violations[0]}" if violations else "请补充更具体的学习目标。"
+            )
     except Exception as exc:
         logger.exception(f"[API] Async generation failed: task_id={task_id}")
         record["status"] = "error"
@@ -506,67 +532,53 @@ def _contains_learning_plan_template(answer: str) -> bool:
     return any(marker in normalized for marker in markers)
 
 
-_GOAL_FOCUS_KEYWORDS = (
-    "fanuc",
-    "abb",
-    "kuka",
-    "示教器",
-    "坐标",
-    "编程",
-    "调试",
-    "报警",
-    "故障",
-    "焊接",
-    "机器人",
-    "rapid",
-    "krl",
-    "io",
-    "langgraph",
-    "agent",
-    "rag",
-)
-_GOAL_BOUNDARY_PATTERN = re.compile(
-    r"(?:\d+\s*(?:天|日|周|星期|月)|一周|两周|三周|一个月|能够|可以|完成|掌握|独立|实现)"
-)
+def _build_clarification_questions(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """把 k1_pre_ask 的追问结果映射为前端 3 问（scope/outcome/timeline）契约。
 
-
-def _goal_needs_clarification(goal: str) -> bool:
-    normalized = re.sub(r"\s+", " ", goal).strip()
-    lowered = normalized.lower()
-    has_focus = any(keyword.lower() in lowered for keyword in _GOAL_FOCUS_KEYWORDS)
-    has_boundary = bool(_GOAL_BOUNDARY_PATTERN.search(normalized))
-    return len(normalized) < 14 or not has_focus or not has_boundary
+    scope 对应「品牌方向」（direction）、outcome 对应「任务环节」（task）、
+    timeline 保持时间维度 —— 前端 refineLearningGoal 据此合成
+    「重点学习X；目标是Y；计划在Z完成」。
+    """
+    return [
+        {
+            "id": "scope",
+            "label": "优先聚焦哪个品牌 / 平台？",
+            "helper": result.get("ask_content") or "品牌越具体，资源越能落到对应控制器与指令体系。",
+            "options": ["FANUC", "KUKA", "ABB", "通用 / 多品牌"],
+        },
+        {
+            "id": "outcome",
+            "label": "完成后希望独立完成哪个任务？",
+            "helper": "任务明确了，才能映射到领域核心知识点清单（可选，也可自行描述）。",
+            "options": ["点位编程", "搬运码垛", "焊接工艺", "故障诊断"],
+        },
+        {
+            "id": "timeline",
+            "label": "计划在多长时间内完成？",
+            "helper": "这会影响资源深度和练习安排。",
+            "options": ["3 天内", "1 周内", "2-4 周", "长期学习"],
+        },
+    ]
 
 
 @app.post("/api/goals/assess")
 async def assess_learning_goal(request: GoalAssessmentRequest):
-    """Return focused follow-up questions only when a goal is too broad to generate well."""
+    """前置启发式追问：接入 k1_pre_ask 的目标过宽判定（规则先行），过宽时给领域专属追问。"""
     normalized_goal = re.sub(r"\s+", " ", request.learning_goal).strip()
-    if not _goal_needs_clarification(normalized_goal):
-        return {"status": "ready", "normalizedGoal": normalized_goal}
+
+    # 动态追问接入主流程（修复「动态追问未接入主流程」）：用 k1_pre_ask.pre_ask_pipeline
+    # 的规则判定替代原先「长度 + 关键词」粗判。它能识别厂商/任务词，避免把
+    # 「FANUC 示教器点位编程」这类已具体目标误判为过宽。
+    result = pre_ask_pipeline(normalized_goal)
+
+    if not result.get("need_ask"):
+        refined = result.get("refined_target") or normalized_goal
+        return {"status": "ready", "normalizedGoal": refined}
 
     return {
         "status": "needs_clarification",
-        "reason": "当前目标缺少明确的学习范围、预期成果或时间边界。补充这些信息后，生成的资源会更贴近实际任务。",  # noqa: E501
-        "questions": [
-            {
-                "id": "scope",
-                "label": "优先聚焦哪一部分？",
-                "helper": "选择最希望解决的范围。",
-                "options": ["基础原理", "设备操作", "编程与调试", "故障诊断"],
-            },
-            {
-                "id": "outcome",
-                "label": "完成后希望能做到什么？",
-                "helper": "例如：独立完成一次示教，或排查常见报警。",
-            },
-            {
-                "id": "timeline",
-                "label": "计划在多长时间内完成？",
-                "helper": "这会影响资源深度和练习安排。",
-                "options": ["3 天内", "1 周内", "2-4 周", "长期学习"],
-            },
-        ],
+        "reason": result.get("reason") or "当前目标过于宽泛，补充具体方向后资源会更贴近实际任务。",
+        "questions": _build_clarification_questions(result),
     }
 
 
@@ -876,10 +888,9 @@ async def generate(request: GenerateRequest):
     )
 
     # ── 2. 启动工作流（异常由全局 handler 兜底）──
-    result = await workflow_engine.run(
+    result = await scheduler.run_pipeline(
+        user_input={"learner_data": learner_data, "resource_types": resource_types},
         task_id=request.task_id,
-        learner_data=learner_data,
-        resource_types=resource_types,
     )
 
     # ── 3. 标准化响应 ──
@@ -891,7 +902,8 @@ async def generate(request: GenerateRequest):
         "generation_errors": result.get("generation_errors", []),
         "audit": result.get("audit_result", []),
         "agent_log": result.get("agent_log", []),
-        "mode": "demo" if settings.is_demo_mode else "real",
+        # 与前端 GenerationResult.mode 契约对齐：demo（本地演示）/ api（真实调用）。
+        "mode": "demo" if settings.is_demo_mode else "api",
     }
 
     logger.info(

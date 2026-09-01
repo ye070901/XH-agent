@@ -159,6 +159,7 @@ type GenerationResult = {
   diagnosis?: { summary?: string; learning_style?: string; recommended_difficulty?: string; skill_gaps?: SkillGap[] };
   resources?: GeneratedResource[];
   audit?: Array<{ resource_index?: number; resource_type?: string; verdict?: string; issues?: Array<{ detail?: string }> }>;
+  debate?: { total_resources?: number; total_adjudications?: number; decisions?: { keep?: number; replace?: number; delete?: number }; unresolved_count?: number };
   agent_log?: Array<{ agent?: string; status?: string }>;
   generation_errors?: GenerationErrorItem[];
   mode?: "demo" | "api";
@@ -608,6 +609,15 @@ const renderQuizDocumentForExport = (quiz: Quiz) => `
     `).join("")}
   </section>
 `;
+
+const renderQuizMarkdown = (quiz: Quiz) => quiz.questions.map((question, index) => {
+  const options = question.options.length
+    ? question.options.map((option, optionIndex) => `   ${String.fromCharCode(65 + optionIndex)}. ${option.text}`).join("\n")
+    : "";
+  const answer = question.answer || "\u672a\u63d0\u4f9b";
+  const explanation = question.explanation || "\u672a\u63d0\u4f9b";
+  return `**${index + 1}. ${question.stem}**\n\n${options}\n\n- \u53c2\u8003\u7b54\u6848\uff1a${answer}\n- \u89e3\u6790\uff1a${explanation}`;
+}).join("\n\n");
 
 const quizSignalPattern = /\b(?:quiz|exam|test|assessment|questionnaire)\b|\u6d4b\u8bd5\u9898|\u9009\u62e9\u9898|\u586b\u7a7a\u9898|\u6807\u51c6\u7b54\u6848|\u53c2\u8003\u7b54\u6848|\u6b63\u786e\u7b54\u6848|\u7b54\u6848\u89e3\u6790|\u89e3\u6790/u;
 const quizOptionPattern = /^\s*(?:[-*]\s*)?(?:[\(\uFF08]\s*)?([A-D])\s*(?:[\)\uFF09]\s*|[.\uFF0E\u3001:\uFF1A\]]\s*)(.+)$/i;
@@ -1626,6 +1636,7 @@ function ExpandedWorkspaceLayout({
   quizAttempts,
   onQuizAttemptChange,
   onExport,
+  onExportMarkdown,
   backendDemoMode,
 }: {
   generationResult: GenerationResult | null;
@@ -1644,6 +1655,7 @@ function ExpandedWorkspaceLayout({
   quizAttempts: Record<string, QuizAttempt>;
   onQuizAttemptChange: (resource: GeneratedResource, update: (current: QuizAttempt) => QuizAttempt) => void;
   onExport: () => void;
+  onExportMarkdown: () => void;
   backendDemoMode: boolean | null;
 }) {
   const resources = generationResult?.resources ?? [];
@@ -1652,6 +1664,11 @@ function ExpandedWorkspaceLayout({
   const audit = generationResult?.audit?.find((item) => item.resource_type === selectedResource || item.resource_index === resourceIndex);
   const quizRounds = resource && isQuizResource(resource) ? resources.filter(isQuizResource) : [];
   const workflowDetail = "详情已在弹窗中打开。";
+  const debate = generationResult?.debate;
+  const debateKeep = debate?.decisions?.keep ?? 0;
+  const debateReplace = debate?.decisions?.replace ?? 0;
+  const debateDelete = debate?.decisions?.delete ?? 0;
+  const debateUnresolved = debate?.unresolved_count ?? 0;
   return (
     <div className="workspace-expanded-content mt-8 grid min-h-[calc(100dvh-150px)] min-w-0 w-full max-w-none grid-cols-[230px_minmax(0,1fr)] gap-8 rounded-[2rem] bg-[#192837] p-5 text-white shadow-[0_24px_70px_rgba(25,40,55,0.2)] sm:p-7 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
       <nav aria-label="学习工作台目录" className="self-start lg:sticky lg:top-7">
@@ -1662,14 +1679,24 @@ function ExpandedWorkspaceLayout({
             {!generationResult?.resources?.length ? <p className="px-3 py-2 text-sm leading-6 text-white/55">生成资源后显示目录</p> : null}
           </div>
           {generationResult?.resources?.length ? (
-            <button
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.1] px-3 py-3 text-sm font-semibold text-white transition hover:bg-[#7342E2] hover:shadow-[0_8px_20px_rgba(115,66,226,0.28)]"
-              onClick={onExport}
-              type="button"
-            >
-              <Download size={16} strokeWidth={1.8} />
-              导出全部资源
-            </button>
+            <>
+              <button
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.1] px-3 py-3 text-sm font-semibold text-white transition hover:bg-[#7342E2] hover:shadow-[0_8px_20px_rgba(115,66,226,0.28)]"
+                onClick={onExport}
+                type="button"
+              >
+                <Download size={16} strokeWidth={1.8} />
+                导出全部资源
+              </button>
+              <button
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.1] px-3 py-3 text-sm font-semibold text-white transition hover:bg-[#7342E2] hover:shadow-[0_8px_20px_rgba(115,66,226,0.28)]"
+                onClick={onExportMarkdown}
+                type="button"
+              >
+                <Download size={16} strokeWidth={1.8} />
+                导出 Markdown
+              </button>
+            </>
           ) : null}
         </div>
         <div className="mt-4 rounded-2xl bg-white/[0.07] p-4">
@@ -1743,6 +1770,7 @@ function ExpandedWorkspaceLayout({
         </motion.article> : <div className="mt-7 rounded-2xl bg-[#102333] p-8 text-white/65">选择左侧资源目录查看内容。</div>}
 
         {activeStep !== null ? <motion.section className="mt-6 rounded-2xl bg-white/[0.08] p-6" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={`workflow-${activeStep}`}><p className="text-xs font-semibold tracking-[0.14em] text-white/55">工作流详情</p><h4 className="mt-2 text-xl font-semibold text-white">{workflowSteps[activeStep]}</h4><p className="mt-3 text-sm leading-7 text-white/75">{workflowDetail}</p></motion.section> : null}
+        {debate?.total_adjudications ? <motion.section className="mt-6 rounded-2xl bg-white/[0.08] p-6" layout><p className="text-xs font-semibold tracking-[0.14em] text-white/55">{"博弈裁决"}</p><h4 className="mt-2 text-xl font-semibold text-white">{"多智能体协同裁决"}</h4><div className="mt-4 grid grid-cols-3 gap-3"><div className="rounded-xl bg-white/[0.07] px-3 py-3 text-center"><p className="text-2xl font-semibold text-emerald-300">{debateKeep}</p><p className="mt-1 text-xs text-white/55">{"保留 keep"}</p></div><div className="rounded-xl bg-white/[0.07] px-3 py-3 text-center"><p className="text-2xl font-semibold text-amber-300">{debateReplace}</p><p className="mt-1 text-xs text-white/55">{"替换 replace"}</p></div><div className="rounded-xl bg-white/[0.07] px-3 py-3 text-center"><p className="text-2xl font-semibold text-red-300">{debateDelete}</p><p className="mt-1 text-xs text-white/55">{"删除 delete"}</p></div></div>{debateUnresolved ? <p className="mt-4 text-sm leading-7 text-white/70">{"未决断言 "}{debateUnresolved}{" 条，已交由保真修正 Agent 按保守策略兜底处理。"}</p> : <p className="mt-4 text-sm leading-7 text-white/60">{"共裁决 "}{debate?.total_adjudications}{" 条断言，无未决争议。"}</p>}</motion.section> : null}
         <motion.section className="mt-6 rounded-2xl bg-white/[0.08] p-6" layout><p className="text-xs font-semibold tracking-[0.14em] text-white/55">质量闸门详情</p><h4 className="mt-2 text-xl font-semibold text-white">{qualityGates.find((gate) => gate.id === selectedQualityGate)?.label}</h4><p className="mt-3 text-sm leading-7 text-white/75">{selectedQualityGate === "evidence" ? "查看每种资源是否有知识库依据和审核结论。" : selectedQualityGate === "difficulty" ? `建议难度：${generationResult?.diagnosis?.recommended_difficulty || "等待学情诊断"}` : "查看资源的表达质量、结构完整性和可用性。"}</p></motion.section>
       </main>
     </div>
@@ -1992,7 +2020,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
         if (!taskResponse.ok) throw new Error(`Task API ${taskResponse.status}`);
         task = await taskResponse.json() as { status?: string; result?: GenerationResult; error?: string };
         if (task.status === "completed" && task.result) break;
-        if (["error", "failed", "cancelled"].includes(task.status ?? "")) {
+        if (["error", "failed", "cancelled", "gate_blocked"].includes(task.status ?? "")) {
           throw new Error(task.error || "下一轮针对性测试生成失败。");
         }
       }
@@ -2094,6 +2122,46 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     anchor.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
+  const exportGeneratedMarkdown = () => {
+    const resources = generationResult?.resources ?? [];
+    if (!resources.length) return;
+
+    const exportTopic = topic.trim() || "个性化学习";
+    const diagnosis = generationResult?.diagnosis;
+    const skillGaps = (diagnosis?.skill_gaps ?? [])
+      .map((gap) => gap.topic)
+      .filter((gap): gap is string => Boolean(gap))
+      .join("、");
+    const resourceSections = resources.map((resource, index) => {
+      const quiz = resource.quiz ?? (hasQuizSignals(resource) ? parseQuizContent(resource) : null);
+      const roundNumber = isQuizResource(resource) ? quizRoundNumber(resources, resource) : null;
+      const sectionLabel = roundNumber ? `第 ${roundNumber} 轮测试` : resourceLabel(resource.resource_type);
+      const takeaways = (resource.key_takeaways ?? []).filter(Boolean);
+      const supplements = getResourceSupplements(resource);
+      const baseContent = getExportBaseContent(resource, supplements);
+      const content = quiz ? renderQuizMarkdown(quiz) : baseContent;
+      const meta = `难度：${resource.difficulty_level || "未提供"}　预计时长：${resource.estimated_duration_minutes ? `${resource.estimated_duration_minutes} 分钟` : "未提供"}`;
+      const takeawaysMarkdown = takeaways.length ? `\n### 学习重点\n${takeaways.map((item) => `- ${item}`).join("\n")}` : "";
+      const supplementsMarkdown = supplements.length ? `\n### 针对学习疑问的补充资源\n${supplements.map((supplement) => `#### ${supplement.title}\n\n${supplement.content}`).join("\n\n")}` : "";
+      return `## ${index + 1}. ${sectionLabel}：${resource.title || sectionLabel}\n\n${meta}${takeawaysMarkdown}\n\n${content}${supplementsMarkdown}`;
+    }).join("\n\n---\n\n");
+    const auditItems = (generationResult?.audit ?? []).map((item) => {
+      const issues = (item.issues ?? []).map((issue) => issue.detail).filter((detail): detail is string => Boolean(detail)).join("；");
+      return `- ${resourceLabel(item.resource_type || "资源")}：${item.verdict || "未提供"}${issues ? `（${issues}）` : ""}`;
+    }).join("\n");
+    const documentTitle = `${exportTopic} - 个性化学习资源`;
+    const markdown = `# ${documentTitle}\n\n> 导出时间：${new Date().toLocaleString("zh-CN")}\n\n## 学习画像\n\n- 学习目标：${exportTopic}\n- 诊断摘要：${diagnosis?.summary || "暂无诊断摘要。"}\n- 推荐难度：${diagnosis?.recommended_difficulty || "未提供"}${skillGaps ? `\n- 待补足方向：${skillGaps}` : ""}\n\n---\n\n${resourceSections}${auditItems ? `\n\n---\n\n## 审核摘要\n\n${auditItems}` : ""}\n`;
+    const safeFileName = exportTopic.replace(/[\\/:*?"<>|]/g, "_").slice(0, 60) || "学习资源";
+    const blob = new Blob(["﻿", markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${safeFileName}.md`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
   const confirmClarification = () => {
     const refined = refineLearningGoal(learningGoal, clarificationAnswers);
     // React state is asynchronous; retain the exact clarified goal for this request.
@@ -2150,6 +2218,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       });
       if (!response.ok) throw new Error(`API ${response.status}`);
       result = { ...(await response.json() as GenerationResult), mode: "api" };
+      if (result.status === "gate_blocked") throw new Error("输入未通过闸门校验，请补充更具体的学习目标。");
     } catch {
       setWorkflowMode("demo");
       stopWorkflowRef.current = simulateWorkflow((incoming) => setWorkflowEvents((current) => mergeWorkflowEvent(current, incoming)));
@@ -2463,7 +2532,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
             <motion.button aria-label="关闭学习工作台" className="fixed inset-0 z-30 bg-[#192837]/35 backdrop-blur-[4px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setWorkspaceOpen(false)} type="button" />
             <motion.aside aria-label="学习工作台" className={`fixed bottom-0 right-0 top-0 z-40 flex flex-col overflow-y-auto bg-[#F2F2EE] px-6 pb-6 pt-24 text-[#192837] shadow-[-20px_0_70px_rgba(25,40,55,0.25)] transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:px-9 sm:pb-9 sm:pt-24 ${workspaceExpanded ? "w-full" : "w-[min(100%,600px)]"}`} initial={reducedMotion ? false : { x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} onScroll={(event) => setShowWorkspaceTopButton(event.currentTarget.scrollTop > 320)} ref={workspaceScrollRef} transition={{ duration: 0.42, ease }}>
               <div className={`flex items-start justify-between gap-5 ${workspaceExpanded ? "mx-auto w-full max-w-[1120px]" : ""}`}><div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习工作台</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">协同任务状态</h2></div><div className="flex items-center gap-2"><button aria-label={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => setWorkspaceExpanded((expanded) => !expanded)} title={workspaceExpanded ? "收缩为侧边栏" : "全屏展开"} type="button">{workspaceExpanded ? <Minimize2 size={19} strokeWidth={1.8} /> : <Maximize2 size={19} strokeWidth={1.8} />}</button><button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08] transition-transform hover:scale-105" onClick={() => { setWorkspaceExpanded(false); setWorkspaceOpen(false); }} title="关闭工作台" type="button"><X size={20} strokeWidth={1.8} /></button></div></div>
-               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} backendDemoMode={backendDemoMode} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
+               {workspaceExpanded ? <ExpandedWorkspaceLayout generationResult={generationResult} topic={topic} selectedResource={selectedResource} setSelectedResource={selectWorkspaceResource} activeStep={activeStep} setActiveStep={setActiveStep} selectedQualityGate={selectedQualityGate} setSelectedQualityGate={setSelectedQualityGate} onApplyRevision={applyRevision} onResolveQuiz={applyQuizAnswerKey} onGenerateAdaptiveQuiz={generateAdaptiveQuiz} quizAttempts={quizAttempts} onQuizAttemptChange={updateQuizAttempt} onExport={exportGeneratedResources} onExportMarkdown={exportGeneratedMarkdown} backendDemoMode={backendDemoMode} onOpenWorkflow={(index) => setWorkspaceDialog({ kind: "workflow", index })} onOpenQualityGate={(id) => setWorkspaceDialog({ kind: "quality", id })} /> : null}
                {resourceReady && generationResult ? (
                  <section className={`mt-7 rounded-2xl bg-[#192837] p-5 text-white shadow-[0_20px_50px_rgba(25,40,55,0.18)] sm:p-7 ${workspaceExpanded ? "hidden" : ""}`}>
                   <div className="mx-auto max-w-[80ch]">
@@ -2485,6 +2554,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                      {generationResult.generation_errors?.length ? <GenerationFailures key={generationSeq} errors={generationResult.generation_errors} onRegenerate={(item) => { void performGeneration(topic || learningGoal.trim(), item); }} /> : null}
                   </div>
                   <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-[#192837] transition hover:bg-[#B99DFF]" onClick={exportGeneratedResources} type="button"><Download size={16} strokeWidth={1.9} />导出全部资源</button>
+                  <button className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/25" onClick={exportGeneratedMarkdown} type="button"><Download size={16} strokeWidth={1.9} />导出 Markdown</button>
                   {selectedResource ? (() => {
                     const resources = generationResult.resources ?? [];
                     const resource = resources.find((item) => item.resource_type === selectedResource);

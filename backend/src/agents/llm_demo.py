@@ -87,14 +87,24 @@ def _demo_diagnosis(user_message: str) -> dict[str, Any]:
     learning_style = _infer_style(info, difficulty)
 
     mastery = {"beginner": 0.25, "intermediate": 0.55, "advanced": 0.85}[difficulty]
+
+    # 诊断与学习目标对齐：从 learning_goal 检测目标品牌，命中时用品牌专属术语，
+    # 避免 KUKA 学习者被诊断出 FANUC 专属的 SRVO-068 / TP / J-L 等话题。
+    brand = _detect_brand(info["learning_goal"] or "")
+    bc = _BRAND_CONTENT.get(brand)
+    teach = f"{bc['label']} {bc['teach']}" if bc else None
+    lang = f"{bc['label']} {bc['lang']}" if bc else None
+    ctrl = f"{bc['label']} {bc['ctrl']}" if bc else None
+    fault = f"{bc['label']} 故障代码诊断" if bc else None
+
     km_topics = [
         "工业机器人基础概念",
         "机器人坐标系与姿态",
-        "示教器操作与基础编程",
-        "运动指令（PTP/LIN/CIRC）",
-        "离线仿真（RobotStudio/ROS2）",
+        teach or "示教器操作与基础编程",
+        lang or "运动指令（PTP/LIN/CIRC）",
+        ctrl or "离线仿真（RobotStudio/ROS2）",
         "安全回路与急停链路",
-        "故障代码诊断（SRVO-068等）",
+        fault or "故障代码诊断（SRVO-068等）",
     ]
     knowledge_map = {
         topic: {
@@ -108,21 +118,21 @@ def _demo_diagnosis(user_message: str) -> dict[str, Any]:
     gaps_by_difficulty = {
         "beginner": [
             ("机器人坐标系与姿态", "critical", "零基础，坐标系是示教编程与轨迹控制的前提"),
-            ("示教器基础操作", "critical", "安全操作与编程的起点"),
+            (teach or "示教器基础操作", "critical", "安全操作与编程的起点"),
             ("安全回路与急停链路", "high", "工业现场安全第一，需先建立风险意识"),
-            ("运动指令入门（PTP/LIN）", "high", "实现基础轨迹控制"),
-            ("离线仿真入门", "medium", "用 RobotStudio/ROS2 降低试错成本"),
+            (lang or "运动指令入门（PTP/LIN）", "high", "实现基础轨迹控制"),
+            (ctrl or "离线仿真入门", "medium", "用 RobotStudio/ROS2 降低试错成本"),
         ],
         "intermediate": [
-            ("离线仿真与程序调试", "critical", "有基础但缺仿真与现场调试经验"),
-            ("故障代码诊断方法", "high", "从会操作到能定位故障的关键一步"),
+            (ctrl or "离线仿真与程序调试", "critical", "有基础但缺仿真与现场调试经验"),
+            (fault or "故障代码诊断方法", "high", "从会操作到能定位故障的关键一步"),
             ("多品牌坐标与运动指令差异", "high", "跨 FANUC/KUKA/ABB 的迁移能力"),
             ("安全回路系统理解", "medium", "从执行安全步骤到理解安全链路原理"),
             ("程序结构与优化", "medium", "从会写简单程序到结构化管理"),
         ],
         "advanced": [
             ("跨品牌离线仿真与方案设计", "critical", "多品牌场景下的产线方案设计能力"),
-            ("疑难故障系统化定位", "critical", "复杂故障的方法论沉淀"),
+            (fault or "疑难故障系统化定位", "critical", "复杂故障的方法论沉淀"),
             ("安全合规与风险评估", "high", "产线级安全方案与风险评估"),
             ("程序架构与团队协作规范", "medium", "大规模程序的架构与维护"),
             ("行业最佳实践", "medium", "沉淀可复用的方法论"),
@@ -168,6 +178,105 @@ def _grab_profile_param(user_message: str, key: str, default: str) -> str:
     return m.group(1).strip() if m else default
 
 
+def _parse_kb_references(user_message: str) -> list[dict]:
+    """从生成/修正 prompt 里解析真实知识库引用（demo 模式构造 citations 用）。
+
+    与 llm/client.py 的 _parse_kb_references 保持一致，兼容两种格式化器：
+      1. generation_v2._fmt_knowledge_base：
+           ### 资料 N：title / - 文档ID：X / - 片段序号：Y / 正文
+      2. correction._fmt_kb_chunks：
+           ### KB素材 N: X#chunk_Y (相关度: …) / ```正文```
+
+    只搬运 prompt 里逐字存在的原文（防幻觉铁律：绝不杜撰）；解析不到返回空列表。
+    """
+    refs: list[dict] = []
+
+    # 格式 2：correction 的「### KB素材 N: doc_id#chunk_idx」
+    for m in re.finditer(r"### KB素材 \d+:\s*([^#\s]+)#chunk_(\d+)", user_message):
+        doc_id = m.group(1).strip()
+        chunk_index = m.group(2).strip()
+        body_m = re.search(r"```\s*\n(.{0,400}?)```", user_message[m.end() :], re.DOTALL)
+        original_text = body_m.group(1).strip() if body_m else ""
+        if doc_id:
+            refs.append(
+                {
+                    "doc_id": doc_id,
+                    "doc_title": doc_id,
+                    "chunk_index": int(chunk_index) if chunk_index.isdigit() else 0,
+                    "original_text": original_text[:200],
+                }
+            )
+    if refs:
+        return refs
+
+    # 格式 1：generation 的「### 资料 N：title / - 文档ID / - 片段序号 / 正文」
+    for m in re.finditer(r"### 资料 \d+：(.+)", user_message):
+        title = m.group(1).strip()
+        tail = user_message[m.end() :]
+        doc_id = ""
+        chunk_index = "0"
+        dm = re.search(r"- 文档ID：\s*(.+)", tail)
+        if dm:
+            doc_id = dm.group(1).strip()
+        cm = re.search(r"- 片段序号：\s*(\d+)", tail)
+        if cm:
+            chunk_index = cm.group(1)
+        body = re.split(r"\n### 资料 \d+：|\n## ", tail, maxsplit=1)[0]
+        body = re.sub(r"^- 文档ID：.*$", "", body, flags=re.MULTILINE)
+        body = re.sub(r"^- 片段序号：.*$", "", body, flags=re.MULTILINE)
+        original_text = body.strip()
+        if doc_id:
+            refs.append(
+                {
+                    "doc_id": doc_id,
+                    "doc_title": title or doc_id,
+                    "chunk_index": int(chunk_index) if chunk_index.isdigit() else 0,
+                    "original_text": original_text[:200],
+                }
+            )
+    return refs
+
+
+_BRAND_ALIASES: dict[str, tuple[str, ...]] = {
+    "FANUC": ("FANUC", "发那科", "TP语言", "TP 语言", "R-30iB"),
+    "KUKA": ("KUKA", "库卡", "KRL", "KRC4", "KRC5", "smartPAD"),
+    "ABB": ("ABB", "RAPID", "FlexPendant", "IRC5", "OmniCore"),
+}
+_BRAND_CONTENT: dict[str, dict[str, str]] = {
+    "FANUC": {
+        "label": "FANUC（发那科）",
+        "teach": "TP 界面与坐标系设定",
+        "lang": "TP 语言与 J/L 运动指令",
+        "ctrl": "R-30iB 控制器",
+    },
+    "KUKA": {
+        "label": "KUKA（库卡）",
+        "teach": "smartPAD 示教器与 BASE/TOOL 标定",
+        "lang": "KRL 语言与 PTP/LIN/CIRC 指令",
+        "ctrl": "KRC4/KRC5 控制器",
+    },
+    "ABB": {
+        "label": "ABB",
+        "teach": "FlexPendant 示教器与工件坐标",
+        "lang": "RAPID 语言与 MoveJ/MoveL 指令",
+        "ctrl": "IRC5/OmniCore 控制器",
+    },
+}
+
+
+def _detect_brand(text: str) -> str:
+    """从文本检测目标品牌（库卡/KRL→KUKA 等），多个品牌同时命中时返回空（=通用多品牌）。"""
+    if not text:
+        return ""
+    upper = text.upper()
+    hits = [
+        brand
+        for brand, aliases in _BRAND_ALIASES.items()
+        if any(alias.upper() in upper for alias in aliases)
+    ]
+    return hits[0] if len(hits) == 1 else ""
+
+
 def _demo_generation(user_message: str) -> str:
     """知识生成模拟输出（机器人领域，读结构化画像参数，difficulty 透传）。"""
     difficulty = _grab_profile_param(user_message, "difficulty", "beginner")
@@ -178,8 +287,14 @@ def _demo_generation(user_message: str) -> str:
         style = "theory_first"
     profile_tag = _grab_profile_param(user_message, "profile_tag", "custom")
 
-    topic_m = re.search(r"\]\s*([^(\n]+)", user_message)
-    focus = topic_m.group(1).strip() if topic_m else "工业机器人示教编程"
+    # 原始学习课题优先，兜底取第一个知识盲区 topic（与 client.py 演示模式一致）
+    orig_m = re.search(r"原始学习课题[^\n]*\n\s*(.+)", user_message)
+    original_topic = orig_m.group(1).strip() if orig_m else ""
+    if not original_topic:
+        topic_m = re.search(r"\]\s*([^(\n]+)", user_message)
+        original_topic = topic_m.group(1).strip() if topic_m else ""
+    focus = original_topic or "工业机器人示教编程"
+    brand = _detect_brand(original_topic)
 
     dlabel, duration = {
         "beginner": ("入门", 20),
@@ -187,33 +302,52 @@ def _demo_generation(user_message: str) -> str:
         "advanced": ("高级", 45),
     }[difficulty]
 
+    if brand and brand in _BRAND_CONTENT:
+        b = _BRAND_CONTENT[brand]
+        brand_section = (
+            f"## 2. {b['label']} 现场要点\n\n"
+            f"- 示教：{b['teach']}\n"
+            f"- 编程语言：{b['lang']}\n"
+            f"- 控制器：{b['ctrl']}\n"
+        )
+    else:
+        brand_section = (
+            "## 2. FANUC / KUKA / ABB 现场对比\n\n"
+            "- FANUC：示教器 TP 界面与坐标系设定\n"
+            "- KUKA：KRL 程序结构与 BASE/TOOL 标定\n"
+            "- ABB：RAPID 语言与 RobotStudio 仿真\n"
+        )
+
     content = (
         f"# {dlabel}讲义：{focus}\n\n"
         f"> 难度：{difficulty} · 风格：{style} · 画像：{profile_tag}\n\n"
         f"## 1. 认识 {focus}\n\n工业机器人故障诊断中 {focus} 的核心概念与现场意义。\n\n"
-        f"## 2. FANUC / KUKA / ABB 现场对比\n\n"
-        f"- FANUC：示教器 TP 界面与坐标系设定\n"
-        f"- KUKA：KRL 程序结构与 BASE/TOOL 标定\n"
-        f"- ABB：RAPID 语言与 RobotStudio 仿真\n\n"
+        f"{brand_section}\n"
         f"## 3. 总结\n\n掌握 {focus} 的关键点与下一步实践建议。"
     )
+
+    # ── 真实知识库溯源（demo 也消费检索片段，杜绝假引用）──
+    kb_refs = _parse_kb_references(user_message)
+    if kb_refs:
+        citations = [
+            {
+                "doc_id": r["doc_id"],
+                "doc_title": r["doc_title"],
+                "chunk_index": r["chunk_index"],
+                "original_text": r["original_text"],
+                "relevance_score": 0.8,
+            }
+            for r in kb_refs
+        ]
+    else:
+        # 无 KB 素材：不伪造 doc_id，citations 留空（交由上层降级标记）
+        citations = []
 
     return json.dumps(
         {
             "title": f"{dlabel}·{focus}",
             "content": content,
-            "citations": [
-                {
-                    "ref_index": 1,
-                    "original_text": f"{focus} 相关技术规范（FANUC/KUKA/ABB）",
-                    "usage": "第1节概念",
-                },
-                {
-                    "ref_index": 2,
-                    "original_text": "工业机器人安全操作规程",
-                    "usage": "安全提示",
-                },
-            ],
+            "citations": citations,
             "difficulty_level": difficulty,
             "estimated_duration_minutes": duration,
             "key_takeaways": [
@@ -275,19 +409,29 @@ def _demo_correction(user_message: str) -> str:
         "请设置 LLM_API_KEY 环境变量以启用真实的保真修正。"
     )
 
+    # ── 真实知识库溯源：优先从修正 prompt 的知识库参考素材解析真实引用 ──
+    kb_refs = _parse_kb_references(user_message)
+    if kb_refs:
+        citations = [
+            {
+                "doc_id": r["doc_id"],
+                "doc_title": r["doc_title"],
+                "chunk_index": r["chunk_index"],
+                "original_text": r["original_text"],
+                "relevance_score": 0.85,
+            }
+            for r in kb_refs
+        ]
+    else:
+        # 无知识库素材：不伪造 doc_id，citations 留空（交由上层降级标记）
+        citations = []
+
     return json.dumps(
         {
             "title": "学习资源（已修正）",
             "content": corrected_content,
             "difficulty_level": out_diff,
-            "citations": [
-                {
-                    "doc_id": "demo_robot_fault_kb.md",
-                    "chunk_index": 1,
-                    "original_text": "SRVO-068 为数据传输故障，需检查示教器与主机间的通信链路。",
-                    "relevance_score": 0.95,
-                },
-            ],
+            "citations": citations,
             "key_takeaways": [
                 f"理解 {profile_tag} 画像对应的 {expected_diff} 内容要点",
                 "掌握工业机器人故障代码的定位思路",

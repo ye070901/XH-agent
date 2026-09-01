@@ -1357,10 +1357,15 @@ Knowledge context:
         parts = ["## 知识库参考资料（以下是系统检索到的权威文档，请严格基于这些资料生成内容）"]
         for i, c in enumerate(unique_chunks, 1):
             title = c.get("doc_title", "未知文档")
+            doc_id = str(c.get("doc_id", "") or "")
+            chunk_index = str(c.get("chunk_index", "") or "")
             content = c.get("content", "")
             # 截取关键部分，防止 prompt 过长
             excerpt = content[:500] + ("…" if len(content) > 500 else "")
-            parts.append(f"\n### 资料 {i}：{title}\n{excerpt}")
+            meta_lines = [f"- 文档ID：{doc_id}"]
+            if chunk_index:
+                meta_lines.append(f"- 片段序号：{chunk_index}")
+            parts.append(f"\n### 资料 {i}：{title}\n" + "\n".join(meta_lines) + f"\n{excerpt}")
 
         return "\n".join(parts)
 

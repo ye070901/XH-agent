@@ -429,15 +429,14 @@ class PipelineScheduler:
     # ═══════════════════════════════════════════════════════════
 
     async def _step_agent2_query(self, state: dict[str, Any], task_id: str) -> str:
-        diag = state.get("diagnosis_result", {})
-        learner = state.get("learner_data", {})
-
         # 优先用 RecallGate 改写后的 query
         pending = state.pop("_pending_query", None)
         if pending:
             query = pending
         else:
-            query = diag.get("summary", "") or learner.get("learning_goal", "") or "工业机器人 调试"
+            # 检索方向对齐学习目标（修复「检索方向错」）：以 learning_goal + 关键技能缺口
+            # 构建检索词，而非把「学习者是谁」的画像 summary 当检索词导致召回跑偏。
+            query = self._build_rag_query(state)
 
         state["rag_query"] = str(query)
         logger.info(f"[Scheduler] task_id={task_id[:8]}… RAG Query: '{str(query)[:60]}'")
@@ -458,8 +457,25 @@ class PipelineScheduler:
             query = new_q
             state["_pending_query"] = new_q
 
+        await self._broadcast(
+            task_id,
+            EventType.AGENT_START,
+            {"agent": "retrieval", "message": "正在从知识库检索相关依据。"},
+        )
         chunks = await knowledge_base.search(str(query), top_k=8)
         state["retrieved_chunks"] = chunks
+        state.setdefault("agent_log", []).append(
+            {"agent": "retrieval", "status": "done", "count": len(chunks)}
+        )
+        await self._broadcast(
+            task_id,
+            EventType.AGENT_DONE,
+            {
+                "agent": "retrieval",
+                "message": f"知识库检索完成，命中 {len(chunks)} 个片段。",
+                "count": len(chunks),
+            },
+        )
         logger.info(f"[KB引擎接管RAG检索] query={str(query)[:50]}")
         logger.info(
             f"[Scheduler] task_id={task_id[:8]}… RAG: '{str(query)[:50]}' -> {len(chunks)} chunks"
@@ -614,6 +630,13 @@ class PipelineScheduler:
         try:
             state = await agent.run(state)
 
+            state.setdefault("agent_log", []).append(
+                {
+                    "agent": agent_name,
+                    "status": "error" if state.get("status") == "error" else "done",
+                }
+            )
+
             if state.get("status") == "error":
                 await self._broadcast(
                     task_id,
@@ -649,6 +672,8 @@ class PipelineScheduler:
             state.setdefault("agent_log", []).append(
                 {
                     "agent": agent_name,
+                    # 契约对齐：与正常路径一致用 status 字段，前端读 item.status 判定 error。
+                    "status": "error",
                     "level": "error",
                     "message": str(exc),
                     "error_type": type(exc).__name__,
@@ -692,10 +717,18 @@ class PipelineScheduler:
             )
             state["debate_result"] = debate_result
             stats = debate_result.get("stats", {})
+            state.setdefault("agent_log", []).append(
+                {
+                    "agent": "debate",
+                    "status": "done",
+                    "count": stats.get("total_adjudications", 0),
+                }
+            )
             await self._broadcast(
                 task_id,
                 EventType.DEBATE_ROUND,
                 {
+                    "agent": "debate",
                     "adjudications": stats.get("total_adjudications", 0),
                     "decisions": stats.get("decisions", {}),
                     "unresolved": stats.get("unresolved_count", 0),
@@ -728,33 +761,36 @@ class PipelineScheduler:
 
     @staticmethod
     def _build_rag_query(state: dict[str, Any]) -> str:
-        """从诊断结果构建 RAG 检索 Query。
+        """从学习目标 + 关键技能缺口构建 RAG 检索 Query（修复「检索方向错」）。
 
-        优先级：diagnosis_result.summary
-        + critical/high skill_gaps → 兜底 learning_goal。
+        检索方向对齐「学习者要学什么」，而非「学习者是谁」的画像叙述：
+          1. 优先学习目标（learning_goal，含品牌/主题词）
+          2. 追加 critical/high 优先级的技能缺口 topic（诊断对齐品牌后即为品牌专属术语）
+          3. 兜底 summary，再兜底通用词。
         """
+        learner: dict = state.get("learner_data", {})
+        goal: str = str(learner.get("learning_goal", "") or "").strip()
+
         diag: dict = state.get("diagnosis_result", {})
-        parts: list[str] = []
-
-        summary: str = diag.get("summary", "")
-        if summary:
-            parts.append(summary)
-
         gaps: list = diag.get("skill_gaps", [])
         critical_topics: list[str] = [
             g.get("topic", "")
             for g in gaps
             if isinstance(g, dict) and g.get("priority") in ("critical", "high")
         ]
+
+        parts: list[str] = []
+        if goal:
+            parts.append(goal)
         if critical_topics:
             parts.append("相关知识点: " + ", ".join(critical_topics[:5]))
-
         if parts:
             return "。".join(parts)
 
-        learner: dict = state.get("learner_data", {})
-        goal: str = learner.get("learning_goal", "")
-        return str(goal) if goal else "AI Agent 开发"
+        summary: str = diag.get("summary", "")
+        if summary:
+            return str(summary)
+        return "工业机器人 调试"
 
     @staticmethod
     async def _broadcast(task_id: str, event_type: EventType, data: dict) -> None:

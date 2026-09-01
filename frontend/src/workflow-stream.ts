@@ -12,6 +12,7 @@ export const workflowStages = [
   { agent: "retrieval", label: "知识检索" },
   { agent: "generation", label: "资源生成" },
   { agent: "audit", label: "内容审核" },
+  { agent: "debate", label: "博弈裁决" },
   { agent: "correction", label: "保真修正" },
 ] as const;
 

@@ -68,6 +68,7 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
                     "agent_start": "running",
                     "agent_done": "done",
                     "agent_error": "error",
+                    "debate_round": "done",
                     "workflow_complete": "done",
                 }
                 payload.setdefault("task_id", task_id)
