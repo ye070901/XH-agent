@@ -164,6 +164,14 @@ class GenerateRequest(BaseModel):
             {"resource_type": "project", "error": "structure_validation", "detail": "缺少安全提示"}
         ],
     )
+    audit_mode: str = Field(
+        default="demo",
+        description=(
+            "审核模式：demo=演示交付（开启全部分级逻辑，输出最优对外指标）；"
+            "eval=能力评测（关闭所有确定性硬规则，仅 LLM 原生判定，输出模型原生真实能力）"
+        ),
+        examples=["demo", "eval"],
+    )
 
 
 class LearningQuestionRequest(BaseModel):
@@ -390,6 +398,9 @@ def _generation_inputs(request: GenerateRequest) -> tuple[dict[str, Any], list[s
         "brand": request.brand,
         "failure_feedback": request.failure_feedback,
     }
+    # 双模式隔离：audit_mode 由请求体透传（demo=演示交付 / eval=能力评测），供 audit 消费
+    audit_mode = str(getattr(request, "audit_mode", "") or "demo").strip().lower()
+    learner_data["audit_mode"] = audit_mode if audit_mode in ("demo", "eval") else "demo"
     return learner_data, [resource_type.value for resource_type in request.resource_types]
 
 
@@ -879,6 +890,12 @@ async def generate(request: GenerateRequest):
         "brand": request.brand,
         "failure_feedback": request.failure_feedback,
     }
+    # 双模式隔离：audit_mode 由请求体透传（demo=演示交付 / eval=能力评测），供 audit 消费
+    learner_data["audit_mode"] = (
+        request.audit_mode.strip().lower()
+        if (request.audit_mode or "").strip().lower() in ("demo", "eval")
+        else "demo"
+    )
     resource_types = [rt.value for rt in request.resource_types]
 
     logger.info(

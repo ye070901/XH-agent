@@ -112,6 +112,9 @@ class AgentWorkflow:
             "status": "starting",
             "agent_log": [],
         }
+        # 双模式隔离：audit_mode 由请求体透传至 learner_data，提升到 state 顶层供 audit 消费
+        audit_mode = str((learner_data or {}).get("audit_mode") or "demo").strip().lower()
+        state["audit_mode"] = audit_mode if audit_mode in ("demo", "eval") else "demo"
         await self._broadcast_status(
             task_id, "workflow", EventType.AGENT_START, "工作流已启动，正在准备 Agent 协作。"
         )

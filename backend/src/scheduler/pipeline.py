@@ -750,10 +750,17 @@ class PipelineScheduler:
     @staticmethod
     def _init_state(user_input: dict, task_id: str) -> dict[str, Any]:
         """初始化全局 state dict。"""
+        # 双模式：audit_mode 由请求体透传（demo=演示交付 / eval=能力评测），默认 demo
+        audit_mode = str(
+            user_input.get("audit_mode")
+            or (user_input.get("learner_data") or {}).get("audit_mode")
+            or "demo"
+        ).lower()
         return {
             "task_id": task_id,
             "learner_data": user_input.get("learner_data", user_input),
             "resource_types": user_input.get("resource_types", ["lecture", "guide", "quiz"]),
+            "audit_mode": audit_mode,
             "status": "starting",
             "agent_log": [],
             "gate_results": {},

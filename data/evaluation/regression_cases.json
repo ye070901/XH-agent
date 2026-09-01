@@ -1,0 +1,111 @@
+{
+  "meta": {
+    "name": "XH-agent 部分支持质量风控回归测试集",
+    "version": "1.0",
+    "created_at": "2026-08-30",
+    "purpose": "沉淀历次 B 类检索未召回与人工核验误判 case，供后续迭代回归，避免旧问题复现",
+    "sources": [
+      "data/evaluation/runs/unverifiable_classification.json (B类)",
+      "temp/p1_verify_final_30.json (人工核验误放/误降)"
+    ],
+    "count": 12
+  },
+  "cases": [
+    {
+      "id": "REG-001",
+      "case_id": "P3-01-K3-CORE-005",
+      "claim": "围栏门关闭时安全开关信号为ON（闭合），打开时为OFF（断开）",
+      "source": "B_class_retrieval_miss",
+      "expected": "kb_present_not_unverifiable",
+      "note": "B类：KB存在但检索未召回（IDF覆盖=0.4043，matched=K3_20260812_007_fanuc_srvo230_231_safety_chain_error_fix），回归期望：不得再判 unverifiable"
+    },
+    {
+      "id": "REG-002",
+      "case_id": "P3-02-K3-HIGH-006",
+      "claim": "SRVO-230/231通常伴随SRVO-062或SRVO-068出现",
+      "source": "B_class_retrieval_miss",
+      "expected": "kb_present_not_unverifiable",
+      "note": "B类：KB存在但检索未召回（IDF覆盖=0.4286，matched=K3_20260822_015_fanuc_srvo002_tp_estop_error_fix），回归期望：不得再判 unverifiable"
+    },
+    {
+      "id": "REG-003",
+      "case_id": "P3-03-K1-CORE-001",
+      "claim": "ABB中工具坐标系（tool data）定义在FlexPendant的'手动操纵'→'工具'菜单中",
+      "source": "B_class_retrieval_miss",
+      "expected": "kb_present_not_unverifiable",
+      "note": "B类：KB存在但检索未召回（IDF覆盖=0.4332，matched=K2_001_abb_robotstudio_online_course），回归期望：不得再判 unverifiable"
+    },
+    {
+      "id": "REG-004",
+      "case_id": "P3-01-K3-CORE-001",
+      "claim": "世界坐标系的原点在机器人底座正下方，X轴指向正前方，Y轴指向左边，Z轴垂直向上",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文明确将世界坐标系原点定义为机器人底座，与断言一致，但断言中X/Y/Z轴方向在知识库中无任何依据，属于核心事实（轴方向）完全无依据，应判定为幻觉而非部分支持。"
+    },
+    {
+      "id": "REG-005",
+      "case_id": "P3-01-K2-CORE-001",
+      "claim": "虚拟控制器（Virtual Controller）与真机的大脑完全一样，运行在电脑中",
+      "source": "misjudge_误降",
+      "expected": "accurate",
+      "note": "人工核验误降：系统降级过度，应判 accurate。LLM自相矛盾：原文『固件与真实FANUC控制器完全一致』完整支撑核心事实，'大脑'为比喻，本应accurate→误降"
+    },
+    {
+      "id": "REG-006",
+      "case_id": "P3-03-K1-HIGH-006",
+      "claim": "RAPID代码中WaitDI指令的\\Time:=3参数设置3秒超时保护",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。断言核心事实是WaitDI指令的\\Time:=3参数设置3秒超时，但知识库原文明确使用\\MaxTime:=30，参数名和值均不匹配，核心事实被反驳，应判为hallucination。"
+    },
+    {
+      "id": "REG-007",
+      "case_id": "P3-03-K1-CORE-003",
+      "claim": "安全急停链路模型为：急停按钮 --> 安全继电器模块 --> 伺服驱动器使能 --> 电机抱闸",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文未提及安全急停链路模型（急停按钮→安全继电器→伺服驱动器使能→电机抱闸），核心事实完全无依据，应判定为幻觉。"
+    },
+    {
+      "id": "REG-008",
+      "case_id": "P3-03-K3-HIGH-003",
+      "claim": "SRVO-068往往是SRVO-038的诱因之一，当数据链路出现瞬断或干扰时，控制器可能读到错误数据，进而触发脉冲不匹配",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。LLM偏松：claim核心为『SRVO-068是SRVO-038诱因』这一因果关系，KB全文无此因果，核心无依据→误放"
+    },
+    {
+      "id": "REG-009",
+      "case_id": "P3-01-K3-CORE-001",
+      "claim": "机器人的每个关节里都有一个伺服驱动器和编码器，它们负责感知关节的位置和转动",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文未提及伺服驱动器和编码器感知关节位置和转动，核心事实无依据，应判定为幻觉。"
+    },
+    {
+      "id": "REG-010",
+      "case_id": "P3-03-K1-CORE-002",
+      "claim": "FANUC伺服系统采用串行编码器通信，电机的位置、温度等数据通过一根屏蔽双绞线实时回传至伺服放大器。",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文仅提及串行编码器通信，未涉及'温度数据'和'屏蔽双绞线'等核心细节，断言核心事实缺乏依据，应判定为幻觉。"
+    },
+    {
+      "id": "REG-011",
+      "case_id": "P3-03-K1-CORE-005",
+      "claim": "FANUC TP 程序中的 LIN 指令对应笛卡尔空间的直线插补，机器人的工具中心点 (TCP) 在三维空间中走一条直线。",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文仅涉及KUKA和ABB的LIN/Movel指令，未提及FANUC TP的LIN指令，核心事实（FANUC TP中LIN对应笛卡尔直线插补）在知识库中无任何依据，属于硬幻觉。"
+    },
+    {
+      "id": "REG-012",
+      "case_id": "P3-NEG-001",
+      "claim": "FANUC机器人有关节坐标系、世界坐标系、工具坐标系三种常用坐标系",
+      "source": "misjudge_误放",
+      "expected": "hallucination",
+      "note": "人工核验误放：系统放过幻觉，应判 hallucination。知识库原文（K2_005）明确列出世界坐标、机器人根坐标、基坐标、工具坐标、法兰坐标，且K1_20260827_001提及关节/连杆坐标系，但未提及“关节坐标系”这一具体名称，且断言称FANUC机器人有三种常用坐标系，而知识库为KUKA及通用理论，无FANUC专属依据，核心事实无依据。"
+    }
+  ]
+}

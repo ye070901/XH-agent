@@ -78,6 +78,9 @@ class TestHallucinationMetric:
             "invalid_verdict_count": 0,
             "total": 4,
             "reason": None,
+            # KB 对齐率指标（phase3 句子级溯源新增）：accurate + partially_supported 计入对齐
+            "kb_aligned_count": 2,
+            "kb_alignment_rate": 0.5,
         }
 
     def test_skip_is_counted_but_excluded_from_denominator(self) -> None:
