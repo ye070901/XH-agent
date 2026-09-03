@@ -492,6 +492,16 @@ _CONTROLLER_TOKEN_MAP: tuple[tuple[str, str], ...] = (
 )
 _MODEL_TOKEN_MAP: tuple[tuple[str, str], ...] = (("crx", "CRX"),)
 
+#: 品牌专属技术词（quiz 软检测用）：用户未指定品牌时，若 quiz 正文同时命中 ≥2 个
+#: 品牌的专属技术词（指令/示教器/编程语言关键词，非品牌名），提示可能存在品牌混用。
+#: 仅作黄色软警示，不丢弃资源、不改内容（指定品牌时走 _quiz_brand_mix_failure 强校验）。
+#: 注意：TP/RUN/LIN/SELECT/PROG/SHIFT 为短词子串匹配，存在误报可能（可接受，因仅软警示）。
+_BRAND_TECH_TERMS: dict[str, tuple[str, ...]] = {
+    "FANUC": ("TP", "SHIFT", "SELECT", "PROG", "RUN", "iRVision", "UFRAME"),
+    "KUKA": ("KRL", "PTP", "LIN", "CIRC", "SmartPAD", "$VEL", "$ACC"),
+    "ABB": ("RAPID", "MoveJ", "MoveL", "MoveC", "FlexPendant", "robtarget"),
+}
+
 
 class GenerationAgent(BaseAgent):
     """领域知识生成 Agent — 角色5 在此实现
@@ -719,6 +729,13 @@ class GenerationAgent(BaseAgent):
                     result["alarm_links"] = self._extract_alarm_links(
                         str(result.get("content", "") or "")
                     )
+                # ── quiz 品牌混用软检测（用户未指定品牌时，确定性，不调 LLM）──
+                # 未指定品牌时检测正文是否混用 ≥2 个品牌专属技术词，命中打黄色警示字段；
+                # 不丢弃资源、不改内容、不重试（指定品牌时走 _generate_one 内强校验）。
+                if rtype == "quiz" and not brand:
+                    mix_warning = self._detect_brand_mix_soft(str(result.get("content", "") or ""))
+                    if mix_warning:
+                        result["brand_mix_warning"] = mix_warning
                 resources.append(result)
                 # 结构缺失章节：保留资源的同时，把缺失项写入 generation_errors 供前端/下游感知；
                 # structure_incomplete 标记 = 重试后仍缺章节的降级保留（部分内容未经完整审核）。
@@ -1775,6 +1792,37 @@ Knowledge context:
                     f"指定 {canonical} 但出现 FANUC 专属 J/L 指令「{jl_match.group(0).strip()}」"
                 )
         return failures
+
+    @staticmethod
+    def _contains_term(text: str, term: str) -> bool:
+        """ASCII 技术词词边界匹配（大小写不敏感），避免 TP⊂PTP、RUN⊂running 误报。"""
+        if not term:
+            return False
+        pattern = rf"(?<![A-Za-z0-9]){re.escape(str(term))}(?![A-Za-z0-9])"
+        return re.search(pattern, str(text or ""), re.IGNORECASE) is not None
+
+    @staticmethod
+    def _detect_brand_mix_soft(content: str) -> str | None:
+        """quiz 品牌混用软检测（用户未指定品牌时，确定性，不调 LLM）。
+
+        仅当用户未指定目标品牌时调用：检测正文是否同时命中 ≥2 个品牌的专属
+        技术词（指令/示教器/编程语言关键词，非品牌名，见 _BRAND_TECH_TERMS）。
+        命中 → 返回警告文案（前端黄色横幅展示，不丢弃资源、不改内容、不重试）；
+        否则返回 None。
+        """
+        if not content:
+            return None
+        matched: list[str] = []
+        for brand in ("FANUC", "KUKA", "ABB"):
+            terms = _BRAND_TECH_TERMS.get(brand, ())
+            if any(GenerationAgent._contains_term(str(content), t) for t in terms):
+                matched.append(brand)
+        if len(matched) >= 2:
+            return (
+                f"检测到内容可能混用多个品牌体系（{'、'.join(matched)}），"
+                "建议指定目标品牌后重新生成以获得更精准题目"
+            )
+        return None
 
     @staticmethod
     def _is_recoverable_structure_failure(failure: str) -> bool:

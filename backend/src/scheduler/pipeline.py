@@ -478,7 +478,7 @@ class PipelineScheduler:
             EventType.AGENT_START,
             {"agent": "retrieval", "message": "正在从知识库检索相关依据。"},
         )
-        chunks = await knowledge_base.search(str(query), top_k=8)
+        chunks = await knowledge_base.search_with_siblings(str(query), top_k=8)
         state["retrieved_chunks"] = chunks
         state.setdefault("agent_log", []).append(
             {"agent": "retrieval", "status": "done", "count": len(chunks)}

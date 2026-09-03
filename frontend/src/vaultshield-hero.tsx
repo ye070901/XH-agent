@@ -86,6 +86,7 @@ type GeneratedResource = {
   safety_warnings?: string[];
   structure_incomplete?: boolean;
   structure_missing_sections?: string[];
+  brand_mix_warning?: string;
   robot_metadata?: { brand?: string; controller_version?: string; applicable_model?: string };
   instruction_links?: Array<{ brand?: string; name?: string; doc_id?: string; doc_title?: string }>;
   alarm_links?: Array<{ brand?: string; code?: string; doc_id?: string; doc_title?: string; fault_name?: string }>;
@@ -231,6 +232,18 @@ const brandDisplayName = (brand?: string) => {
 const generationErrorIsSoft = (item: GenerationErrorItem) =>
   item.error === "invalid_quiz_contract" || item.error === "structure_sections_missing";
 
+const errorCodeLabel = (error?: string) => {
+  switch (error) {
+    case "json_parse_failed": return "生成结果解析失败：模型返回内容无法解析为结构化数据";
+    case "topic_drift": return "主题漂移：生成内容偏离学习目标，已拦截";
+    case "brand_mix": return "品牌混用：题目包含非目标品牌的指令体系，已拦截";
+    case "structure_validation": return "结构校验未通过：生成内容缺少必要章节";
+    case "invalid_quiz_contract": return "测试题已生成，但暂不符合自动评分条件";
+    case "structure_sections_missing": return "资源已生成，但缺少安全相关章节";
+    default: return error || "未知原因";
+  }
+};
+
 const generationErrorDetail = (item: GenerationErrorItem) => {
   const detail = item.detail;
   if (Array.isArray(detail)) {
@@ -239,7 +252,7 @@ const generationErrorDetail = (item: GenerationErrorItem) => {
   } else if (typeof detail === "string" && detail.trim()) {
     return decodeEscapedText(detail);
   }
-  return decodeEscapedText(item.error || "\u672a\u77e5\u539f\u56e0");
+  return errorCodeLabel(item.error);
 };
 
 const generationErrorTitle = (item: GenerationErrorItem) => {
@@ -948,6 +961,19 @@ function StructureIncompleteBanner({ missingSections }: { missingSections?: stri
       <div className="min-w-0 flex-1">
         <p className="font-semibold">{"结构不完整 · 部分内容未经完整审核，仅供参考"}</p>
         {items.length ? <p className="mt-1 text-xs leading-6 text-amber-50/85">{"缺失："}{items.join("；")}</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function BrandMixWarningBanner({ warning }: { warning?: string }) {
+  if (!warning) return null;
+  return (
+    <div className="mt-6 flex items-start gap-3 rounded-2xl border border-amber-300/50 bg-amber-300/20 px-4 py-3 text-sm leading-7 text-amber-50">
+      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">{"⚠️ 品牌疑似混用 · 未指定目标品牌"}</p>
+        <p className="mt-1 text-xs leading-6 text-amber-50/85">{decodeEscapedText(warning)}</p>
       </div>
     </div>
   );
@@ -1826,6 +1852,7 @@ function ExpandedWorkspaceLayout({
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           <RiskBanner level={resource.risk_level} />
           {resource.structure_incomplete ? <StructureIncompleteBanner missingSections={resource.structure_missing_sections} /> : null}
+          {resource.brand_mix_warning ? <BrandMixWarningBanner warning={resource.brand_mix_warning} /> : null}
           {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　{"目标品牌："}{brandDisplayName(resource.robot_metadata.brand)} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
           <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
           <References citations={resource.citations} />
@@ -2677,6 +2704,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                         </header>
                         <RiskBanner level={resource.risk_level} />
                         {resource.structure_incomplete ? <StructureIncompleteBanner missingSections={resource.structure_missing_sections} /> : null}
+                        {resource.brand_mix_warning ? <BrandMixWarningBanner warning={resource.brand_mix_warning} /> : null}
                         {resource.robot_metadata ? <div className="mt-4 rounded-xl bg-white/[0.07] px-4 py-3 text-xs leading-6 text-white/70"><span className="font-semibold text-white/85">适配信息</span>　{"目标品牌："}{brandDisplayName(resource.robot_metadata.brand)} | 控制器版本：{resource.robot_metadata.controller_version || "未标注"} | 适用机型：{resource.robot_metadata.applicable_model || "未标注"}</div> : null}
                         <LookupChips instruction_links={resource.instruction_links} alarm_links={resource.alarm_links} />
                         <References citations={resource.citations} />

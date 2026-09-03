@@ -539,6 +539,38 @@ class KnowledgeBase:
             key=lambda d: int(d.get("chunk_index", 0) or 0),
         )
 
+    async def search_with_siblings(
+        self, query: str, top_k: int = 8, sibling_limit: int = 3
+    ) -> list[dict]:
+        """语义检索 + 兄弟 chunk 补齐（确定性，不调 LLM）。
+
+        ``search`` 按 doc_id 去重，每篇文档只保留得分最高的单个 chunk（常为
+        chunk 0 的标题/摘要/引言），正文关键参数与操作步骤多在 chunk 1、2 未被
+        召回。这里对每个命中文档补齐其前 ``sibling_limit`` 个 chunk，按
+        (doc_id, chunk_index) 去重合并，保持原有检索序列。
+        """
+        chunks = await self.search(query, top_k=top_k)
+        if not chunks:
+            return chunks
+        merged: list[dict] = []
+        seen: set[tuple[str, int]] = set()
+        for c in chunks:
+            key = (str(c.get("doc_id") or ""), int(c.get("chunk_index", 0) or 0))
+            if not key[0] or key in seen:
+                continue
+            seen.add(key)
+            merged.append(c)
+        for doc_id in {key[0] for key in seen if key[0]}:
+            for sibling in self.get_document_chunks(doc_id)[:sibling_limit]:
+                key = (
+                    str(sibling.get("doc_id") or ""),
+                    int(sibling.get("chunk_index", 0) or 0),
+                )
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(sibling)
+        return merged
+
     @staticmethod
     def _merge_search_results(
         vector_results: list[dict], keyword_results: list[dict], top_k: int
