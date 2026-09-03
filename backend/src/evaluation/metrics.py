@@ -630,13 +630,20 @@ def calibrate_verdicts(
 
     total_gold = len(gold_items)
     accuracy = correct / total_gold if total_gold else 0.0
+    matched = total_gold - len(missing)
+    matched_ratio = matched / total_gold if total_gold else 0.0
+    # 采样错位诊断：金标能匹配到预测的占比过低（< 50%），说明采样跨了金标未覆盖的领域，
+    # 此时 accuracy 实为伪低分（校准读数无效），而非真实校准失败
+    sampling_misaligned = bool(total_gold and matched_ratio < 0.5)
     unexpected = sorted(set(predicted_by_key) - used_keys)
     return {
         "accuracy": round(accuracy, 4),
         "pass": bool(total_gold >= minimum_gold_items and accuracy >= minimum_accuracy),
         "correct": correct,
         "total_gold": total_gold,
-        "matched": total_gold - len(missing),
+        "matched": matched,
+        "matched_ratio": round(matched_ratio, 4),
+        "sampling_misaligned": sampling_misaligned,
         "missing_prediction_keys": missing,
         "unexpected_prediction_keys": unexpected,
         "confusion_matrix": confusion,
@@ -665,6 +672,8 @@ def aggregate_case_results(
         coverage_target=coverage_target,
     )
     hallucination_bad = 0
+    fabrication_bad = 0
+    unverifiable_bad = 0
     hallucination_total = 0
     kb_aligned_count_total = 0
     coverage_covered = 0
@@ -692,8 +701,11 @@ def aggregate_case_results(
         hallucination = _to_mapping(result.get("hallucination"))
         adaptation = _to_mapping(result.get("adaptation"))
         coverage = _to_mapping(result.get("coverage"))
-        hallucination_bad += int(hallucination.get("hallucination_count") or 0)
-        hallucination_bad += int(hallucination.get("unverifiable_count") or 0)
+        fab = int(hallucination.get("hallucination_count") or 0)
+        unv = int(hallucination.get("unverifiable_count") or 0)
+        fabrication_bad += fab
+        unverifiable_bad += unv
+        hallucination_bad += fab + unv
         hallucination_total += int(hallucination.get("total") or 0)
         kb_aligned_count_total += int(hallucination.get("kb_aligned_count") or 0)
         if adaptation.get("rate") is not None:
@@ -711,6 +723,8 @@ def aggregate_case_results(
         case_passed += int(bool(result.get("all_pass")))
 
     hallucination_rate = hallucination_bad / hallucination_total if hallucination_total else 0.0
+    fabrication_rate = fabrication_bad / hallucination_total if hallucination_total else 0.0
+    unverifiable_rate = unverifiable_bad / hallucination_total if hallucination_total else 0.0
     kb_alignment_rate = kb_aligned_count_total / hallucination_total if hallucination_total else 0.0
     adaptation_rate = sum(adaptation_rates) / len(adaptation_rates) if adaptation_rates else 0.0
     coverage_rate = coverage_covered / coverage_total if coverage_total else 0.0
@@ -747,6 +761,9 @@ def aggregate_case_results(
             "pass": hallucination_pass,
             "bad_claims": hallucination_bad,
             "total_claims": hallucination_total,
+            # 拆口径：真编造率（仅 hallucination）与不可核实率（仅 unverifiable）
+            "fabrication_rate": round(fabrication_rate, 4),
+            "unverifiable_rate": round(unverifiable_rate, 4),
             # 新口径：知识库对齐率（有原文依据信息点 / 回答总信息点）
             "kb_alignment_rate": round(kb_alignment_rate, 4),
             "kb_aligned_claims": kb_aligned_count_total,

@@ -1485,8 +1485,25 @@ guide（实操指南），缺失以下强制章节：
         token_re = r"[A-Za-z][A-Za-z0-9._/-]{2,}|[0-9]+(?:\.[0-9]+)?(?:mm/s|ms|kg|s)?"
         tokens = re.findall(token_re, claim)
         # 停用词：泛化英文词，命中率高但无区分度，剔除
-        stop = {"the", "and", "for", "with", "that", "this", "from", "are", "not",
-                "可以", "能够", "表示", "用于", "一个", "进行", "需要", "以及"}
+        stop = {
+            "the",
+            "and",
+            "for",
+            "with",
+            "that",
+            "this",
+            "from",
+            "are",
+            "not",
+            "可以",
+            "能够",
+            "表示",
+            "用于",
+            "一个",
+            "进行",
+            "需要",
+            "以及",
+        }
         anchors: list[str] = []
         for t in tokens:
             low = t.lower()

@@ -26,7 +26,7 @@ import shutil
 import zipfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]          # XH-agent/
+REPO = Path(__file__).resolve().parents[1]  # XH-agent/
 SUB = REPO / "submission"
 DOC = SUB / "01_材料文档"
 SOFT = SUB / "02_软件模块"
@@ -41,8 +41,17 @@ PHONE = "13800000000"
 
 # ── 仓库导出时排除的目录（相对 REPO，精确名）───────────────
 EXCLUDE_DIR_NAMES = {
-    ".git", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
-    "node_modules", "logs", "submission", "submission_test_data", ".pytest-tmp",
+    ".git",
+    ".venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    "node_modules",
+    "logs",
+    "submission",
+    "submission_test_data",
+    ".pytest-tmp",
 }
 # 派生数据：ChromaDB 向量库靠 data/raw 重建，不导出
 EXCLUDE_DIR_PATHS = {

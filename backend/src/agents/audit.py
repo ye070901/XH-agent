@@ -1014,10 +1014,16 @@ class AuditAgent(BaseAgent):
         accurate_count = (
             total - hallucination_count - unverifiable_count - partially_supported_count
         )
-        # 幻觉率分子仅含 hallucination + unverifiable，partially_supported 不计入坏样本
+        # 坏断言合计率 = 真编造率 + 不可核实率（partially_supported 不计入坏样本）
         hallucination_rate = (
             round((hallucination_count + unverifiable_count) / total, 4) if total else 0.0
         )
+        # 拆口径（向后兼容保留 hallucination_rate 作为坏断言合计率）：
+        #  - fabrication_rate：真编造率，仅 hallucination（凭空编造）
+        #  - unverifiable_rate：不可核实率，仅 unverifiable（无原文支撑/超纲）
+        # 二者独立，避免把「知识库未覆盖」误读为「模型编造」
+        fabrication_rate = round(hallucination_count / total, 4) if total else 0.0
+        unverifiable_rate = round(unverifiable_count / total, 4) if total else 0.0
         overall_accuracy = round(accurate_count / total, 4) if total else 1.0
 
         has_error = any(i.get("severity") == "error" for i in issues)
@@ -1040,6 +1046,8 @@ class AuditAgent(BaseAgent):
                 if total
                 else 1.0,
                 "kb_aligned_count": accurate_count + partially_supported_count,
+                "fabrication_rate": fabrication_rate,
+                "unverifiable_rate": unverifiable_rate,
             },
             "hallucination_flags": hallucination_flags,
             "hallucination_rate": hallucination_rate,
