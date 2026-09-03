@@ -67,11 +67,15 @@
             "关节空间",
             "JOINT",
             "轴坐标",
-            "Joint"
+            "Joint",
+            "手动点动",
+            "基座坐标",
+            "世界坐标"
           ],
           "source_documents": [
             "data/raw/K1_robot_base/K1_20260811_机器人坐标系_001.md",
-            "data/raw/K1_robot_base/K1_20260901_关节坐标系基础_090.md"
+            "data/raw/K1_robot_base/K1_20260901_关节坐标系基础_090.md",
+            "data/raw/K1_robot_base/K1_20260903_coordinate_frames_manual_jogging.md"
           ]
         },
         {
@@ -85,11 +89,16 @@
             "UTOOL",
             "UFRAME",
             "三点法",
-            "六点法"
+            "六点法",
+            "固定轴XYZ",
+            "欧拉角",
+            "Euler",
+            "旋转顺序"
           ],
           "source_documents": [
             "data/raw/K1_robot_base/K1_20260811_机器人坐标系设置_004.md",
-            "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md"
+            "data/raw/K1_robot_base/K1_20260811_FANUC 机器人坐标系设置_002.md",
+            "data/raw/K1_robot_base/K1_20260903_rotation_fixed_xyz_euler_intrinsic.md"
           ]
         },
         {
@@ -120,11 +129,14 @@
             "放料点",
             "夹爪信号",
             "SetDO",
+            "WaitDI",
+            "diGripClosed",
             "RO",
             "安全点"
           ],
           "source_documents": [
-            "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md"
+            "data/raw/K1_robot_base/K1_20260811_机器人搬运上下料编程_007.md",
+            "data/raw/K1_robot_base/K1_20260903_abb_rapid_waitdi_gripper_interlock.md"
           ]
         },
         {
@@ -154,11 +166,14 @@
             "工作站搭建",
             "虚拟控制器",
             "机器人模型导入",
-            "Virtual Controller"
+            "Virtual Controller",
+            "Smart Component",
+            "AutoPath"
           ],
           "source_documents": [
             "data/raw/K2_robot_simulation/K2_20260803_001_robotstudio_workstation_setup.md",
-            "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md"
+            "data/raw/K2_robot_simulation/K2_001_abb_robotstudio_online_course.md",
+            "data/raw/K2_robot_simulation/K2_20260903_robotstudio_autopath_smartcomponent_validation.md"
           ]
         },
         {
@@ -202,12 +217,14 @@
             "KUKA",
             "KRL",
             "KUKA.Sim",
+            "KUKA.OfficeLite",
             "PTP",
             "LIN",
             "CIRC"
           ],
           "source_documents": [
-            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+            "data/raw/K2_robot_simulation/K2_20260903_kuka_officelite_sim_safeoperation_scope.md"
           ]
         },
         {
@@ -235,10 +252,16 @@
             "Xacro",
             "Gazebo",
             "ros2_control",
-            "joint_trajectory_controller"
+            "joint_trajectory_controller",
+            "forward_command_controller",
+            "joint_state_broadcaster",
+            "SDF",
+            "static"
           ],
           "source_documents": [
-            "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md"
+            "data/raw/K2_robot_simulation/K2_008_urdf_ros2_gazebo_simulation_tutorial.md",
+            "data/raw/K2_robot_simulation/K2_20260903_ros2_control_forward_command_controller.md",
+            "data/raw/K2_robot_simulation/K2_20260903_gazebo_sdf_static_urdf_dynamics.md"
           ]
         },
         {
@@ -285,10 +308,13 @@
             "备份电池",
             "绝对位置",
             "MASTERING",
-            "重新标定"
+            "重新标定",
+            "多报警分诊",
+            "SRVO-156"
           ],
           "source_documents": [
-            "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md"
+            "data/raw/K3_safety_fault/K3_20260805_002_fanuc_srvo062_bzal_error_fix.md",
+            "data/raw/K3_safety_fault/K3_20260903_fanuc_srvo_multi_alarm_triage.md"
           ]
         },
         {
@@ -598,10 +624,16 @@
             "站名",
             "IP",
             "GSDML",
-            "设备名"
+            "设备名",
+            "DCP",
+            "字节序",
+            "Big-Endian",
+            "通信监视时间",
+            "看门狗"
           ],
           "source_documents": [
-            "data/raw/K3_safety_fault/K3_20260827_078_profinet_device_name_ip_commissioning.md"
+            "data/raw/K3_safety_fault/K3_20260827_078_profinet_device_name_ip_commissioning.md",
+            "data/raw/K3_safety_fault/K3_20260903_profinet_dcp_byte_order_watchdog.md"
           ]
         },
         {
@@ -683,11 +715,15 @@
             "ARCL",
             "ARCC",
             "weave",
-            "焊接"
+            "焊接",
+            "焊接电流波动",
+            "送丝",
+            "接地回路"
           ],
           "source_documents": [
             "data/raw/K2_robot_simulation/K2_20260815_012_abb_arc_welding_arcl_arcc_weave.md",
-            "data/raw/K3_safety_fault/K3_20260827_083_fanuc_arc_welding_cell_readiness.md"
+            "data/raw/K3_safety_fault/K3_20260827_083_fanuc_arc_welding_cell_readiness.md",
+            "data/raw/K3_safety_fault/K3_20260903_arc_welding_current_fluctuation_diagnosis.md"
           ]
         },
         {
@@ -736,11 +772,16 @@
             "KUKA",
             "SafeOperation",
             "KUKA.Safe",
-            "KRL"
+            "KRL",
+            "fail-safe",
+            "双通道",
+            "安全复位"
           ],
           "source_documents": [
             "data/raw/K3_safety_fault/K3_20260826_073_kuka_safeoperation_workspace.md",
-            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md"
+            "data/raw/K2_robot_simulation/K2_005_kuka_krl_offline_simulation_guide.md",
+            "data/raw/K3_safety_fault/K3_20260903_kuka_fail_safe_dual_channel_principles.md",
+            "data/raw/K2_robot_simulation/K2_20260903_kuka_officelite_sim_safeoperation_scope.md"
           ]
         }
       ]
@@ -757,10 +798,14 @@
             "动力学",
             "牛顿-欧拉",
             "拉格朗日",
-            "dynamics"
+            "dynamics",
+            "伺服刚度",
+            "机械刚度",
+            "驱动刚度"
           ],
           "source_documents": [
-            "data/raw/K1_robot_base/K1_20260827_009_robot_dynamics_newton_lagrange.md"
+            "data/raw/K1_robot_base/K1_20260827_009_robot_dynamics_newton_lagrange.md",
+            "data/raw/K3_safety_fault/K3_20260903_signal_cable_and_servo_stiffness_diagnosis.md"
           ]
         },
         {
@@ -773,11 +818,15 @@
             "标定",
             "calibration",
             "NIST",
-            "精度"
+            "精度",
+            "信号电缆",
+            "线缆针脚",
+            "零件号"
           ],
           "source_documents": [
             "data/raw/K1_robot_base/K1_20260827_010_payload_inertia_model.md",
-            "data/raw/K1_robot_base/K1_20260827_013_nist_robot_cell_calibration.md"
+            "data/raw/K1_robot_base/K1_20260827_013_nist_robot_cell_calibration.md",
+            "data/raw/K3_safety_fault/K3_20260903_signal_cable_and_servo_stiffness_diagnosis.md"
           ]
         }
       ]
