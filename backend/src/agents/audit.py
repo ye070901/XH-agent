@@ -375,9 +375,14 @@ class AuditAgent(BaseAgent):
                 _add(chunk)
 
         # 逐条检索（并行），失败静默降级
+        # 用 search_with_siblings 补齐兄弟 chunk：search 按 doc_id 去重只留最高分单个
+        # chunk（常为 chunk 0 的标题/摘要），正文关键参数与操作步骤多在 chunk 1~3，
+        # 不补齐会导致「知识库有依据但证据句未进 pool → LLM 误判 unverifiable」。
         async def _search_one(claim: str) -> list[dict]:
             try:
-                return await knowledge_base.search(claim, top_k=KB_TOP_K_PER_CLAIM)
+                return await knowledge_base.search_with_siblings(
+                    claim, top_k=KB_TOP_K_PER_CLAIM, sibling_limit=4
+                )
             except Exception:
                 return []
 
