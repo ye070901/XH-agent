@@ -30,7 +30,7 @@ from loguru import logger
 from backend.src.agents.audit import AuditAgent
 from backend.src.agents.correction import CorrectionAgent
 from backend.src.agents.diagnosis import DiagnosisAgent
-from backend.src.agents.generation_v2 import GenerationAgent
+from backend.src.agents.generation_v2 import GenerationAgent, reannotate_resources
 from backend.src.config import settings
 from backend.src.event_broadcast import EventType, event_bus
 from backend.src.knowledge.store import knowledge_base
@@ -299,6 +299,22 @@ class PipelineScheduler:
                     "resources_count": len(state.get("corrected_resources", [])),
                     "audit_verdict": self._extract_verdict(state),
                 },
+            )
+
+        # ── 保真溯源标注兜底（幂等，确定性，不调 LLM）──
+        # 真实模式下修正 Agent 会用 LLM 重新生成的 content 覆盖生成端 content，块末脚注
+        # 随之丢失；这里在流水线末端对最终 corrected_resources 重跑一次溯源标注，保证
+        # 脚注 + 内容可信度报告在演示 / 真实双模式下都保留。原始学习课题与生成端一致。
+        if not state.get("_is_fallback"):
+            learner_data = state.get("learner_data") or {}
+            diagnosis = state.get("diagnosis_result") or {}
+            original_topic = str(learner_data.get("learning_goal", "") or "").strip()
+            if not original_topic:
+                original_topic = str(diagnosis.get("summary", "") or "").strip()
+            state["corrected_resources"] = reannotate_resources(
+                state.get("corrected_resources") or [],
+                state.get("retrieved_chunks") or [],
+                original_topic,
             )
         return state
 

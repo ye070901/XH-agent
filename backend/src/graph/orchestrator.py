@@ -402,11 +402,42 @@ class AgentWorkflow:
             chunks = await knowledge_base.search(query=query, top_k=top_k)
             logger.info(f"[工作流] 知识库检索：命中 {len(chunks)} 条")
             if chunks:
-                return chunks
+                return self._append_sibling_chunks(chunks)
             return self._empty_kb_fallback()
         except Exception as e:
             logger.warning(f"[工作流] 知识库检索失败（空 KB 降级）: {e}")
             return self._empty_kb_fallback()
+
+    @staticmethod
+    def _append_sibling_chunks(chunks: list[dict]) -> list[dict]:
+        """检索去重后补回正文后续段（确定性，不调 LLM）。
+
+        ``knowledge_base.search`` 按 doc_id 去重，每篇文档只保留得分最高的单个
+        chunk，通常是 chunk 0（标题/摘要/引言），正文参数与步骤在 chunk 1、2 未被
+        召回，导致生成端把正文内容误判为「知识库未覆盖」。这里对每个命中文档补齐
+        其前 3 个 chunk，确保正文主体进入检索上下文。
+        """
+        if not chunks:
+            return chunks
+        merged: list[dict] = []
+        seen: set[tuple[str, int]] = set()
+        for c in chunks:
+            key = (str(c.get("doc_id") or ""), int(c.get("chunk_index", 0) or 0))
+            if not key[0] or key in seen:
+                continue
+            seen.add(key)
+            merged.append(c)
+        doc_ids = {key[0] for key in seen if key[0]}
+        for doc_id in doc_ids:
+            for sibling in knowledge_base.get_document_chunks(doc_id)[:3]:
+                key = (
+                    str(sibling.get("doc_id") or ""),
+                    int(sibling.get("chunk_index", 0) or 0),
+                )
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(sibling)
+        return merged
 
     def _empty_kb_fallback(self) -> list[dict]:
         """空知识库降级出口：演示模式注入预置兜底块，正式模式返回空列表。

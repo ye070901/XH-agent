@@ -524,6 +524,21 @@ class KnowledgeBase:
                 break
         return {"doc_id": doc_id, "title": title, "content": text}
 
+    def get_document_chunks(self, doc_id: str) -> list[dict]:
+        """按 doc_id 返回该文档全部 chunk（按 chunk_index 升序）。
+
+        用于检索召回后补齐正文后续段：search 按 doc_id 去重只保留每篇文档得分
+        最高的单个 chunk，通常是 chunk 0（标题/摘要/引言），而正文关键参数与
+        操作步骤多在 chunk 1、2。仅召回 chunk 0 会把正文误判为「知识库未覆盖」，
+        故此处按文档返回全部 chunk 供编排器补回前几段。
+        """
+        if not doc_id:
+            return []
+        return sorted(
+            [d for d in self._docs if d.get("doc_id") == doc_id],
+            key=lambda d: int(d.get("chunk_index", 0) or 0),
+        )
+
     @staticmethod
     def _merge_search_results(
         vector_results: list[dict], keyword_results: list[dict], top_k: int

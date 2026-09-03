@@ -1080,6 +1080,25 @@ relevant to the learner profile and the retrieved knowledge.
                     result["structure_incomplete"] = True
                     result["structure_missing_sections"] = recoverable
 
+        # ── 混合模式保真溯源标注（分级聚合 + 轻量标注，确定性，不调 LLM）──
+        # 仅当存在知识库素材（混合模式）时对 content 做块末分级脚注：有依据 → 蓝色来源
+        # 脚注；部分有依据 → 灰色通用知识小字；无依据的重要参数 → 黄色未覆盖警示。
+        # 同时产出 trace_report（内容可信度报告）供前端折叠面板展示。
+        # no_kb 模式走 NO_KB_DISCLAIMER，不重复处理。
+        # quiz 走前端结构化解析（parseQuizContent），块末脚注不会被渲染、只会成为
+        # 冗余噪声行，故仅对长文资源（lecture/guide/project 等）做溯源标注。
+        if (
+            isinstance(result, dict)
+            and result.get("content")
+            and relevant_chunks
+            and rtype != "quiz"
+        ):
+            annotated_content, trace_report = self._mark_unverified_claims(
+                str(result.get("content", "")), relevant_chunks
+            )
+            result["content"] = annotated_content
+            result["trace_report"] = trace_report
+
         return result
 
     @staticmethod
@@ -1980,3 +1999,405 @@ Knowledge context:
         if rtype == "quiz":
             tail += "保持题号、A-D选项、答案、解析结构完整（每题题干与答案必须基于知识库原文）。\n"
         return await self.call_llm_json(original_prompt + tail)
+
+    @staticmethod
+    def _split_claims(content: str) -> list[dict]:
+        """把 markdown 内容按「句子 / 列表项 / 表格行」拆成事实断言（不调 LLM）。
+
+        每条断言记录：
+          - text: 原文（不含行首列表/有序列表标记，标记保留在断言间隙中）
+          - start_pos / end_pos: 在 content 中的字符偏移（供 _mark_unverified_claims 原位拼回）
+          - claim_type: critical（含报警码/指令/参数/菜单/步骤/型号等硬事实）/ general（其他）
+
+        代码围栏、标题、水平线、表格分隔行、引用块（含安全提示）、quiz 结构行
+        （题号/选项/答案/解析）不拆断言，原样保留为「间隙」，避免标注破坏 markdown 结构。
+        """
+        claims: list[dict] = []
+        in_code_fence = False
+        offset = 0
+        for raw_line in content.split("\n"):
+            line_len = len(raw_line) + 1  # 含换行符
+            stripped = raw_line.strip()
+
+            if stripped.startswith(("```", "~~~")):
+                in_code_fence = not in_code_fence
+                offset += line_len
+                continue
+            if in_code_fence or not stripped:
+                offset += line_len
+                continue
+            # 标题 / 水平线 / 引用块 / 表格分隔行 / quiz 结构行不拆断言
+            if re.match(r"^\s*#{1,6}\s", raw_line) or re.match(r"^\s*[-*_]{3,}\s*$", raw_line):
+                offset += line_len
+                continue
+            if re.match(r"^\s*>", raw_line):
+                offset += line_len
+                continue
+            # 表格行（含表头/分隔行/数据行）不拆断言，整表保留，避免标注破坏表格结构
+            if raw_line.lstrip().startswith("|") or _QUIZ_STRUCTURE_LINE_RE.match(raw_line):
+                offset += line_len
+                continue
+
+            # 剥离行首列表/有序列表标记，标记本身作为「间隙」保留
+            prefix_match = _LINE_PREFIX_RE.match(raw_line)
+            prefix_len = len(prefix_match.group(0)) if prefix_match else 0
+            body = raw_line[prefix_len:]
+
+            # 正文内按句子结束符切分，分隔符归属前一句；无结束符的整行作为单条断言
+            seg_start = 0
+            for sent in re.finditer(r"[。！？!?;；]", body):
+                end = sent.end()
+                seg = body[seg_start:end]
+                if seg.strip():
+                    start = offset + prefix_len + seg_start
+                    claims.append(
+                        {
+                            "text": seg,
+                            "start_pos": start,
+                            "end_pos": start + len(seg),
+                            "claim_type": _classify_claim_type(seg),
+                        }
+                    )
+                seg_start = end
+            tail = body[seg_start:]
+            if tail.strip():
+                start = offset + prefix_len + seg_start
+                claims.append(
+                    {
+                        "text": tail,
+                        "start_pos": start,
+                        "end_pos": start + len(tail),
+                        "claim_type": _classify_claim_type(tail),
+                    }
+                )
+            offset += line_len
+        return claims
+
+    @staticmethod
+    def _match_claim_with_chunks(claim_text: str, chunks: list[dict]) -> dict:
+        """轻量关键词 + 字符相似度 + 关键实体词匹配（标准库实现，无新依赖）。
+
+        对 claim_text 与每个 chunk.content 计算：
+          - 关键词重合度（复用 _extract_tokens：英文词 + 中文双字 bigram，覆盖率）
+          - 字符级 bigram 覆盖率（claim 的 bigram 被 chunk 覆盖的比例）
+          - 关键实体词（英文指令/报警码/型号/协议名，如 ARCON / ARC_SE1 / SRVO-068）
+            在 chunk 中出现 ≥1 个 → 相似度额外 +0.2；命中 ≥2 个 → 直接判 matched
+        matched = (整体相似度 ≥ 0.55) OR (关键实体词命中数 ≥ 2)；实体匹配优先于
+        整句相似度，缓解「生成改写句 vs 知识库原文」的大跨度失配。
+
+        Returns:
+            {"matched": bool, "similarity": float, "source": doc_id|None, "matched_text": 片段|None}
+        """
+        empty = {"matched": False, "similarity": 0.0, "source": None, "matched_text": None}
+        if not claim_text or not chunks:
+            return empty
+        claim_norm = re.sub(r"\s+", "", str(claim_text)).lower()
+        if not claim_norm:
+            return empty
+        claim_tokens = GenerationAgent._extract_tokens(claim_text)
+        claim_bigrams = _char_bigrams(claim_norm)
+        claim_entities = _extract_key_entities(claim_text)
+
+        best = {"matched": False, "similarity": 0.0, "source": None, "matched_text": None}
+        for c in chunks:
+            if not isinstance(c, dict):
+                continue
+            c_content = str(c.get("content", "") or "")
+            if not c_content:
+                continue
+            c_norm = re.sub(r"\s+", "", c_content).lower()
+            c_tokens = GenerationAgent._extract_tokens(c_content)
+            c_bigrams = _char_bigrams(c_norm)
+
+            # 关键词覆盖率：claim 的 token 被该 chunk 覆盖的比例
+            token_cov = len(claim_tokens & c_tokens) / len(claim_tokens) if claim_tokens else 0.0
+            # 字符级 bigram 覆盖率：claim 的 bigram 被该 chunk 覆盖的比例
+            char_cov = len(claim_bigrams & c_bigrams) / len(claim_bigrams) if claim_bigrams else 0.0
+            sim = 0.5 * token_cov + 0.5 * char_cov
+
+            # 关键实体词命中：型号/参数名/指令名/报警码 → 相似度 +0.2
+            entity_hits = sum(1 for e in claim_entities if e.lower() in c_norm)
+            if entity_hits >= 1:
+                sim += 0.2
+            matched = sim >= 0.55 or entity_hits >= 2
+
+            if sim > best["similarity"]:
+                best = {
+                    "matched": matched,
+                    "similarity": round(sim, 4),
+                    "source": str(c.get("doc_id") or "") or None,
+                    "matched_text": c_content.strip()[:160],
+                }
+        return best
+
+    @staticmethod
+    def _mark_unverified_claims(content: str, chunks: list[dict]) -> tuple[str, dict]:
+        """按「段落块」聚合的保真溯源标注（确定性，不调 LLM）。
+
+        由「逐句警告」改为「分级聚合 + 轻量标注」：
+          - 块内断言整体匹配率 ≥ 0.70 → 块末蓝色「来源于知识库」来源脚注（正向标注为主）
+          - 0.30 ~ 0.70 → 块末灰色小字「部分参考通用知识」
+          - < 0.30 且存在无依据的重要参数 → 块末浅黄「知识库未覆盖」警示脚注
+        标注只追加在块末（块引用行），绝不插在句子中间；正文保持原样。
+        同时汇总整篇的「内容可信度报告」供前端折叠面板展示。
+
+        Returns:
+            (标注后 content, trace_report dict)
+        """
+        if not chunks or not content:
+            return content, _empty_trace_report()
+
+        # doc_id → doc_title 映射（供可信度报告来源文档列表）
+        doc_title_map: dict[str, str] = {}
+        for c in chunks:
+            if isinstance(c, dict) and c.get("doc_id"):
+                doc_title_map[str(c["doc_id"])] = str(c.get("doc_title") or c.get("doc_id"))
+
+        lines = content.split("\n")
+        out: list[str] = []
+        report = _empty_trace_report()
+        sources_seen: set[str] = set()
+        uncovered_seen: list[str] = []
+
+        i, n = 0, len(lines)
+        in_code_fence = False
+        while i < n:
+            line = lines[i]
+            stripped = line.strip()
+            if stripped.startswith(("```", "~~~")):
+                in_code_fence = not in_code_fence
+                out.append(line)
+                i += 1
+                continue
+            if in_code_fence or _is_annotation_boundary(line):
+                out.append(line)
+                i += 1
+                continue
+
+            # 收集一段连续正文块（段落 / 列表项）
+            block: list[str] = []
+            while i < n:
+                line = lines[i]
+                s = line.strip()
+                if s.startswith(("```", "~~~")) or _is_annotation_boundary(line):
+                    break
+                block.append(line)
+                i += 1
+
+            out.extend(block)
+            block_text = "\n".join(block)
+            claims = GenerationAgent._split_claims(block_text)
+            if claims:
+                stats = _aggregate_block_claims(claims, chunks)
+                report["total_claims"] += stats["total"]
+                report["verified"] += stats["verified"]
+                report["critical_unverified"] += stats["critical_unverified"]
+                report["general"] += stats["general"]
+                sources_seen |= stats["sources"]
+                for topic in stats["uncovered"]:
+                    if topic and topic not in uncovered_seen:
+                        uncovered_seen.append(topic)
+                footer = _build_block_footer(stats)
+                if footer:
+                    out.append(footer)
+
+        if report["total_claims"]:
+            report["verified_ratio"] = round(report["verified"] / report["total_claims"], 4)
+        report["source_docs"] = [
+            {"doc_id": d, "doc_title": doc_title_map.get(d, d)} for d in sorted(sources_seen)
+        ]
+        report["uncovered_topics"] = uncovered_seen[:20]
+        return "\n".join(out), report
+
+
+# ═══════════════════════════════════════════════════════════
+# 混合模式保真溯源标注：模块级常量与纯函数（确定性，不调 LLM）
+# ═══════════════════════════════════════════════════════════
+
+#: critical 断言判定（保守·命中即含硬事实）：报警码/指令/参数/菜单/步骤/型号等。
+#: 无依据的重要参数会聚合进块末黄色「未覆盖」警示（不再逐句删除）；其余判 general。
+#: 英文词 alarm 大小写不敏感；短缩写 ERR/KRL/TP/RAPID 大小写敏感 + 词边界，
+#: 避免误伤 error / rapid（英文本义）等普通词。
+_CRITICAL_CLAIM_RE = re.compile(
+    r"报警|alarm|错误码|指令|语法|参数|菜单|步骤|型号|mm/s|[%°]",
+    re.IGNORECASE,
+)
+_CRITICAL_ACRONYM_RE = re.compile(r"\b(?:ERR|KRL|TP|RAPID)\b")
+
+#: quiz 结构行（题号/选项/答案/解析）：不拆为事实断言，避免标注破坏 quiz 解析
+_QUIZ_STRUCTURE_LINE_RE = re.compile(
+    r"^\s*(?:"
+    r"第\s*[0-9一二三四五六七八九十]+\s*题"
+    r"|[（(]?\s*[A-D]\s*[）)、、.]"
+    r"|(?:标准答案|参考答案|正确答案|答案解析|答案|解析|answer|explanation)\s*[:：=]"
+    r")",
+    re.IGNORECASE,
+)
+
+#: 行首列表/有序列表标记（仅剥离标记本身，正文仍作为断言参与标注）
+_LINE_PREFIX_RE = re.compile(r"^\s*(?:[-*+]\s+|\d+[.、)]\s+)")
+
+#: 块末分级脚注（硬拼接，禁止 LLM 改写；仅追加在块末，绝不内插正文）
+_BLOCK_SOURCE_FOOTER = "> 📚 本章节内容主要来源于知识库 [查看来源文档]"
+_BLOCK_GENERAL_FOOTER = "> 💡 本章节部分内容参考通用知识，关键参数建议查阅官方手册确认"
+_BLOCK_WARNING_FOOTER_PREFIX = "> ⚠️ 本章节部分参数知识库未覆盖，建议查阅官方手册确认。未覆盖主题："
+
+
+def _char_bigrams(s: str) -> set[str]:
+    """字符级 bigram 集合（去空白归一后，用于轻量字符相似度）。"""
+    return {s[i : i + 2] for i in range(len(s) - 1)}
+
+
+def _classify_claim_type(text: str) -> str:
+    """按内容风险把单条断言分为 critical / general（确定性，不调 LLM）。
+
+    critical = 含报警码/指令/参数值/菜单路径/操作步骤/型号等硬事实，无依据时
+    计入块末黄色「未覆盖」警示（不再逐句删除）；其余判 general，无依据时计入
+    灰色「部分参考通用知识」小字。正文保持原样、不删除、不内插。
+    """
+    t = str(text or "")
+    if _CRITICAL_CLAIM_RE.search(t) or _CRITICAL_ACRONYM_RE.search(t):
+        return "critical"
+    return "general"
+
+
+def _extract_key_entities(text: str) -> list[str]:
+    """提取关键实体词（英文指令/报警码/型号/协议名等硬技术 token）。
+
+    用于「关键实体匹配加分」与「未覆盖主题」统计。标准库实现，无新依赖。
+    覆盖全大写缩写 + 数字/下划线/连字符（如 ARCON / ARC_SE1 / WDAT1 / SRVO-068
+    / KRC4 / PTP / LIN / BASE / TOOL）；CamelCase 指令（如 MoveJ）不在此列，
+    属已知取舍，KUKA/FANUC 领域指令多为全大写。
+    """
+    t = str(text or "")
+    found = re.findall(r"\b[A-Z][A-Z0-9]{1,}(?:[-_][A-Z0-9]+)*\b", t)
+    return [w for w in found if len(w) >= 2]
+
+
+def _is_annotation_boundary(line: str) -> bool:
+    """判断某行是否为块边界（结构行 / 空行），正文块只在边界处断开、绝不内插标注。"""
+    stripped = line.strip()
+    if not stripped:
+        return True
+    if re.match(r"^\s*#{1,6}\s", line) or re.match(r"^\s*[-*_]{3,}\s*$", line):
+        return True
+    if re.match(r"^\s*>", line):
+        return True
+    if line.lstrip().startswith("|") or _QUIZ_STRUCTURE_LINE_RE.match(line):
+        return True
+    return False
+
+
+def _empty_trace_report() -> dict:
+    """内容可信度报告的空结构（无断言/无知识库素材时返回）。"""
+    return {
+        "total_claims": 0,
+        "verified": 0,
+        "general": 0,
+        "critical_unverified": 0,
+        "verified_ratio": 0.0,
+        "source_docs": [],
+        "uncovered_topics": [],
+    }
+
+
+def _aggregate_block_claims(claims: list[dict], chunks: list[dict]) -> dict:
+    """聚合单个块内所有断言的匹配结果，供块末分级脚注 + 整体可信度报告。"""
+    total = len(claims)
+    verified = 0
+    critical_unverified = 0
+    sources: set[str] = set()
+    uncovered: list[str] = []
+    for claim in claims:
+        match = GenerationAgent._match_claim_with_chunks(claim["text"], chunks)
+        if match["matched"]:
+            verified += 1
+            if match.get("source"):
+                sources.add(match["source"])
+        elif claim.get("claim_type") == "critical":
+            critical_unverified += 1
+            for e in _extract_key_entities(claim["text"]):
+                if e and e not in uncovered:
+                    uncovered.append(e)
+    return {
+        "total": total,
+        "verified": verified,
+        "critical_unverified": critical_unverified,
+        "general": total - verified - critical_unverified,
+        "ratio": verified / total if total else 0.0,
+        "sources": sources,
+        "uncovered": uncovered,
+    }
+
+
+def _build_block_footer(stats: dict) -> str | None:
+    """按块内断言匹配率生成块末分级脚注（块引用行）；无命中不生成。"""
+    ratio = stats["ratio"]
+    if ratio >= 0.70:
+        return _BLOCK_SOURCE_FOOTER
+    if ratio >= 0.30:
+        return _BLOCK_GENERAL_FOOTER
+    # ratio < 0.30：有重要参数未覆盖 → 黄色警示；纯通用叙述 → 灰色小字
+    if stats["critical_unverified"] > 0:
+        topics = "、".join(stats["uncovered"][:5]) if stats["uncovered"] else "相关参数"
+        return _BLOCK_WARNING_FOOTER_PREFIX + topics
+    return _BLOCK_GENERAL_FOOTER
+
+
+# ═══════════════════════════════════════════════════════════
+# 幂等重标注（修正后兜底）：真实模式下修正 Agent 会用 LLM 重新生成的 content
+# 覆盖生成端 content，块末脚注随之丢失；流水线末端对最终资源重跑一次溯源标注，
+# 保证脚注 + 可信度报告在演示 / 真实双模式下都保留。
+# ═══════════════════════════════════════════════════════════
+
+#: 已存在的块末脚注行（重标注前剥离，保证幂等，避免演示模式下二次追加产生重复脚注）
+_ANNOTATION_FOOTER_RE = re.compile(
+    r"^\s*>\s*(?:"
+    r"📚\s*本章节内容主要来源于知识库"
+    r"|💡\s*本章节部分内容参考通用知识"
+    r"|⚠️\s*本章节部分参数知识库未覆盖"
+    r")"
+)
+
+
+def reannotate_resources(resources: list, retrieved_chunks: list, original_topic: str) -> list:
+    """对最终资源重跑块末溯源标注（幂等，确定性，不调 LLM）。
+
+    生成端已在 ``_generate_one`` 对 content 打块末分级脚注，但真实模式下修正 Agent
+    会用 LLM 重新生成的 content 覆盖原 content（脚注随之丢失，trace_report 因 dict
+    透传仍保留）。流水线末端对最终资源重跑标注：
+      - 先剥离既有脚注行（幂等：演示模式下 content 已带脚注，剥离后重打结果一致）；
+      - 仅对长文资源标注，quiz 走前端结构化解析、块末脚注不会被渲染，直接跳过；
+      - 无知识库素材（过滤后 relevant 为空）不处理，保持原样（no_kb / 降级模式）。
+    """
+    if not resources:
+        return resources
+    relevant = GenerationAgent._filter_relevant_chunks(
+        list(retrieved_chunks or []), original_topic or ""
+    )
+    if not relevant:
+        return resources
+    out: list = []
+    for res in resources:
+        if not isinstance(res, dict):
+            out.append(res)
+            continue
+        if str(res.get("resource_type") or "") == "quiz":
+            out.append(res)
+            continue
+        content = str(res.get("content") or "")
+        if not content.strip():
+            out.append(res)
+            continue
+        cleaned = _strip_annotation_footers(content)
+        annotated, report = GenerationAgent._mark_unverified_claims(cleaned, relevant)
+        res = dict(res)
+        res["content"] = annotated
+        res["trace_report"] = report
+        out.append(res)
+    return out
+
+
+def _strip_annotation_footers(content: str) -> str:
+    """剥离已存在的块末脚注行（幂等重标注用），正文与其他引用块不受影响。"""
+    return "\n".join(ln for ln in content.split("\n") if not _ANNOTATION_FOOTER_RE.match(ln))

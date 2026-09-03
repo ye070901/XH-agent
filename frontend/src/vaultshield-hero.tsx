@@ -90,6 +90,15 @@ type GeneratedResource = {
   instruction_links?: Array<{ brand?: string; name?: string; doc_id?: string; doc_title?: string }>;
   alarm_links?: Array<{ brand?: string; code?: string; doc_id?: string; doc_title?: string; fault_name?: string }>;
   citations?: Array<{ doc_id?: string; doc_title?: string; chunk_index?: number; original_text?: string; relevance_score?: number }>;
+  trace_report?: {
+    total_claims?: number;
+    verified?: number;
+    general?: number;
+    critical_unverified?: number;
+    verified_ratio?: number;
+    source_docs?: Array<{ doc_id?: string; doc_title?: string }>;
+    uncovered_topics?: string[];
+  };
 };
 
 function getResourceSupplements(resource: GeneratedResource) {
@@ -1271,6 +1280,26 @@ function ResourceMarkdown({ content }: { content: string }) {
       continue;
     }
 
+    // 保真溯源块末分级脚注：蓝色「来源于知识库」/ 黄色「知识库未覆盖」/ 灰色「参考通用知识」
+    const sourceFooter = line.match(/^>\s*📚\s*(.*)$/);
+    if (sourceFooter) {
+      blocks.push(<div className="my-4 flex items-start gap-2.5 rounded-r-xl border-l-2 border-sky-400/60 bg-sky-400/10 px-4 py-2.5 text-[0.9rem] leading-6 text-sky-100" key={`src-foot-${lineIndex}`}><span className="mt-0.5 shrink-0 text-sm">📚</span><span>{renderInlineMarkdown(sourceFooter[1])}</span></div>);
+      lineIndex += 1;
+      continue;
+    }
+    const warnFooter = line.match(/^>\s*⚠️\s*本章节部分参数知识库未覆盖([\s\S]*)$/);
+    if (warnFooter) {
+      blocks.push(<div className="my-4 flex items-start gap-2.5 rounded-xl border border-amber-300/40 bg-amber-300/10 px-4 py-2.5 text-[0.9rem] leading-6 text-amber-100" key={`warn-foot-${lineIndex}`}><span className="mt-0.5 shrink-0 text-sm">⚠️</span><span>{renderInlineMarkdown(warnFooter[1])}</span></div>);
+      lineIndex += 1;
+      continue;
+    }
+    const generalFooter = line.match(/^>\s*💡\s*(.*)$/);
+    if (generalFooter) {
+      blocks.push(<div className="my-4 px-1 text-[0.82rem] leading-6 text-white/45" key={`gen-foot-${lineIndex}`}><span>{renderInlineMarkdown(generalFooter[1])}</span></div>);
+      lineIndex += 1;
+      continue;
+    }
+
     if (line.startsWith(">")) {
       blocks.push(<blockquote className="my-5 rounded-r-xl bg-white/[0.07] px-4 py-3 text-[0.96rem] leading-7 text-white/85" key={`quote-${lineIndex}`}>{renderInlineMarkdown(line.replace(/^>\s?/, ""))}</blockquote>);
       lineIndex += 1;
@@ -1282,6 +1311,79 @@ function ResourceMarkdown({ content }: { content: string }) {
   }
 
   return <article className="mx-auto max-w-[76ch]">{blocks.length ? blocks : <p className="text-white/70">该资源没有返回正文。</p>}</article>;
+}
+
+function TraceReportPanel({ report }: { report?: GeneratedResource["trace_report"] }) {
+  const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<DocumentDetail | null>(null);
+  if (!report || !report.total_claims) return null;
+  const verifiedPct = Math.round((report.verified_ratio ?? 0) * 100);
+  const generalPct = report.total_claims ? Math.round(((report.general ?? 0) / report.total_claims) * 100) : 0;
+  const criticalCount = report.critical_unverified ?? 0;
+  const sourceDocs = report.source_docs ?? [];
+  const uncovered = report.uncovered_topics ?? [];
+
+  async function openDoc(docId: string, docTitle: string) {
+    try {
+      const res = await fetch(`${getApiBase()}/api/knowledge/documents/${encodeURIComponent(docId)}`);
+      const data = res.ok ? await res.json() : null;
+      setDetail({ title: data?.title || docTitle, content: data?.content || "加载失败，请稍后重试。", source: "知识文档" });
+    } catch {
+      setDetail({ title: docTitle, content: "加载失败，请稍后重试。", source: "知识文档" });
+    }
+  }
+
+  const stat = (label: string, value: string) => (
+    <div className="rounded-lg bg-white/[0.06] px-3 py-2">
+      <p className="text-xs text-white/50">{label}</p>
+      <p className="mt-1 text-base font-semibold text-white">{value}</p>
+    </div>
+  );
+
+  return (
+    <>
+      <div className="mx-auto mt-5 max-w-[76ch] rounded-xl border border-white/10 bg-white/[0.04]">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3 text-left">
+          <span className="flex items-center gap-2 text-sm font-semibold text-white/85">
+            <ShieldCheck className="h-4 w-4 text-[#B99DFF]" />
+            {"内容可信度报告"}
+          </span>
+          <span className="text-xs text-white/50">{open ? "收起" : "展开"}</span>
+        </button>
+        {open ? (
+          <div className="border-t border-white/10 px-4 py-4 text-sm leading-7 text-white/80">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {stat("总断言数", `${report.total_claims}`)}
+              {stat("有依据占比", `${verifiedPct}%`)}
+              {stat("通用知识占比", `${generalPct}%`)}
+              {stat("未覆盖参数", `${criticalCount}`)}
+            </div>
+            {sourceDocs.length ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-white/60">来源文档</p>
+                <ul className="mt-2 grid gap-1">
+                  {sourceDocs.map((doc) => (
+                    <li key={doc.doc_id}>
+                      <button type="button" onClick={() => openDoc(doc.doc_id ?? "", doc.doc_title ?? "")} className="text-[#7FC8FF] underline underline-offset-2 hover:text-sky-300">{doc.doc_title || doc.doc_id}</button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {uncovered.length ? (
+              <div className="mt-4">
+                <p className="text-xs font-semibold text-white/60">未覆盖主题</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {uncovered.map((topic) => <span key={topic} className="rounded-full bg-amber-300/15 px-2.5 py-1 text-xs text-amber-200">{topic}</span>)}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <DocumentDetailModal detail={detail} onClose={() => setDetail(null)} />
+    </>
+  );
 }
 
 function auditVerdictLabel(verdict?: string) {
@@ -1734,7 +1836,10 @@ function ExpandedWorkspaceLayout({
                     <p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p>
                   </div>
                 ) : (
-                  <div className="mt-8"><ResourceMarkdown content={resource.content || ""} /></div>
+                  <div className="mt-8">
+                    <TraceReportPanel report={resource.trace_report} />
+                    <ResourceMarkdown content={resource.content || ""} />
+                  </div>
                 )}
           <LearningTools
             onApplyRevision={onApplyRevision}
@@ -2589,7 +2694,10 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                   <p className="mt-2">请完成每一道题后提交。提交前不会显示标准答案或解析。</p>
                 </div>
               ) : (
-                <div className="mt-6"><ResourceMarkdown content={resource.content || ""} /></div>
+                <div className="mt-6">
+                  <TraceReportPanel report={resource.trace_report} />
+                  <ResourceMarkdown content={resource.content || ""} />
+                </div>
               )}
                         <LearningTools
                           onApplyRevision={applyRevision}
