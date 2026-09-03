@@ -30,7 +30,7 @@ from backend.src.evaluation.metrics import (  # noqa: E402
 
 DEFAULT_CASES = REPO_ROOT / "data" / "evaluation" / "phase3_test_cases.json"
 DEFAULT_CORE_MAP = REPO_ROOT / "data" / "core_knowledge_map.json"
-DEFAULT_GOLD = REPO_ROOT / "data" / "evaluation" / "gold_labels.json"
+DEFAULT_GOLD = REPO_ROOT / "data" / "evaluation" / "gold_labels_k1k7.json"
 VALID_FACT_VERDICTS = {"accurate", "hallucination", "unverifiable", "partially_supported"}
 
 

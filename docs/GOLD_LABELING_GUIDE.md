@@ -41,7 +41,7 @@
 2. 标注员 A 隐藏 `agent3_predicted_verdict`，只看 claim 与知识库，独立给出标签、依据和理由。
 3. 复核员 B 独立检查标签与来源，不得与标注员为同一人。
 4. 有分歧时由 K1/K2/K3 对应领域负责人仲裁；修订后将 `review_status` 设为 `approved`。
-5. 复制空模板为 `data/evaluation/gold_labels.json` 并录入最终结果。
+5. 复制空模板为 `data/evaluation/gold_labels_k1k7.json` 并录入最终结果。
 6. 运行默认 validator；少于 50 条完整事实标签时发布门禁失败。
 
 ## 5. 数据格式
