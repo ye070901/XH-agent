@@ -19,15 +19,18 @@ from pathlib import Path
 
 root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root / "backend"))
+sys.path.insert(0, str(root))  # 仓库根，供 `from main import app`
 
 import hashlib  # noqa: E402
 from unittest.mock import AsyncMock, patch  # noqa: E402
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from backend.src.api.main import app  # noqa: E402
+from main import app  # noqa: E402
 
-client = TestClient(app)
+# raise_server_exceptions=False：让全局兜底 handler 把未预期异常转成 500 响应
+# （与生产一致），而不是把原始异常抛回测试。
+client = TestClient(app, raise_server_exceptions=False)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -50,8 +53,8 @@ class TestRootEndpoint:
         response = client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert "name" in data
-        assert data["name"] == "领域知识个性化生成系统"
+        assert "service" in data
+        assert data["service"] == "XH-Agent"
         assert "status" in data
         assert "version" in data
 
@@ -78,40 +81,61 @@ class TestHealthEndpoint:
 
 
 class TestGenerateEndpoint:
-    """验证 2.9 API 接口硬性约束"""
+    """验证 2.9 API 接口硬性约束（统一交付响应结构）"""
 
     def test_generate_empty_input_returns_422(self):
-        """约束：入参结构不可变，user_input 为必填"""
+        """约束：入参结构不可变，education_level + learning_goal 必填"""
         response = client.post("/api/generate", json={})
         assert response.status_code == 422
 
-    def test_generate_empty_string_returns_422(self):
-        """约束：user_input 不能为空字符串"""
-        response = client.post("/api/generate", json={"user_input": "   "})
+    def test_generate_empty_learning_goal_returns_422(self):
+        """约束：learning_goal 不能为空字符串"""
+        response = client.post(
+            "/api/generate", json={"education_level": "bachelor", "learning_goal": ""}
+        )
         assert response.status_code == 422
 
     def test_generate_accepted_returns_valid_structure(self):
-        """约束：出参结构 {status, result: {answer, sources, confidence}, metrics}"""
-        with patch("backend.src.api.main.scheduler.run_pipeline", new_callable=AsyncMock) as mock:
+        """约束：出参含 status/result/metrics/diagnosis/resources/audit/debate/agent_log"""
+        with patch("main.scheduler.run_pipeline", new_callable=AsyncMock) as mock:
             mock.return_value = {
+                "task_id": "t1",
                 "status": "completed",
-                "gate_results": {
-                    "input_gate": {"duration_ms": 10},
-                    "diagnosis_gate": {"duration_ms": 20},
-                    "recall_gate": {"duration_ms": 30},
+                "gate_durations": {
+                    "input_gate_ms": 10,
+                    "diagnosis_gate_ms": 20,
+                    "recall_gate_ms": 30,
                 },
                 "retrieved_chunks": [{"doc_id": "test", "doc_title": "Test", "content": "content"}],
                 "generated_resources": [{"title": "Resource 1", "content": "Some content"}],
+                "audit_result": [{"fact_check": {"overall_accuracy": 0.95}}],
                 "elapsed_ms": 100,
             }
-            response = client.post("/api/generate", json={"user_input": "FANUC SRVO-068 怎么处理"})
+            response = client.post(
+                "/api/generate",
+                json={
+                    "education_level": "bachelor",
+                    "learning_goal": "掌握 FANUC 机器人 SRVO-068 报警排查",
+                },
+            )
             assert response.status_code == 200
             data = response.json()
 
             # 硬性约束：顶层字段
-            assert "status" in data
-            assert "result" in data
-            assert "metrics" in data
+            for field in (
+                "task_id",
+                "status",
+                "result",
+                "metrics",
+                "diagnosis",
+                "resources",
+                "generation_errors",
+                "audit",
+                "debate",
+                "agent_log",
+                "mode",
+            ):
+                assert field in data, f"缺少顶层字段 {field}"
 
             # 硬性约束：result 结构
             result = data["result"]
@@ -120,37 +144,49 @@ class TestGenerateEndpoint:
             assert "confidence" in result
             assert isinstance(result["sources"], list)
             assert isinstance(result["confidence"], float)
+            assert 0.0 <= result["confidence"] <= 1.0
 
-            # 硬性约束：metrics 结构
+            # 硬性约束：metrics 结构（字段存在且 ≥0）
             metrics = data["metrics"]
-            assert "inputgate_ms" in metrics
-            assert "diagnosisgate_ms" in metrics
-            assert "recallgate_ms" in metrics
-            assert "rag_recall_count" in metrics
-            assert "rag_top_k" in metrics
-            assert "total_latency_ms" in metrics
+            for field in (
+                "inputgate_ms",
+                "diagnosisgate_ms",
+                "recallgate_ms",
+                "rag_recall_count",
+                "rag_top_k",
+                "total_latency_ms",
+            ):
+                assert field in metrics, f"缺少 metrics 字段 {field}"
+                assert metrics[field] >= 0
 
     def test_generate_with_learning_goal_format(self):
-        """支持前端 learning_goal 格式"""
-        with patch("backend.src.api.main.scheduler.run_pipeline", new_callable=AsyncMock) as mock:
+        """支持前端 learning_goal 格式（education_level + learning_goal）"""
+        with patch("main.scheduler.run_pipeline", new_callable=AsyncMock) as mock:
             mock.return_value = {
+                "task_id": "t2",
                 "status": "completed",
-                "gate_results": {},
+                "gate_durations": {},
                 "retrieved_chunks": [],
                 "generated_resources": [],
                 "elapsed_ms": 50,
             }
-            response = client.post("/api/generate", json={"learning_goal": "学习 FANUC 机器人编程"})
+            response = client.post(
+                "/api/generate",
+                json={"education_level": "master", "learning_goal": "学习 FANUC 机器人编程"},
+            )
             assert response.status_code == 200
 
     def test_generate_exception_returns_500(self):
         """异常处理：500 兜底"""
         with patch(
-            "backend.src.api.main.scheduler.run_pipeline",
+            "main.scheduler.run_pipeline",
             new_callable=AsyncMock,
             side_effect=Exception("Test error"),
         ):
-            response = client.post("/api/generate", json={"user_input": "test"})
+            response = client.post(
+                "/api/generate",
+                json={"education_level": "bachelor", "learning_goal": "test"},
+            )
             assert response.status_code == 500
 
 
@@ -184,7 +220,7 @@ class TestKnowledgeUpload:
     def test_upload_success_returns_chunks_count(self):
         """成功上传返回 chunks_count"""
         with patch(
-            "backend.src.api.main.knowledge_base.add_document",
+            "main.knowledge_base.add_document",
             new_callable=AsyncMock,
             return_value=[{"chunk_index": 0, "content": "test"}],
         ):
@@ -216,7 +252,7 @@ class TestKnowledgeImport:
     def test_import_returns_imported_count(self):
         """批量导入返回 imported/total"""
         with patch(
-            "backend.src.api.main.knowledge_base.add_documents_batch",
+            "main.knowledge_base.add_documents_batch",
             new_callable=AsyncMock,
             return_value=5,
         ):
@@ -247,7 +283,7 @@ class TestKnowledgeSearch:
     def test_search_with_query_returns_results(self):
         """检索返回匹配 chunks"""
         with patch(
-            "backend.src.api.main.knowledge_base.search",
+            "main.knowledge_base.search",
             new_callable=AsyncMock,
             return_value=[
                 {
@@ -270,9 +306,7 @@ class TestKnowledgeSearch:
 
     def test_search_default_top_k(self):
         """默认 top_k=5"""
-        with patch(
-            "backend.src.api.main.knowledge_base.search", new_callable=AsyncMock, return_value=[]
-        ) as mock:
+        with patch("main.knowledge_base.search", new_callable=AsyncMock, return_value=[]) as mock:
             client.get("/api/knowledge/search", params={"q": "test"})
             mock.assert_called_once()
             call_kwargs = mock.call_args[1]
@@ -290,7 +324,7 @@ class TestKnowledgeStats:
     def test_stats_returns_kb_info(self):
         """返回模式/文档数/Chunk数"""
         with patch(
-            "backend.src.api.main.knowledge_base.get_stats",
+            "main.knowledge_base.get_stats",
             new_callable=AsyncMock,
             return_value={
                 "mode": "chroma",
@@ -318,7 +352,7 @@ class TestKnowledgeDelete:
     def test_delete_existing_doc_returns_ok(self):
         """删除成功返回 ok"""
         with patch(
-            "backend.src.api.main.knowledge_base.delete_document",
+            "main.knowledge_base.delete_document",
             new_callable=AsyncMock,
             return_value=True,
         ):
@@ -331,7 +365,7 @@ class TestKnowledgeDelete:
     def test_delete_nonexistent_returns_404(self):
         """删除不存在的文档返回 404"""
         with patch(
-            "backend.src.api.main.knowledge_base.delete_document",
+            "main.knowledge_base.delete_document",
             new_callable=AsyncMock,
             return_value=False,
         ):
@@ -350,7 +384,7 @@ class TestExceptionHandling:
     def test_kb_connection_error_returns_503(self):
         """KB 引擎下线 → 503"""
         with patch(
-            "backend.src.api.main.knowledge_base.search",
+            "main.knowledge_base.search",
             new_callable=AsyncMock,
             side_effect=ConnectionError("ChromaDB unavailable"),
         ):
@@ -360,7 +394,7 @@ class TestExceptionHandling:
     def test_kb_general_error_returns_500(self):
         """KB 异常 → 500"""
         with patch(
-            "backend.src.api.main.knowledge_base.search",
+            "main.knowledge_base.search",
             new_callable=AsyncMock,
             side_effect=RuntimeError("Unexpected error"),
         ):

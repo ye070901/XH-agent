@@ -1,14 +1,15 @@
 services:
   backend:
-    build: ./backend
+    build: .
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
+      - ./main.py:/app/main.py
       - ./data:/app/data
     env_file:
       - .env
-    command: uvicorn backend.src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build: ./frontend

@@ -284,7 +284,7 @@ def _route_keys(app: FastAPI) -> set[tuple[str, str]]:
 
 @pytest.mark.parametrize(
     "module_name",
-    ["main", "backend.src.api.main"],
+    ["main"],
 )
 def test_both_fastapi_entries_register_profile_and_pretest_routes(
     module_name: str,

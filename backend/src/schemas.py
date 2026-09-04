@@ -8,6 +8,7 @@
 """
 
 import re
+import uuid
 from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, Optional
@@ -600,32 +601,92 @@ class PretestScoreResponse(BaseModel):
 
 
 class GenerateRequest(BaseModel):
-    learner_id: str
+    """POST /api/generate 入参模型（前端表单字段一一对应）。
+
+    必填：education_level, learning_goal；其余选填并设默认值。
+    唯一权威定义在此文件（CLAUDE.md「数据契约唯一源」禁止在 main.py 等重复定义）。
+    """
+
+    # ── 必填字段 ──
+    name: str = Field(
+        default="匿名学习者",
+        description="学习者姓名（前端表单未提供，用默认值）",
+        min_length=0,
+        max_length=50,
+        examples=["张三"],
+    )
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=100)
+    education_level: EducationLevel = Field(
+        ...,
+        description="最高学历",
+        examples=["bachelor"],
+    )
+    learning_goal: str = Field(
+        ...,
+        description="学习目标描述",
+        min_length=1,
+        max_length=500,
+        examples=["学习 LangGraph 构建多 Agent 协同系统"],
+    )
+
+    # ── 选填字段（均设默认值，前端可留空）──
+    major: str = Field(default="", description="专业", max_length=100, examples=["计算机科学"])
+    school: str = Field(default="", description="毕业院校", max_length=100, examples=["清华大学"])
+    work_years: float = Field(default=0.0, description="工作年限", ge=0, le=60, examples=[1.5])
+    industry: str = Field(default="", description="所在行业", max_length=100, examples=["互联网"])
+    positions: list[str] = Field(
+        default_factory=list,
+        description="历史岗位列表",
+        examples=[["Python开发", "后端工程师"]],
+    )
+    skills_used: list[str] = Field(
+        default_factory=list,
+        description="使用过的技术栈或技能",
+        examples=[["Python", "Flask", "Docker"]],
+    )
+    pretest_results: list[dict] = Field(
+        default_factory=list,
+        description="前置测试成绩",
+        examples=[
+            [
+                {
+                    "test_name": "Python基础",
+                    "total_score": 78,
+                    "max_score": 100,
+                    "topic_scores": {"变量与类型": 85, "函数": 72},
+                },
+            ]
+        ],
+    )
     resource_types: list[ResourceType] = Field(
         default=[ResourceType.LECTURE, ResourceType.GUIDE, ResourceType.QUIZ],
+        description="请求生成的资源类型，默认三种全部",
+        examples=[["lecture", "guide", "quiz"]],
     )
-    difficulty_override: Optional[Difficulty] = None
-
-
-class GenerateResponse(BaseModel):
-    task_id: str
-    status: str
-    estimated_seconds: int
-
-
-class TaskStatusResponse(BaseModel):
-    task_id: str
-    status: str
-    progress_percent: float = Field(ge=0, le=100)
-    current_agent: Optional[str] = None
-    current_agent_state: AgentState = AgentState.IDLE
-    generated_resources: list[GeneratedResource] = Field(default_factory=list)
-    debate_records: list[DebateRecord] = Field(default_factory=list)
-    agent_interaction_log: list[dict] = Field(
-        default_factory=list,
-        description="Agent间交互日志，用于可视化",
+    brand: Optional[str] = Field(
+        default=None,
+        description="目标机器人品牌（FANUC/KUKA/ABB），空/未提供则不强约束",
+        max_length=20,
+        examples=["KUKA"],
     )
-    error_message: Optional[str] = None
+    failure_feedback: Optional[dict] = Field(
+        default=None,
+        description=(
+            "上次生成失败的反馈（前端「重新生成」时传入），包含 resource_type / error / detail，"
+            "后端据此在生成 prompt 里注入结构修正指令，重试不再原样重试"
+        ),
+        examples=[
+            {"resource_type": "project", "error": "structure_validation", "detail": "缺少安全提示"}
+        ],
+    )
+    audit_mode: str = Field(
+        default="demo",
+        description=(
+            "审核模式：demo=演示交付（开启全部分级逻辑，输出最优对外指标）；"
+            "eval=能力评测（关闭所有确定性硬规则，仅 LLM 原生判定，输出模型原生真实能力）"
+        ),
+        examples=["demo", "eval"],
+    )
 
 
 # ═══════════════════════════════════════════════════════════

@@ -1,5 +1,11 @@
 """工作流引擎 — 4 Agent 顺序执行: 诊断 → 生成 → 审核 → 修正。
 
+角色定位（防误判）:
+  AgentWorkflow 不是任何 HTTP 入口——真正的对外交付链路是 PipelineScheduler
+  （backend/src/scheduler/pipeline.py），本模块的 debate 引擎被
+  PipelineScheduler._run_debate 懒加载消费；regenerate() 供动态反馈路径
+  （exams 反馈）复用。
+
 完整链路:
   Agent 1 学情诊断 → Agent 2 知识生成 → Agent 3 内容审核 → Agent 4 保真修正
 

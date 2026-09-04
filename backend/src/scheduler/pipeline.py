@@ -73,6 +73,14 @@ def _make_error_response(
     }
 
 
+# 闸门步骤 → 英文耗时键（供 API 层 metrics 稳定读取，与闸门中文 GATE_NAME 解耦）
+_GATE_DURATION_KEYS: dict[str, str] = {
+    "InputGate": "input_gate_ms",
+    "DiagnosisGate": "diagnosis_gate_ms",
+    "RecallGate": "recall_gate_ms",
+}
+
+
 # ═══════════════════════════════════════════════════════════
 # PipelineScheduler
 # ═══════════════════════════════════════════════════════════
@@ -129,6 +137,9 @@ class PipelineScheduler:
                 self._execute_pipeline(user_input, task_id),
                 timeout=settings.SCHEDULER_TASK_TIMEOUT_SECONDS,
             )
+            # 成功路径补齐 elapsed_ms，供 /api/generate 的 metrics.total_latency_ms 使用
+            # （error/gate_blocked 路径在各自 except 分支已带 elapsed_ms）。
+            result["elapsed_ms"] = int((time.monotonic() - t_start) * 1000)
             return result
 
         except asyncio.TimeoutError:
@@ -329,7 +340,28 @@ class PipelineScheduler:
         state: dict[str, Any],
         task_id: str,
     ) -> str:
-        """根据 step 名称分发到对应 handler，返回 verdict 字符串。"""
+        """根据 step 名称分发到对应 handler，返回 verdict 字符串。
+
+        额外对三道闸门步骤计时并累计到 state["gate_durations"]（RETRY 也计入），
+        供 /api/generate 的 metrics 输出真实耗时（修复 metrics 恒 0）。
+        """
+        t0 = time.monotonic()
+        verdict = await self._dispatch_step_impl(step_idx, name, state, task_id)
+        duration_ms = int((time.monotonic() - t0) * 1000)
+        metric_key = _GATE_DURATION_KEYS.get(name)
+        if metric_key:
+            durations = state.setdefault("gate_durations", {})
+            durations[metric_key] = durations.get(metric_key, 0) + duration_ms
+        return verdict
+
+    async def _dispatch_step_impl(
+        self,
+        step_idx: int,
+        name: str,
+        state: dict[str, Any],
+        task_id: str,
+    ) -> str:
+        """分发到具体 step handler（原 _dispatch_step 主体）。"""
         if name == "InputGate":
             return await self._step_input_gate(state, task_id)
         if name == "Agent1":

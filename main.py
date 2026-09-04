@@ -21,7 +21,7 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, List
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -47,131 +47,15 @@ from backend.src.exceptions import XHError  # noqa: E402
 from backend.src.knowledge.store import knowledge_base  # noqa: E402
 from backend.src.llm.client import llm  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
+from backend.src.quality_gate.gates.recall_gate import ONLINE_FALLBACK_DISCLAIMER  # noqa: E402
 from backend.src.scheduler.pipeline import scheduler  # noqa: E402
-from backend.src.schemas import EducationLevel, ResourceType  # noqa: E402
-
-# ═══════════════════════════════════════════════════════════
-# 枚举（与前端表单下拉框一一对应）
-# 唯一权威定义在 backend/src/schemas.py（CLAUDE.md「数据契约唯一源」禁止重复定义），
-# 此处统一 import 而非本地重定义 —— 修复 ResourceType 漏掉 project/pitfall_guide 导致的 422。
-# ═══════════════════════════════════════════════════════════
-
+from backend.src.schemas import GenerateRequest  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 请求模型（精确匹配前端表单字段，区分必填/选填）
+# 注意：GenerateRequest 的唯一权威定义已迁至 backend/src/schemas.py（数据契约唯一源），
+# 此处 import 复用；其余轻量请求模型仍就地定义。
 # ═══════════════════════════════════════════════════════════
-
-
-class GenerateRequest(BaseModel):
-    """POST /api/generate 入参模型。
-
-    每个字段对应前端表单的一个控件：
-      - 必填：name, education_level, learning_goal
-      - 选填：major, school, work_years, industry, positions, skills_used,
-              pretest_results, resource_types（均设默认值）
-    """
-
-    # ── 必填字段 ──
-    name: str = Field(
-        default="匿名学习者",
-        description="学习者姓名（前端表单未提供，用默认值）",
-        min_length=0,
-        max_length=50,
-        examples=["张三"],
-    )
-    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()), min_length=1, max_length=100)
-    education_level: EducationLevel = Field(
-        ...,
-        description="最高学历",
-        examples=["bachelor"],
-    )
-    learning_goal: str = Field(
-        ...,
-        description="学习目标描述",
-        min_length=1,
-        max_length=500,
-        examples=["学习 LangGraph 构建多 Agent 协同系统"],
-    )
-
-    # ── 选填字段（均设默认值，前端可留空）──
-    major: str = Field(
-        default="",
-        description="专业",
-        max_length=100,
-        examples=["计算机科学"],
-    )
-    school: str = Field(
-        default="",
-        description="毕业院校",
-        max_length=100,
-        examples=["清华大学"],
-    )
-    work_years: float = Field(
-        default=0.0,
-        description="工作年限",
-        ge=0,
-        le=60,
-        examples=[1.5],
-    )
-    industry: str = Field(
-        default="",
-        description="所在行业",
-        max_length=100,
-        examples=["互联网"],
-    )
-    positions: List[str] = Field(
-        default_factory=list,
-        description="历史岗位列表",
-        examples=[["Python开发", "后端工程师"]],
-    )
-    skills_used: List[str] = Field(
-        default_factory=list,
-        description="使用过的技术栈或技能",
-        examples=[["Python", "Flask", "Docker"]],
-    )
-    pretest_results: List[dict] = Field(
-        default_factory=list,
-        description="前置测试成绩",
-        examples=[
-            [
-                {
-                    "test_name": "Python基础",
-                    "total_score": 78,
-                    "max_score": 100,
-                    "topic_scores": {"变量与类型": 85, "函数": 72},
-                },
-            ]
-        ],
-    )
-    resource_types: List[ResourceType] = Field(
-        default=[ResourceType.LECTURE, ResourceType.GUIDE, ResourceType.QUIZ],
-        description="请求生成的资源类型，默认三种全部",
-        examples=[["lecture", "guide", "quiz"]],
-    )
-    brand: str | None = Field(
-        default=None,
-        description="目标机器人品牌（FANUC/KUKA/ABB），空/未提供则不强约束",
-        max_length=20,
-        examples=["KUKA"],
-    )
-    failure_feedback: dict | None = Field(
-        default=None,
-        description=(
-            "上次生成失败的反馈（前端「重新生成」时传入），包含 resource_type / error / detail，"
-            "后端据此在生成 prompt 里注入结构修正指令，重试不再原样重试"
-        ),
-        examples=[
-            {"resource_type": "project", "error": "structure_validation", "detail": "缺少安全提示"}
-        ],
-    )
-    audit_mode: str = Field(
-        default="demo",
-        description=(
-            "审核模式：demo=演示交付（开启全部分级逻辑，输出最优对外指标）；"
-            "eval=能力评测（关闭所有确定性硬规则，仅 LLM 原生判定，输出模型原生真实能力）"
-        ),
-        examples=["demo", "eval"],
-    )
 
 
 class LearningQuestionRequest(BaseModel):
@@ -422,10 +306,113 @@ def _debate_summary(debate_result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_answer(resources: list[dict[str, Any]]) -> str:
+    """从生成资源构建 answer 文本（迁自 backend/src/api/main.py）。"""
+    if not resources:
+        return "未生成相关内容"
+    parts = []
+    for r in resources:
+        title = r.get("title", "")
+        content = r.get("content", "")
+        if content:
+            parts.append(f"## {title}\n\n{content[:500]}...")
+        else:
+            parts.append(f"## {title}")
+    return "\n\n".join(parts)
+
+
+def _build_sources(chunks: list[dict[str, Any]]) -> list[str]:
+    """从检索 chunks 构建 sources 列表（按 doc_id 去重）。"""
+    sources = []
+    seen = set()
+    for chunk in chunks:
+        doc_id = chunk.get("doc_id", "")
+        doc_title = chunk.get("doc_title", "")
+        if doc_id not in seen:
+            seen.add(doc_id)
+            sources.append(f"{doc_title} ({doc_id[:8]})")
+    return sources
+
+
+def _calc_confidence(result: dict[str, Any]) -> float:
+    """从审核结果计算 confidence（0~1）。
+
+    audit_result 是 list（每元素一个资源的审核报告），真实字段是
+    fact_check.overall_accuracy，并不存在 confidence_score 字段——原
+    backend/src/api/main.py 的 `isinstance(audit, dict)` 永远走不进、恒返回 0.75。
+    这里改为遍历各资源报告的 overall_accuracy 取均值，空则 0.75。
+    """
+    status = result.get("status", "")
+    if status == "gate_blocked":
+        return 0.3
+    if status == "error":
+        return 0.1
+
+    accuracies: list[float] = []
+    audit = result.get("audit_result")
+    if isinstance(audit, list):
+        for item in audit:
+            if not isinstance(item, dict):
+                continue
+            fact_check = item.get("fact_check")
+            if isinstance(fact_check, dict):
+                acc = fact_check.get("overall_accuracy")
+                if isinstance(acc, (int, float)):
+                    accuracies.append(float(acc))
+    if accuracies:
+        return round(sum(accuracies) / len(accuracies), 2)
+    return 0.75
+
+
+def _build_metrics(result: dict[str, Any]) -> dict[str, Any]:
+    """构建 metrics 遥测（真实耗时，修复 metrics 恒 0）。
+
+    三道闸门耗时由 PipelineScheduler._dispatch_step 写入 state["gate_durations"]
+    （英文键 input_gate_ms 等），此处映射为对外契约键（inputgate_ms 等，与旧
+    Docker API 一致）。rag_top_k=8 对齐 pipeline.py 的 search_with_siblings(top_k=8)。
+    """
+    gate_durations = result.get("gate_durations") or {}
+    return {
+        "inputgate_ms": int(gate_durations.get("input_gate_ms", 0)),
+        "diagnosisgate_ms": int(gate_durations.get("diagnosis_gate_ms", 0)),
+        "recallgate_ms": int(gate_durations.get("recall_gate_ms", 0)),
+        "rag_recall_count": len(result.get("retrieved_chunks", [])),
+        "rag_top_k": 8,
+        "total_latency_ms": int(result.get("elapsed_ms", 0)),
+    }
+
+
+def _build_result(result: dict[str, Any]) -> dict[str, Any]:
+    """构建 result {answer, sources, confidence} 内层对象（迁自 backend/src/api/main.py）。
+
+    fallback 路径返回外部检索摘要文本 + 免责提示，不产出结构化 resources。
+    """
+    if result.get("_is_fallback"):
+        raw = result.get("_online_fallback_raw", "")
+        if raw:
+            answer = ONLINE_FALLBACK_DISCLAIMER + "\n\n" + raw
+            sources = list(result.get("_online_fallback_sources", []) or [])
+        else:
+            answer = result.get("_offline_fallback_message", "知识库暂无相关数据")
+            sources = []
+    else:
+        resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
+        answer = _build_answer(resources)
+        sources = _build_sources(result.get("retrieved_chunks", []))
+    return {
+        "answer": answer,
+        "sources": sources,
+        "confidence": _calc_confidence(result),
+    }
+
+
 def _generation_response(result: dict[str, Any]) -> dict[str, Any]:
+    """统一交付响应结构（async /api/generate/start 与 sync /api/generate 同构）。"""
     return {
         "task_id": result.get("task_id", ""),
         "status": result.get("status", "completed"),
+        "result": _build_result(result),
+        "metrics": _build_metrics(result),
         "diagnosis": result.get("diagnosis_result", {}),
         "resources": result.get("corrected_resources", []) or result.get("generated_resources", []),
         "generation_errors": result.get("generation_errors", []),
@@ -910,18 +897,8 @@ async def generate(request: GenerateRequest):
         task_id=request.task_id,
     )
 
-    # ── 3. 标准化响应 ──
-    response = {
-        "task_id": result.get("task_id", ""),
-        "status": result.get("status", "completed"),
-        "diagnosis": result.get("diagnosis_result", {}),
-        "resources": result.get("corrected_resources", []) or result.get("generated_resources", []),
-        "generation_errors": result.get("generation_errors", []),
-        "audit": result.get("audit_result", []),
-        "agent_log": result.get("agent_log", []),
-        # 与前端 GenerationResult.mode 契约对齐：demo（本地演示）/ api（真实调用）。
-        "mode": "demo" if settings.is_demo_mode else "api",
-    }
+    # ── 3. 标准化响应（与异步 /api/generate/start 同构，含 result/metrics）──
+    response = _generation_response(result)
 
     logger.info(
         f"[API] 生成完成: task_id={response['task_id']}, "
@@ -958,6 +935,9 @@ async def kb_upload(request: dict):
             "title": title,
             "chunks_count": len(chunks),
         }
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
     except Exception as e:
         logger.error(f"[API] 上传文档失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -985,8 +965,15 @@ async def kb_import():
         except Exception as e:
             logger.warning(f"[API] 读取文件失败: {md_file} — {e}")
 
-    count = await knowledge_base.add_documents_batch(docs)
-    return {"status": "ok", "imported": count, "total": len(md_files)}
+    try:
+        count = await knowledge_base.add_documents_batch(docs)
+        return {"status": "ok", "imported": count, "total": len(md_files)}
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 批量导入失败: {e}")
+        raise HTTPException(status_code=500, detail=f"批量导入失败: {str(e)}")
 
 
 @app.get("/api/knowledge/search")
@@ -995,24 +982,44 @@ async def kb_search(q: str = "", top_k: int = 5):
     if not q.strip():
         return {"query": "", "results": []}
 
-    results = await knowledge_base.search(query=q, top_k=top_k)
-    return {"query": q, "results": results, "count": len(results)}
+    try:
+        results = await knowledge_base.search(query=q, top_k=top_k)
+        return {"query": q, "results": results, "count": len(results)}
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 检索失败: {e}")
+        raise HTTPException(status_code=500, detail=f"检索失败: {str(e)}")
 
 
 @app.get("/api/knowledge/stats")
 async def kb_stats():
     """知识库统计信息。"""
-    return await knowledge_base.get_stats()
+    try:
+        return await knowledge_base.get_stats()
+    except Exception as e:
+        logger.error(f"[API] 获取统计信息失败: {e}")
+        raise HTTPException(status_code=500, detail=f"获取统计信息失败: {str(e)}")
 
 
 @app.delete("/api/knowledge/{doc_id}")
 async def kb_delete(doc_id: str):
     """删除指定文档及其全部 chunks。"""
-    ok = await knowledge_base.delete_document(doc_id)
-    if ok:
-        return {"status": "ok", "doc_id": doc_id}
-    else:
-        raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
+    try:
+        ok = await knowledge_base.delete_document(doc_id)
+        if ok:
+            return {"status": "ok", "doc_id": doc_id}
+        else:
+            raise HTTPException(status_code=404, detail=f"文档 '{doc_id}' 未找到或删除失败")
+    except HTTPException:
+        raise
+    except ConnectionError as e:
+        logger.error(f"[API] ChromaDB 连接失败: {e}")
+        raise HTTPException(status_code=503, detail="知识库服务暂不可用，请稍后重试")
+    except Exception as e:
+        logger.error(f"[API] 删除文档失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════
