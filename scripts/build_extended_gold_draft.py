@@ -40,10 +40,52 @@ RAW_DIR = REPO_ROOT / "data" / "raw"
 
 # 中文/技术分词：按标点与空白切，去掉纯符号与停用词，保留技术术语。
 _STOP = {
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把",
-    "中", "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要",
-    "用于", "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该",
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
 }
 _TOKEN_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-_/+]*|[0-9]+(?:\.[0-9]+)?|[一-鿿]+")
 
@@ -81,7 +123,11 @@ def stratified_sample(candidates: list[dict[str, Any]], size: int) -> list[dict[
     """按 domain × predicted_verdict × resource_type 分层，尽量均匀取满 size。"""
     buckets: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for c in candidates:
-        dom = (c.get("case_id") or "").split("-")[1] if (c.get("case_id") or "").startswith("P3-") else "?"
+        dom = (
+            (c.get("case_id") or "").split("-")[1]
+            if (c.get("case_id") or "").startswith("P3-")
+            else "?"
+        )
         # case_id 形如 P3-01-K1-CORE-001 -> 第 3 段是 K 域
         parts = (c.get("case_id") or "").split("-")
         dom = parts[2] if len(parts) >= 3 else "?"
@@ -176,7 +222,8 @@ def main() -> int:
             "reviewer": "",
             "instructions": (
                 "draft：expected_verdict/rationale/reviewer 留空待人工填写；"
-                "evidence.candidate_source_documents 为脚本关键词检索候选，需人工核对后定 source_document。"
+                "evidence.candidate_source_documents 为脚本关键词检索候选，"
+                "需人工核对后定 source_document。"
             ),
         },
         "items": items,

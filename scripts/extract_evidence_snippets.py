@@ -17,7 +17,6 @@ import argparse
 import json
 import re
 import sys
-from collections import Counter
 from pathlib import Path
 
 for _s in (sys.stdout, sys.stderr):
@@ -30,12 +29,76 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = REPO_ROOT / "data" / "raw"
 
 _STOP = {
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把",
-    "中", "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要",
-    "用于", "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该",
-    "不", "就", "都", "也", "而", "但", "等", "其", "此", "则", "以", "从", "到",
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with",
-    "not", "on", "at", "by", "be", "as", "it", "this", "that", "was", "were",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "不",
+    "就",
+    "都",
+    "也",
+    "而",
+    "但",
+    "等",
+    "其",
+    "此",
+    "则",
+    "以",
+    "从",
+    "到",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "on",
+    "at",
+    "by",
+    "be",
+    "as",
+    "it",
+    "this",
+    "that",
+    "was",
+    "were",
 }
 
 # 技术 token：拉丁代码/数字/中英混合词/连续 CJK（2-6 字，去停用词）
@@ -97,7 +160,9 @@ def main() -> int:
     docs: dict[str, str] = {}
     for md in RAW_DIR.rglob("*.md"):
         try:
-            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             continue
 

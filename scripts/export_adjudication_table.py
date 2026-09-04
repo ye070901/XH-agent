@@ -2,7 +2,8 @@
 """把「命中但证据不足」的 unverifiable 断言导出为仲裁表（markdown），供 K1/K2/K3 逐条签。
 
 只导出需要人工复核的边界：expected_verdict==unverifiable 且 rationale 含「字符相似度」。
-每条附 top-3 命中文档的最佳匹配句（每文档 top 2 句），仲裁者据此判 accurate / unverifiable / hallucination。
+每条附 top-3 命中文档的最佳匹配句（每文档 top 2 句），
+仲裁者据此判 accurate / unverifiable / hallucination。
 
 Run:
     python scripts/export_adjudication_table.py \
@@ -29,12 +30,76 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = REPO_ROOT / "data" / "raw"
 
 _STOP = {
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把",
-    "中", "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要",
-    "用于", "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该",
-    "不", "就", "都", "也", "而", "但", "等", "其", "此", "则", "以", "从", "到",
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with",
-    "not", "on", "at", "by", "be", "as", "it", "this", "that", "was", "were",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "不",
+    "就",
+    "都",
+    "也",
+    "而",
+    "但",
+    "等",
+    "其",
+    "此",
+    "则",
+    "以",
+    "从",
+    "到",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "on",
+    "at",
+    "by",
+    "be",
+    "as",
+    "it",
+    "this",
+    "that",
+    "was",
+    "were",
 }
 _TOKEN_RE = re.compile(
     r"[A-Za-z][A-Za-z0-9\-_/+.]{1,}|"
@@ -81,7 +146,8 @@ def main() -> int:
 
     # 取所有「有 ≥2 关键词命中但非逐字支持」的 unverifiable（排除「未检索到/无关键词」两类）
     targets = [
-        i for i in items
+        i
+        for i in items
         if i["expected_verdict"] == "unverifiable"
         and "未检索到" not in (i.get("rationale") or "")
         and "无有效关键词" not in (i.get("rationale") or "")
@@ -90,27 +156,45 @@ def main() -> int:
     docs: dict[str, str] = {}
     for md in RAW_DIR.rglob("*.md"):
         try:
-            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             continue
 
     by_domain: dict[str, list[dict]] = defaultdict(list)
     for it in targets:
         qset = {t.lower() for t in tokenize(it["claim"])}
-        ranked = sorted(((sum(1 for t in qset if t.lower() in d), p) for p, d in docs.items()), key=lambda x: -x[0])
+        ranked = sorted(
+            ((sum(1 for t in qset if t.lower() in d), p) for p, d in docs.items()),
+            key=lambda x: -x[0],
+        )
         top = [(p, s) for sc, p in ranked[:3] if (s := best_sentences(docs[p], qset, k=2))]
         by_domain[it["domain"]].append({"item": it, "top": top})
 
     lines: list[str] = []
     lines.append("# 金标准扩展 — 仲裁表（「命中但证据不足」断言）")
     lines.append("")
-    lines.append(f"共 **{len(targets)}** 条，由脚本初判为 `unverifiable`，但因检索到关键词命中、需人工复核是否应升 `accurate` 或判 `hallucination`。")
+    lines.append(
+        f"共 **{len(targets)}** 条，由脚本初判为 `unverifiable`，但因检索到关键词命中、"
+        f"需人工复核是否应升 `accurate` 或判 `hallucination`。"
+    )
     lines.append("")
-    lines.append("> 复核约定：逐条在证据列给出判定，`accurate` 需在【判定】栏填来源文档；无法支持/反驳则维持 `unverifiable`；明确冲突填 `hallucination` 并说明。")
+    lines.append(
+        "> 复核约定：逐条在证据列给出判定，`accurate` 需在【判定】栏填来源文档；"
+        "无法支持/反驳则维持 `unverifiable`；明确冲突填 `hallucination` 并说明。"
+    )
     lines.append("")
 
-    domain_names = {"K1": "基础操作与示教编程", "K2": "离线编程与仿真", "K3": "安全规范与故障诊断",
-                    "K4": "机器人基础理论", "K5": "机器视觉集成", "K6": "协作机器人", "K7": "I/O与现场总线"}
+    domain_names = {
+        "K1": "基础操作与示教编程",
+        "K2": "离线编程与仿真",
+        "K3": "安全规范与故障诊断",
+        "K4": "机器人基础理论",
+        "K5": "机器视觉集成",
+        "K6": "协作机器人",
+        "K7": "I/O与现场总线",
+    }
 
     for dom in sorted(by_domain):
         lines.append(f"## {dom} — {domain_names.get(dom, '')}")
@@ -121,7 +205,10 @@ def main() -> int:
             lines.append(f"### {idx}. `{it['claim_id']}`")
             lines.append("")
             lines.append(f"- **断言**：{it['claim']}")
-            lines.append(f"- **Agent3 预测**：`{it.get('agent3_predicted_verdict')}` ｜ **脚本初判**：`unverifiable`")
+            lines.append(
+                f"- **Agent3 预测**：`{it.get('agent3_predicted_verdict')}` ｜ "
+                f"**脚本初判**：`unverifiable`"
+            )
             lines.append("- **证据（top 命中文档原文摘录）**：")
             if r["top"]:
                 for p, sents in r["top"]:
@@ -129,7 +216,9 @@ def main() -> int:
                         lines.append(f"  - `{p}` → {s[:180]}")
             else:
                 lines.append("  - （关键词命中分散在标题/摘要，无成句，需打开候选文档人工核对）")
-            lines.append("- **判定**：`__`（accurate / unverifiable / hallucination）｜ **来源文档**：`__`")
+            lines.append(
+                "- **判定**：`__`（accurate / unverifiable / hallucination）｜ **来源文档**：`__`"
+            )
             lines.append("")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)

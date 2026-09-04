@@ -5,6 +5,7 @@
 用三条判据（子串 / 高字符相似度 / 高实体覆盖）判断是否有强支持。
 只读，输出清单。
 """
+
 from __future__ import annotations
 
 import json
@@ -21,10 +22,53 @@ for _s in (sys.stdout, sys.stderr):
 RAW = Path("data/raw")
 _PUNC = re.compile(r"[\s，。；：、（）()「」【】\[\]\"'`\-_/\\·|]+")
 _TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9\-_/.]{1,}|\d+(?:\.\d+)?|[一-鿿]{2,}")
-_STOP = {"the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with",
-         "not", "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被",
-         "把", "中", "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以",
-         "需要", "用于", "表示", "对应", "包括", "例如", "以及", "如果", "那么"}
+_STOP = {
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+}
 
 
 def norm(t: str) -> str:
@@ -35,11 +79,11 @@ def toks(t: str) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for m in _TOKEN.findall(t or ""):
-        l = m.lower()
-        if l in _STOP or len(l) < 2:
+        low = m.lower()
+        if low in _STOP or len(low) < 2:
             continue
-        if l not in seen:
-            seen.add(l)
+        if low not in seen:
+            seen.add(low)
             out.append(m)
     return out
 
@@ -48,7 +92,9 @@ def load_docs() -> dict[str, str]:
     d: dict[str, str] = {}
     for md in RAW.rglob("*.md"):
         try:
-            d[str(md.relative_to(RAW.parent))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            d[str(md.relative_to(RAW.parent))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             pass
     return d

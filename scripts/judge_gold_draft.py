@@ -2,7 +2,8 @@
 """基于知识库证据，为扩展金标准逐条判定三态，回填 draft。
 
 判据（保守，宁可 unverifiable 不误判 accurate，对齐 GOLD_LABELING_GUIDE §2）：
-  1. 逐字支持检测：某匹配句与 claim 的「核心 token 集合」重叠度 >= 阈值，且无数值/极性冲突 -> accurate
+  1. 逐字支持检测：某匹配句与 claim 的「核心 token 集合」重叠度 >= 阈值，
+     且无数值/极性冲突 -> accurate
   2. 明确冲突（数值冲突 / 极性反转 / 覆盖表中的已知反例）-> hallucination
   3. 其余 -> unverifiable
 
@@ -31,12 +32,76 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 RAW_DIR = REPO_ROOT / "data" / "raw"
 
 _STOP = {
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把",
-    "中", "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要",
-    "用于", "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该",
-    "不", "就", "都", "也", "而", "但", "等", "其", "此", "则", "以", "从", "到",
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with",
-    "not", "on", "at", "by", "be", "as", "it", "this", "that", "was", "were",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "不",
+    "就",
+    "都",
+    "也",
+    "而",
+    "但",
+    "等",
+    "其",
+    "此",
+    "则",
+    "以",
+    "从",
+    "到",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "on",
+    "at",
+    "by",
+    "be",
+    "as",
+    "it",
+    "this",
+    "that",
+    "was",
+    "were",
 }
 _TOKEN_RE = re.compile(
     r"[A-Za-z][A-Za-z0-9\-_/+.]{1,}|"
@@ -61,12 +126,15 @@ def tokenize(text: str) -> list[str]:
 # 明确 hallucination：claim 与知识库原文冲突（人工核验证据后确认）
 HALLUCINATION = {
     # PTP 是「路径不可控」的关节运动，不是直线
-    "P3-10-K6-CORE-001:claim-008:008":
-        "FANUC/KUKA 知识库明确 PTP 为「各关节独立运动，路径不可控」，claim 断言「路径是直线」与之冲突。",
+    "P3-10-K6-CORE-001:claim-008:008": (
+        "FANUC/KUKA 知识库明确 PTP 为「各关节独立运动，路径不可控」，"
+        "claim 断言「路径是直线」与之冲突。"
+    ),
 }
 # 明确需人工仲裁的边界（agent3 与金标准分歧，或证据不足以机器判）
 BOUNDARY = {
-    # 之前 60 条金标准里发现的 12 条分歧，若抽进本次 250 条则标边界（这里仅留档，多数未落入本次抽样）
+    # 之前 60 条金标准里发现的 12 条分歧，若抽进本次 250 条则标边界
+    # （这里仅留档，多数未落入本次抽样）
 }
 
 
@@ -74,7 +142,9 @@ def load_docs() -> dict[str, str]:
     docs: dict[str, str] = {}
     for md in RAW_DIR.rglob("*.md"):
         try:
-            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            docs[str(md.relative_to(REPO_ROOT))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             continue
     return docs
@@ -113,7 +183,9 @@ def judge(claim: str, docs: dict[str, str]) -> tuple[str, str, str]:
     qset = {t.lower() for t in qtoks}
     if not qset:
         return "unverifiable", "", "无有效关键词，无法核验。"
-    ranked = sorted(((sum(1 for t in qset if t.lower() in d), p) for p, d in docs.items()), key=lambda x: -x[0])
+    ranked = sorted(
+        ((sum(1 for t in qset if t.lower() in d), p) for p, d in docs.items()), key=lambda x: -x[0]
+    )
     top_score, top_path = ranked[0]
     if top_score < 2:
         return "unverifiable", "", "知识库未检索到 ≥2 个关键词命中，无法支持或反驳。"
@@ -140,7 +212,11 @@ def judge(claim: str, docs: dict[str, str]) -> tuple[str, str, str]:
         return "accurate", best_path, f"知识库原文支持（原文：{sent[:110]}）"
     if ratio >= 0.4 or (len(covered) >= 2 and cover >= 0.5):
         return "accurate", best_path, f"知识库原文部分支持（原文：{sent[:110]}）"
-    return "unverifiable", best_path, f"字符相似度 {ratio:.0%}，无法确认逐字支持（原文：{sent[:90]}…）"
+    return (
+        "unverifiable",
+        best_path,
+        f"字符相似度 {ratio:.0%}，无法确认逐字支持（原文：{sent[:90]}…）",
+    )
 
 
 def main() -> int:

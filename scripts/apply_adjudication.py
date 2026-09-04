@@ -38,7 +38,10 @@ def parse_table(path: Path) -> dict[str, dict[str, str]]:
             continue
         if verdict not in VALID:
             raise ValueError(f"invalid verdict {verdict!r} for {current}")
-        decisions[current] = {"expected_verdict": verdict, "source_document": "" if source in {"", "__"} else source}
+        decisions[current] = {
+            "expected_verdict": verdict,
+            "source_document": "" if source in {"", "__"} else source,
+        }
     return decisions
 
 
@@ -73,7 +76,9 @@ def main() -> int:
         elif decision["expected_verdict"] != "accurate":
             evidence["source_document"] = ""
             evidence["locator"] = "仲裁表人工填写：无支持来源"
-        item["rationale"] = f"K1 标注、K2 复核结论：{decision['expected_verdict']}。依据当前知识库证据完成核验。"
+        item["rationale"] = (
+            f"K1 标注、K2 复核结论：{decision['expected_verdict']}。依据当前知识库证据完成核验。"
+        )
         if args.annotator:
             item["annotator"] = args.annotator
         if args.reviewer:
@@ -84,17 +89,23 @@ def main() -> int:
         applied += 1
 
     meta = document.setdefault("meta", {})
-    meta.update({
-        "name": "Agent3 三态判定人工金标准（K1-K7 扩展）",
-        "version": "1.0-pending-human-review",
-        "sample_count": len(items),
-        "workflow_status": args.review_status,
-        "adjudication_table": str(args.table),
-        "adjudication_applied_count": applied,
-        "adjudication_missing_claim_ids": missing,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "instructions": "候选正式金标准：仲裁表已填写的结论已回填；空白项仍待 K1/K2/K3 人工仲裁。发布前每条事实断言必须填写不同的 annotator/reviewer、annotated_at，并将 review_status 设为 approved。",
-    })
+    meta.update(
+        {
+            "name": "Agent3 三态判定人工金标准（K1-K7 扩展）",
+            "version": "1.0-pending-human-review",
+            "sample_count": len(items),
+            "workflow_status": args.review_status,
+            "adjudication_table": str(args.table),
+            "adjudication_applied_count": applied,
+            "adjudication_missing_claim_ids": missing,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "instructions": (
+                "候选正式金标准：仲裁表已填写的结论已回填；空白项仍待 K1/K2/K3 人工仲裁。"
+                "发布前每条事实断言必须填写不同的 annotator/reviewer、annotated_at，"
+                "并将 review_status 设为 approved。"
+            ),
+        }
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {args.out} ({len(items)} items; applied {applied} decisions)")

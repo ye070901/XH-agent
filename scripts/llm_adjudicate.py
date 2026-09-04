@@ -16,6 +16,7 @@
 
 产出 gold_labels_k1k7.llm-adjudicated.json，并打印标定准确率。
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,11 +40,66 @@ RAW = ROOT / "data" / "raw"
 _PUNC = re.compile(r"[\s，。；：、（）()「」【】\[\]\"'`\-_/\\·|]+")
 _TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9\-_/.]{1,}|\d+(?:\.\d+)?|[一-鿿]{2,}")
 _STOP = {
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with", "not",
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把", "中",
-    "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要", "用于",
-    "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该", "其", "此",
-    "则", "以", "从", "到", "不", "就", "都", "也", "而", "但", "等",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "其",
+    "此",
+    "则",
+    "以",
+    "从",
+    "到",
+    "不",
+    "就",
+    "都",
+    "也",
+    "而",
+    "但",
+    "等",
 }
 
 VALID = {"accurate", "partially_supported", "unverifiable", "hallucination"}
@@ -64,11 +120,11 @@ SYSTEM = (
 def toks(t: str) -> list[str]:
     out, seen = [], set()
     for m in _TOKEN.findall(t or ""):
-        l = m.lower()
-        if l in _STOP or len(l) < 2:
+        low = m.lower()
+        if low in _STOP or len(low) < 2:
             continue
-        if l not in seen:
-            seen.add(l)
+        if low not in seen:
+            seen.add(low)
             out.append(m)
     return out
 
@@ -81,7 +137,9 @@ def load_docs() -> dict[str, str]:
     d = {}
     for md in RAW.rglob("*.md"):
         try:
-            d[str(md.relative_to(RAW.parent))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            d[str(md.relative_to(RAW.parent))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             pass
     return d
@@ -128,12 +186,15 @@ async def main_async() -> None:
 
     gold = json.load(open("data/evaluation/gold_labels_k1k7.reclassified.json", encoding="utf-8"))
     report = json.load(open("data/evaluation/runs/phase3_report_k1k7_70.json", encoding="utf-8"))
-    pred = {c["claim_id"]: c.get("agent3_predicted_verdict") for c in report["gold_candidate_claims"]}
+    pred = {
+        c["claim_id"]: c.get("agent3_predicted_verdict") for c in report["gold_candidate_claims"]
+    }
     docs = load_docs()
 
     # 只判「gold=unverifiable 且 agent3=partially_supported/accurate」的分歧条目
     targets = [
-        it for it in gold["items"]
+        it
+        for it in gold["items"]
         if it["expected_verdict"] == "unverifiable"
         and pred.get(it["claim_id"]) in ("partially_supported", "accurate")
     ]

@@ -15,6 +15,7 @@
 
 产出 gold_labels_k1k7.reclassified.json（不动原文件）。
 """
+
 from __future__ import annotations
 
 import json
@@ -33,11 +34,66 @@ RAW = Path("data/raw")
 _PUNC = re.compile(r"[\s，。；：、（）()「」【】\[\]\"'`\-_/\\·|]+")
 _TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9\-_/.]{1,}|\d+(?:\.\d+)?|[一-鿿]{2,}")
 _STOP = {
-    "the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "with", "not",
-    "的", "了", "和", "与", "及", "或", "是", "在", "有", "对", "为", "被", "把", "中",
-    "上", "下", "内", "外", "一个", "一种", "进行", "通过", "可以", "需要", "用于",
-    "表示", "对应", "包括", "例如", "以及", "如果", "那么", "这个", "该", "其", "此",
-    "则", "以", "从", "到", "不", "就", "都", "也", "而", "但", "等",
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "with",
+    "not",
+    "的",
+    "了",
+    "和",
+    "与",
+    "及",
+    "或",
+    "是",
+    "在",
+    "有",
+    "对",
+    "为",
+    "被",
+    "把",
+    "中",
+    "上",
+    "下",
+    "内",
+    "外",
+    "一个",
+    "一种",
+    "进行",
+    "通过",
+    "可以",
+    "需要",
+    "用于",
+    "表示",
+    "对应",
+    "包括",
+    "例如",
+    "以及",
+    "如果",
+    "那么",
+    "这个",
+    "该",
+    "其",
+    "此",
+    "则",
+    "以",
+    "从",
+    "到",
+    "不",
+    "就",
+    "都",
+    "也",
+    "而",
+    "但",
+    "等",
 }
 
 # 明确冲突（人工核验确认）
@@ -54,11 +110,11 @@ def toks(t: str) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for m in _TOKEN.findall(t or ""):
-        l = m.lower()
-        if l in _STOP or len(l) < 2:
+        low = m.lower()
+        if low in _STOP or len(low) < 2:
             continue
-        if l not in seen:
-            seen.add(l)
+        if low not in seen:
+            seen.add(low)
             out.append(m)
     return out
 
@@ -71,7 +127,9 @@ def load_docs() -> dict[str, str]:
     d: dict[str, str] = {}
     for md in RAW.rglob("*.md"):
         try:
-            d[str(md.relative_to(RAW.parent))] = md.read_text(encoding="utf-8", errors="ignore").lower()
+            d[str(md.relative_to(RAW.parent))] = md.read_text(
+                encoding="utf-8", errors="ignore"
+            ).lower()
         except OSError:
             pass
     return d
@@ -154,11 +212,18 @@ def main() -> int:
     # 更新 schema：加 partially_supported
     meta = d["meta"]
     if "partially_supported" not in meta.get("allowed_verdicts", []):
-        meta["allowed_verdicts"] = ["accurate", "partially_supported", "hallucination", "unverifiable", "skip"]
+        meta["allowed_verdicts"] = [
+            "accurate",
+            "partially_supported",
+            "hallucination",
+            "unverifiable",
+            "skip",
+        ]
     meta["version"] = "1.1"
     meta["name"] = "Agent3 三态判定人工金标准（K1-K7 扩展，四态重标）"
     meta["instructions"] = (
-        "四态重标：unverifiable 已按全库证据重新分级为 accurate/partially_supported/unverifiable/hallucination。"
+        "四态重标：unverifiable 已按全库证据重新分级为 "
+        "accurate/partially_supported/unverifiable/hallucination。"
         "partially_supported=核心事实有原文依据但细节未逐字；unverifiable=核心事实无依据。"
         "仍需 K1/K2/K3 最终签字。"
     )
