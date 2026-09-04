@@ -49,7 +49,7 @@ from backend.src.llm.client import llm  # noqa: E402
 from backend.src.persistence.profile_store import profile_cleanup_service  # noqa: E402
 from backend.src.quality_gate.gates.recall_gate import ONLINE_FALLBACK_DISCLAIMER  # noqa: E402
 from backend.src.scheduler.pipeline import scheduler  # noqa: E402
-from backend.src.schemas import GenerateRequest  # noqa: E402
+from backend.src.schemas import GenerateRequest, difficulty_rank  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════
 # 请求模型（精确匹配前端表单字段，区分必填/选填）
@@ -406,15 +406,74 @@ def _build_result(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _build_knowledge_radar(diagnosis: dict[str, Any]) -> dict[str, float]:
+    """知识雷达图数据：topic → 掌握度(0~1)。
+
+    优先取 diagnosis.knowledge_map 的 level（掌握度）；空则回退 skill_gaps 的
+    current_level；仍空返回 {}（前端据此不渲染雷达图）。
+    """
+    knowledge_map = diagnosis.get("knowledge_map")
+    if isinstance(knowledge_map, dict) and knowledge_map:
+        radar: dict[str, float] = {}
+        for topic, item in knowledge_map.items():
+            if isinstance(item, dict):
+                level = item.get("level")
+                if isinstance(level, (int, float)):
+                    radar[str(topic)] = round(float(level), 2)
+        if radar:
+            return radar
+    gaps = diagnosis.get("skill_gaps") or []
+    radar = {}
+    for gap in gaps:
+        if not isinstance(gap, dict):
+            continue
+        topic = gap.get("topic")
+        level = gap.get("current_level")
+        if topic and isinstance(level, (int, float)):
+            radar[str(topic)] = round(float(level), 2)
+    return radar
+
+
+def _build_resource_match_curve(
+    diagnosis: dict[str, Any], resources: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """资源难度匹配曲线数据：逐资源比对画像推荐难度与资源标注难度。
+
+    difficulty_match 复用 evaluation/metrics.py 的缺口打分口径：差 0 档=1.0、差 1 档=0.5、其余=0.0。
+    """
+    learner_diff = str(diagnosis.get("recommended_difficulty", "") or "")
+    learner_rank = difficulty_rank(learner_diff)
+    curve: list[dict[str, Any]] = []
+    for r in resources:
+        resource_diff = str(r.get("difficulty_level", "") or "")
+        rank = difficulty_rank(resource_diff)
+        gap = abs(learner_rank - rank)
+        curve.append(
+            {
+                "resource_type": r.get("resource_type", ""),
+                "title": r.get("title", ""),
+                "learner_difficulty": learner_diff or "beginner",
+                "resource_difficulty": resource_diff or "beginner",
+                "difficulty_match": 1.0 if gap == 0 else 0.5 if gap == 1 else 0.0,
+                "matched": gap == 0,
+            }
+        )
+    return curve
+
+
 def _generation_response(result: dict[str, Any]) -> dict[str, Any]:
     """统一交付响应结构（async /api/generate/start 与 sync /api/generate 同构）。"""
+    diagnosis = result.get("diagnosis_result", {})
+    resources = result.get("corrected_resources", []) or result.get("generated_resources", [])
     return {
         "task_id": result.get("task_id", ""),
         "status": result.get("status", "completed"),
         "result": _build_result(result),
         "metrics": _build_metrics(result),
-        "diagnosis": result.get("diagnosis_result", {}),
-        "resources": result.get("corrected_resources", []) or result.get("generated_resources", []),
+        "diagnosis": diagnosis,
+        "resources": resources,
+        "knowledge_radar": _build_knowledge_radar(diagnosis),
+        "resource_match_curve": _build_resource_match_curve(diagnosis, resources),
         "generation_errors": result.get("generation_errors", []),
         "audit": result.get("audit_result", []),
         "debate": _debate_summary(result.get("debate_result", {})),

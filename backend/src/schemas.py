@@ -34,6 +34,30 @@ class Difficulty(str, Enum):
     ADVANCED = "advanced"
 
 
+# 难度 → 0/1/2 序号（单一权威映射，收敛自 evaluation/metrics.py 的别名表）。
+_DIFFICULTY_ALIASES: dict[str, int] = {
+    "beginner": 0,
+    "basic": 0,
+    "introductory": 0,
+    "初级": 0,
+    "入门": 0,
+    "intermediate": 1,
+    "medium": 1,
+    "中级": 1,
+    "advanced": 2,
+    "expert": 2,
+    "进阶": 2,
+    "高级": 2,
+}
+
+
+def difficulty_rank(value: str) -> int:
+    """难度字符串 → 0/1/2 序号；未知值保守回退 beginner(0)。"""
+    if not value:
+        return 0
+    return _DIFFICULTY_ALIASES.get(str(value).strip().lower(), 0)
+
+
 class RiskLevel(str, Enum):
     """工业实操风险分级（与 Difficulty 正交：危险 ≠ 难度）。
 

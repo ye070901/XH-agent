@@ -107,7 +107,29 @@ class TestGenerateEndpoint:
                     "recall_gate_ms": 30,
                 },
                 "retrieved_chunks": [{"doc_id": "test", "doc_title": "Test", "content": "content"}],
-                "generated_resources": [{"title": "Resource 1", "content": "Some content"}],
+                "diagnosis_result": {
+                    "summary": "掌握基础，可进入进阶训练",
+                    "recommended_difficulty": "intermediate",
+                    "knowledge_map": {
+                        "运动指令": {"level": 0.6, "confidence": 0.8},
+                        "报警排查": {"level": 0.4, "confidence": 0.7},
+                        "坐标系统": {"level": 0.8, "confidence": 0.9},
+                    },
+                },
+                "generated_resources": [
+                    {
+                        "title": "Resource 1",
+                        "content": "Some content",
+                        "resource_type": "guide",
+                        "difficulty_level": "intermediate",
+                    },
+                    {
+                        "title": "Resource 2",
+                        "content": "More content",
+                        "resource_type": "quiz",
+                        "difficulty_level": "beginner",
+                    },
+                ],
                 "audit_result": [{"fact_check": {"overall_accuracy": 0.95}}],
                 "elapsed_ms": 100,
             }
@@ -129,6 +151,8 @@ class TestGenerateEndpoint:
                 "metrics",
                 "diagnosis",
                 "resources",
+                "knowledge_radar",
+                "resource_match_curve",
                 "generation_errors",
                 "audit",
                 "debate",
@@ -158,6 +182,20 @@ class TestGenerateEndpoint:
             ):
                 assert field in metrics, f"缺少 metrics 字段 {field}"
                 assert metrics[field] >= 0
+
+            # 硬性约束：可视化总览数据（知识雷达 + 难度匹配曲线）
+            assert isinstance(data["knowledge_radar"], dict)
+            assert data["knowledge_radar"] == {
+                "运动指令": 0.6,
+                "报警排查": 0.4,
+                "坐标系统": 0.8,
+            }
+            assert isinstance(data["resource_match_curve"], list)
+            assert len(data["resource_match_curve"]) == 2
+            assert data["resource_match_curve"][0]["difficulty_match"] == 1.0
+            assert data["resource_match_curve"][0]["matched"] is True
+            assert data["resource_match_curve"][1]["difficulty_match"] == 0.5
+            assert data["resource_match_curve"][1]["resource_difficulty"] == "beginner"
 
     def test_generate_with_learning_goal_format(self):
         """支持前端 learning_goal 格式（education_level + learning_goal）"""

@@ -163,11 +163,22 @@ type GenerationErrorItem = {
   raw_error?: string;
 };
 
+type ResourceMatchPoint = {
+  resource_type?: string;
+  title?: string;
+  learner_difficulty?: string;
+  resource_difficulty?: string;
+  difficulty_match?: number;
+  matched?: boolean;
+};
+
 type GenerationResult = {
   task_id?: string;
   status?: string;
   diagnosis?: { summary?: string; learning_style?: string; recommended_difficulty?: string; skill_gaps?: SkillGap[] };
   resources?: GeneratedResource[];
+  knowledge_radar?: Record<string, number>;
+  resource_match_curve?: ResourceMatchPoint[];
   audit?: Array<{ resource_index?: number; resource_type?: string; verdict?: string; issues?: Array<{ detail?: string }> }>;
   debate?: { total_resources?: number; total_adjudications?: number; decisions?: { keep?: number; replace?: number; delete?: number }; unresolved_count?: number };
   agent_log?: Array<{ agent?: string; status?: string }>;
@@ -368,6 +379,26 @@ const levelLabel = (level?: string) => {
 
 const pct = (value?: number) => `${Math.round(Math.max(0, Math.min(1, value ?? 0)) * 100)}%`;
 
+const difficultyLabel = (value?: string) => {
+  switch ((value ?? "").toLowerCase()) {
+    case "beginner": return "初级";
+    case "intermediate": return "中级";
+    case "advanced": return "高级";
+    default: return value || "未标注";
+  }
+};
+
+const difficultyRank = (value?: string) => {
+  switch ((value ?? "").toLowerCase()) {
+    case "beginner": return 0;
+    case "intermediate": return 1;
+    case "advanced": return 2;
+    default: return 0;
+  }
+};
+
+const DIFFICULTY_ORDER = ["beginner", "intermediate", "advanced"] as const;
+
 const sourceDocLabel = (path: string) => {
   const name = path.split("/").pop() ?? path;
   return name.replace(/\.md$/i, "");
@@ -502,6 +533,138 @@ function LearningPathMap({ groups }: { groups: Array<{ domain: KnowledgeDomain; 
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function KnowledgeRadarChart({ data }: { data: Record<string, number> }) {
+  const entries = Object.entries(data ?? {}).filter(([, value]) => typeof value === "number");
+  if (entries.length < 3) {
+    if (!entries.length) {
+      return <p className="text-sm text-white/55">暂无知识掌握度数据</p>;
+    }
+    return (
+      <ul className="grid gap-3">
+        {entries.map(([topic, level]) => (
+          <li key={topic}>
+            <div className="flex items-center justify-between text-xs text-white/60">
+              <span className="truncate">{topic}</span>
+              <span className="ml-3 shrink-0">{pct(level)}</span>
+            </div>
+            <div className="mt-1.5 h-1.5 rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-[#7342E2]" style={{ width: pct(level) }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  const size = 280;
+  const cx = size / 2;
+  const cy = size / 2;
+  const radius = 96;
+  const count = entries.length;
+  const angleAt = (index: number) => (Math.PI * 2 * index) / count - Math.PI / 2;
+  const pointAt = (index: number, r: number): [number, number] => [cx + r * Math.cos(angleAt(index)), cy + r * Math.sin(angleAt(index))];
+  const polygonPoints = (scale: number) => entries.map((_, index) => pointAt(index, radius * scale).map((n) => n.toFixed(1)).join(",")).join(" ");
+  const dataPoints = entries.map(([, level], index) => pointAt(index, radius * Math.max(0, Math.min(1, level))).map((n) => n.toFixed(1)).join(",")).join(" ");
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center">
+      <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[300px]" role="img" aria-label="知识掌握度雷达图">
+        {[0.25, 0.5, 0.75, 1].map((scale, gi, grid) => (
+          <polygon key={`grid-${gi}`} points={polygonPoints(scale)} fill={gi === grid.length - 1 ? "rgba(255,255,255,0.04)" : "none"} stroke="rgba(255,255,255,0.16)" strokeWidth={1} />
+        ))}
+        {entries.map((_, index) => {
+          const [x, y] = pointAt(index, radius);
+          return <line key={`axis-${index}`} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(255,255,255,0.16)" strokeWidth={1} />;
+        })}
+        <polygon points={dataPoints} fill="rgba(115,66,226,0.30)" stroke="#7342E2" strokeWidth={2} strokeLinejoin="round" />
+        {entries.map(([topic, level], index) => {
+          const [x, y] = pointAt(index, radius * Math.max(0, Math.min(1, level)));
+          return <circle key={`point-${index}`} cx={x} cy={y} r={3.5} fill="#B99DFF" stroke="#7342E2" strokeWidth={1.5} />;
+        })}
+        {entries.map(([topic], index) => {
+          const [x, y] = pointAt(index, radius + 26);
+          return <text key={`label-${index}`} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="rgba(255,255,255,0.78)" fontSize={11}>{topic}</text>;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function DifficultyMatchCurve({ data }: { data: ResourceMatchPoint[] }) {
+  const points = data ?? [];
+  if (!points.length) {
+    return <p className="text-sm text-white/55">暂无资源难度信息</p>;
+  }
+  const learnerLevel = points[0]?.learner_difficulty ?? "beginner";
+  const learnerRank = difficultyRank(learnerLevel);
+
+  const width = 300;
+  const height = 156;
+  const pad = { top: 30, right: 14, bottom: 34, left: 14 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const xAt = (rank: number) => pad.left + (rank / 2) * plotW;
+  const yAt = (index: number) => pad.top + plotH - (points.length <= 1 ? plotH / 2 : (index / (points.length - 1)) * plotH);
+  const learnerLabelX = Math.min(Math.max(xAt(learnerRank), pad.left + 42), pad.left + plotW - 42);
+
+  const matchColor = (item: ResourceMatchPoint) => {
+    if (item.matched) return "#34D399";
+    return (item.difficulty_match ?? 1) >= 0.5 ? "#FBBF24" : "#F87171";
+  };
+
+  const polylinePoints = points.map((item, index) => `${xAt(difficultyRank(item.resource_difficulty)).toFixed(1)},${yAt(index).toFixed(1)}`).join(" ");
+
+  return (
+    <div className="flex h-full flex-col justify-center">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full" role="img" aria-label="资源难度匹配曲线">
+        <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
+        {DIFFICULTY_ORDER.map((level, index) => {
+          const x = xAt(index);
+          return (
+            <g key={level}>
+              <line x1={x} y1={pad.top + plotH - 4} x2={x} y2={pad.top + plotH + 4} stroke="rgba(255,255,255,0.22)" strokeWidth={1} />
+              <text x={x} y={pad.top + plotH + 17} textAnchor="middle" fill="rgba(255,255,255,0.62)" fontSize={10}>{difficultyLabel(level)}</text>
+            </g>
+          );
+        })}
+        <line x1={xAt(learnerRank)} y1={pad.top} x2={xAt(learnerRank)} y2={pad.top + plotH} stroke="#B99DFF" strokeWidth={1.5} strokeDasharray="4 4" />
+        <text x={learnerLabelX} y={pad.top - 10} textAnchor="middle" fill="#B99DFF" fontSize={10}>学习者推荐·{difficultyLabel(learnerLevel)}</text>
+        <polyline points={polylinePoints} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth={1.5} strokeLinejoin="round" />
+        {points.map((item, index) => {
+          const x = xAt(difficultyRank(item.resource_difficulty));
+          const y = yAt(index);
+          return (
+            <g key={`${item.resource_type}-${index}`}>
+              <circle cx={x} cy={y} r={4.5} fill={matchColor(item)} stroke="rgba(0,0,0,0.25)" strokeWidth={1} />
+              <text x={x} y={y - 9} textAnchor="middle" fill="rgba(255,255,255,0.7)" fontSize={9}>{resourceLabel(item.resource_type ?? "")}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/55">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#34D399]" />匹配</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#FBBF24]" />差 1 档</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#F87171]" />差 2 档</span>
+      </div>
+    </div>
+  );
+}
+
+function VisualizationOverview({ result }: { result?: GenerationResult | null }) {
+  const hasRadar = Boolean(result?.knowledge_radar && Object.keys(result.knowledge_radar).length > 0);
+  const hasCurve = (result?.resource_match_curve?.length ?? 0) > 0;
+  if (!hasRadar && !hasCurve) return null;
+  return (
+    <div className="mt-6 rounded-2xl bg-white/[0.06] p-5">
+      <p className="text-xs font-semibold text-white/60">可视化总览</p>
+      <div className="mt-4 grid gap-6 md:grid-cols-2">
+        <KnowledgeRadarChart data={result?.knowledge_radar ?? {}} />
+        <DifficultyMatchCurve data={result?.resource_match_curve ?? []} />
       </div>
     </div>
   );
@@ -1848,6 +2011,8 @@ function ExpandedWorkspaceLayout({
         </div>
         {generationResult?.diagnosis?.summary ? <p className="mt-5 max-w-[78ch] text-base leading-8 text-white/80">诊断：{generationResult.diagnosis.summary}</p> : null}
 
+        <VisualizationOverview result={generationResult} />
+
         {resource ? <motion.article className="mt-7 rounded-2xl bg-[#102333] p-6 shadow-inner shadow-black/10 sm:p-8 lg:p-10" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} key={selectedResource}>
           <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold text-white/55">{isQuizResource(resource) ? `\u7b2c ${quizRoundNumber(resources, resource)} \u8f6e\u6d4b\u8bd5` : "资源预览"}</p><h4 className="mt-2 text-2xl font-semibold leading-tight text-white">{resource.title}</h4></div>{resource.estimated_duration_minutes ? <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/75">预计 {resource.estimated_duration_minutes} 分钟</span> : null}</header>
           <RiskBanner level={resource.risk_level} />
@@ -2676,6 +2841,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                       <span className="rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-white/90">{generationResult.mode === "demo" || backendDemoMode === true ? "本地演示" : "DeepSeek Chat"}</span>
                     </div>
                     {generationResult.diagnosis?.summary ? <p className="mt-4 max-w-[76ch] text-[0.96rem] leading-7 text-white/85">诊断：{generationResult.diagnosis.summary}</p> : null}
+                    <VisualizationOverview result={generationResult} />
                     <div className="mt-6 flex flex-wrap gap-2" aria-label="资源类型">
                       {workspaceResourceItems(generationResult.resources ?? []).map((resource) => (
                         <button aria-pressed={selectedResource === resource.resource_type} className={`rounded-full px-4 py-2.5 text-sm font-semibold transition ${selectedResource === resource.resource_type ? "bg-white text-[#192837]" : "bg-white/15 text-white hover:bg-white/25"}`} key={resource.resource_type} onClick={() => setSelectedResource(resource.resource_type)} type="button">
