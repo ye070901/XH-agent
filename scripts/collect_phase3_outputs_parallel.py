@@ -103,10 +103,7 @@ def main() -> int:
     dataset = load_json(args.cases)
     cases = list(dataset.get("cases", []))
     endpoint = args.base_url.rstrip("/") + "/api/generate"
-    print(
-        f"Collecting {len(cases)} raw outputs from {endpoint} "
-        f"with {args.workers} workers."
-    )
+    print(f"Collecting {len(cases)} raw outputs from {endpoint} with {args.workers} workers.")
 
     records_by_id: dict[str, dict[str, Any]] = {}
     started_all = time.perf_counter()
@@ -133,8 +130,7 @@ def main() -> int:
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
         futures = {
-            pool.submit(collect_one, case, endpoint, args.timeout): case["id"]
-            for case in cases
+            pool.submit(collect_one, case, endpoint, args.timeout): case["id"] for case in cases
         }
         done = 0
         for future in as_completed(futures):
@@ -152,8 +148,10 @@ def main() -> int:
     records = [records_by_id[case["id"]] for case in cases]
     failed = sum(not 200 <= record["http_status"] < 300 for record in records)
     total_min = (time.perf_counter() - started_all) / 60.0
-    print(f"Saved {len(records)} raw records to {args.output}; HTTP failures: {failed}; "
-          f"total {total_min:.1f} min.")
+    print(
+        f"Saved {len(records)} raw records to {args.output}; HTTP failures: {failed}; "
+        f"total {total_min:.1f} min."
+    )
     return 1 if failed else 0
 
 
