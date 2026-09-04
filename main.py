@@ -592,22 +592,23 @@ def _contains_learning_plan_template(answer: str) -> bool:
 def _build_clarification_questions(result: dict[str, Any]) -> list[dict[str, Any]]:
     """把 k1_pre_ask 的追问结果映射为前端 3 问（scope/outcome/timeline）契约。
 
-    scope 对应「品牌方向」（direction）、outcome 对应「任务环节」（task）、
+    scope 对应「聚焦哪一方面」（方面）、outcome 对应「任务环节」（task，自由填写）、
     timeline 保持时间维度 —— 前端 refineLearningGoal 据此合成
     「重点学习X；目标是Y；计划在Z完成」。
+
+    品牌不在此追问：主表单「目标机器人品牌」已单独采集，避免重复。
     """
     return [
         {
             "id": "scope",
-            "label": "优先聚焦哪个品牌 / 平台？",
-            "helper": result.get("ask_content") or "品牌越具体，资源越能落到对应控制器与指令体系。",
-            "options": ["FANUC", "KUKA", "ABB", "通用 / 多品牌"],
+            "label": "优先聚焦哪一方面？",
+            "helper": result.get("ask_content") or "先选一个最想突破的方面，资源会更聚焦。",
+            "options": ["基础原理", "设备操作", "编程与调试", "故障诊断"],
         },
         {
             "id": "outcome",
-            "label": "完成后希望独立完成哪个任务？",
-            "helper": "任务明确了，才能映射到领域核心知识点清单（可选，也可自行描述）。",
-            "options": ["点位编程", "搬运码垛", "焊接工艺", "故障诊断"],
+            "label": "完成后希望独立完成什么任务？",
+            "helper": "用自己的话描述即可，例如：独立完成一次 FANUC 示教、排查常见报警。",
         },
         {
             "id": "timeline",
