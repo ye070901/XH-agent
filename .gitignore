@@ -51,3 +51,4 @@ data/evaluation/runs/
 data/learner_profiles.db*
 .pytest_cache/
 pytest-of-*/
+test-results/

@@ -38,8 +38,8 @@ Object.assign(panelDetails, {
   generation: {
     eyebrow: "知识生成",
     title: "检索支撑的多类型资源",
-    description: "生成 Agent 结合知识库检索，输出讲义、实操指南与可提交作答的测试题。",
-    metric: "讲义、指南、测试题",
+    description: "生成 Agent 结合知识库检索，输出讲义、实操指南、测试题、项目实战与避坑指南五类个性化资源。",
+    metric: "五类学习资源",
   },
   audit: {
     eyebrow: "审核修正",
@@ -2787,7 +2787,7 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
       <div className={`relative z-10 mx-auto max-w-[1280px] px-5 sm:px-8 ${schemeB ? "lg:flex lg:items-end lg:justify-start lg:gap-6" : ""}`} style={{ paddingTop: "clamp(40px, 8vw, 72px)" }}>
         <motion.div className={schemeB ? "max-w-[560px] rounded-[2rem] bg-[#F2F2EE]/78 p-7 shadow-[0_18px_60px_rgba(25,40,55,0.10)] backdrop-blur-[3px] sm:p-10" : "max-w-[560px]"} style={reducedMotion ? undefined : { x: mainX, y: mainY }}>
           <motion.h1 {...fadeUp(0)} className="mb-6 font-[var(--font-heading)] text-[clamp(1.65rem,5vw,3rem)] font-bold leading-[1.05] tracking-[-0.01em]">领域知识个性化生成与多智能体协同决策系统</motion.h1>
-          <motion.p {...fadeUp(1)} className="max-w-[560px] text-[clamp(0.9rem,2.5vw,1.1rem)] leading-[1.65] opacity-80">从目标追问到实时协同：XH-Agent 基于知识库检索生成讲义、实操指南与可作答测试题，并完成质量审核、保真修正与后续答疑。</motion.p>
+          <motion.p {...fadeUp(1)} className="max-w-[560px] text-[clamp(0.9rem,2.5vw,1.1rem)] leading-[1.65] opacity-80">从目标追问到实时协同：XH-Agent 基于知识库检索生成讲义、实操指南、测试题、项目实战与避坑指南五类学习资源，并完成质量审核、保真修正与后续答疑。</motion.p>
           <motion.button {...fadeUp(2)} className="mt-8 flex min-w-[210px] max-w-max items-center justify-between gap-8 rounded-[50px] bg-[#7342E2] px-6 py-[17px] text-[clamp(0.9rem,2vw,1rem)] font-semibold text-white shadow-[0_4px_24px_rgba(115,66,226,0.28)]" onClick={openGenerator} type="button" whileHover={{ scale: 1.04, filter: "brightness(1.1)" }} whileTap={{ scale: 0.96 }}>
             开始定制学习方案 <ArrowRightCircle size={20} strokeWidth={1.8} />
           </motion.button>
@@ -2836,13 +2836,13 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
               {homeInfoDialog === "workflow" ? (
                 <div className="mt-7 grid gap-3">
                   <p className="text-sm leading-6 text-[#192837]/75">XH-Agent 会把一次学习请求拆成连续协作的任务。前一阶段的结论会成为后一阶段的依据，避免资源内容与学习目标脱节。</p>
-                  {["目标澄清：补齐学习范围、预期成果与时间边界。", "学情诊断：结合已有技能、专业和工作背景确定起点。", "知识检索与资源生成：从知识库检索相关内容，再生成讲义、实操指南或测试题。", "内容审核与保真修正：检查资源是否有依据、难度是否匹配、表述是否可用。", "学习反馈：根据答题结果和学习疑问，补充解释、建议或下一轮资源。"].map((item, index) => <div className="flex gap-3 rounded-2xl bg-white/65 p-4" key={item}><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#7342E2] text-xs font-semibold text-white">0{index + 1}</span><p className="text-sm font-medium leading-6">{item}</p></div>)}
+                  {["目标澄清：补齐学习范围、预期成果与时间边界。", "学情诊断：结合已有技能、专业和工作背景确定起点。", "知识检索与资源生成：从知识库检索相关内容，再生成讲义、实操指南、测试题、项目实战或避坑指南。", "内容审核与保真修正：检查资源是否有依据、难度是否匹配、表述是否可用。", "学习反馈：根据答题结果和学习疑问，补充解释、建议或下一轮资源。"].map((item, index) => <div className="flex gap-3 rounded-2xl bg-white/65 p-4" key={item}><span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#7342E2] text-xs font-semibold text-white">0{index + 1}</span><p className="text-sm font-medium leading-6">{item}</p></div>)}
                 </div>
               ) : (
                 <div className="mt-7 grid gap-4">
                   <p className="text-sm leading-6 text-[#192837]/75">系统概览展示项目如何从一个宽泛的学习愿望，逐步形成能学习、能练习、能反馈的个性化路径。</p>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    {["明确目标：先识别过于宽泛的目标，并通过追问确定重点、成果和周期。", "可信生成：检索本地知识库，以检索结果约束讲义、实操指南与测试题。", "可验证练习：测试题支持提交作答，再显示标准答案与解析。", "反馈迭代：学习者可以提出疑问，系统据此生成针对性补充与下一步建议。"].map((item, index) => <div className="rounded-2xl bg-white/65 p-4" key={item}><span className="text-xs font-semibold text-[#7342E2]">0{index + 1}</span><p className="mt-2 text-sm font-medium leading-6">{item}</p></div>)}
+                    {["明确目标：先识别过于宽泛的目标，并通过追问确定重点、成果和周期。", "可信生成：检索本地知识库，以检索结果约束讲义、实操指南、测试题、项目实战与避坑指南。", "可验证练习：测试题支持提交作答，再显示标准答案与解析。", "反馈迭代：学习者可以提出疑问，系统据此生成针对性补充与下一步建议。"].map((item, index) => <div className="rounded-2xl bg-white/65 p-4" key={item}><span className="text-xs font-semibold text-[#7342E2]">0{index + 1}</span><p className="mt-2 text-sm font-medium leading-6">{item}</p></div>)}
                   </div>
                   <div className="rounded-2xl bg-[#192837] p-5 text-white"><p className="text-xs font-semibold text-white/55">学习闭环</p><p className="mt-2 text-sm leading-6 text-white/85">目标澄清、学情诊断、知识检索、资源生成、审核修正、作答与反馈构成持续迭代的学习闭环。每次反馈都能成为下一次学习资源生成的输入。</p></div>
                 </div>
