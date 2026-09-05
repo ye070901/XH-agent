@@ -1,0 +1,55 @@
+{
+  "source": "_build/raw_samples.json",
+  "source_sha256": "28826aa42d3d7871ee1c8346b42883d924e5201f601bcd834dc15fbf2f61aace",
+  "source_captured_at": "2026-09-01T22:02:03+08:00",
+  "cases": [
+    {
+      "case_id": "E2E-001",
+      "scenario": "零基础学习者适配",
+      "profile_id": "profile-d-zero-basis",
+      "http_status": 200,
+      "expected": {
+        "difficulty": "beginner",
+        "learning_style": "visual"
+      },
+      "actual": {
+        "difficulty": "beginner",
+        "learning_style": "visual"
+      },
+      "passed": true,
+      "record": "E2E-001_画像D_零基础转行.md"
+    },
+    {
+      "case_id": "E2E-002",
+      "scenario": "熟练工程师进阶适配",
+      "profile_id": "profile-i-skilled-engineer",
+      "http_status": 200,
+      "expected": {
+        "difficulty": "advanced",
+        "learning_style": "practice_first"
+      },
+      "actual": {
+        "difficulty": "advanced",
+        "learning_style": "practice_first"
+      },
+      "passed": true,
+      "record": "E2E-002_画像I_熟练工程师.md"
+    },
+    {
+      "case_id": "E2E-003",
+      "scenario": "对抗画像客观证据校正",
+      "profile_id": "profile-k-over-confident",
+      "http_status": 200,
+      "expected": {
+        "difficulty": "beginner",
+        "learning_style": "practice_first"
+      },
+      "actual": {
+        "difficulty": "beginner",
+        "learning_style": "practice_first"
+      },
+      "passed": true,
+      "record": "E2E-003_画像K_过度自信.md"
+    }
+  ]
+}

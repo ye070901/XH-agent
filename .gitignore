@@ -29,11 +29,16 @@ data/chroma_test*/
 # 前端
 frontend/node_modules/
 frontend/dist/
+# pnpm 误生成（项目用 npm）
+frontend/.pnpm-store/
+frontend/pnpm-lock.yaml
+frontend/pnpm-workspace.yaml
 frontend/*.tsbuildinfo
 
 # 构建产物 / 备份 / 交付物
 frontend-backup-*/
 deliverables/
+submission/_build/
 
 # 材料文档大文件（视频/压缩包不进 git，本地留档，打包时再放）
 submission/01_材料文档/*.mp4
@@ -52,3 +57,4 @@ data/learner_profiles.db*
 .pytest_cache/
 pytest-of-*/
 test-results/
+.pytest-tmp/

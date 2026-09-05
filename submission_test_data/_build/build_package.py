@@ -10,8 +10,10 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -24,6 +26,13 @@ PROFILES = REPO_ROOT / "data" / "evaluation" / "learner_profiles.json"
 KB_SLICE_DIR = ROOT / "01_知识库切片" / "kb_slice"
 PROFILES_OUT = ROOT / "02_学习者画像" / "learner_profiles.json"
 EXAMPLES_DIR = ROOT / "03_输入输出示例"
+EXECUTION_DIR = ROOT / "04_测试执行记录"
+
+CASE_META = {
+    "profile-d-zero-basis": ("E2E-001", "画像D_零基础转行", "零基础学习者适配"),
+    "profile-i-skilled-engineer": ("E2E-002", "画像I_熟练工程师", "熟练工程师进阶适配"),
+    "profile-k-over-confident": ("E2E-003", "画像K_过度自信", "对抗画像客观证据校正"),
+}
 
 
 def load_json(path: Path):
@@ -74,6 +83,42 @@ def _fmt_table(rows: list[list[str]], headers: list[str]) -> str:
     for r in rows:
         lines.append("| " + " | ".join(esc(c) for c in r) + " |")
     return "\n".join(lines)
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _business_steps(agent_log: list[dict]) -> list[list[str]]:
+    """Merge module lifecycle events and pipeline state events into one business step."""
+    definitions = {
+        "diagnosis": ("学情诊断", "学情诊断 Agent", "根据画像与前置测试判断难度、风格和盲区"),
+        "retrieval": ("知识检索", "retrieval", "从领域知识库检索生成所需的证据"),
+        "generation": ("内容生成", "知识生成 Agent", "生成讲义、实操指南和测试题"),
+        "audit": ("内容审核", "审核 Agent", "核查生成内容中的事实断言"),
+        "debate": ("辩论裁决", "debate", "对存在分歧的断言进行裁决"),
+        "correction": ("保真修正", "保真修正 Agent", "删除、替换或补充不可靠内容"),
+        "audit_recheck": ("审核复核", "审核 Agent", "对修正后的内容进行再次审核"),
+    }
+    aliases = {
+        "学情诊断Agent": "diagnosis", "diagnosis": "diagnosis",
+        "retrieval": "retrieval",
+        "知识生成Agent": "generation", "generation": "generation",
+        "审核Agent": "audit", "audit": "audit",
+        "debate": "debate",
+        "保真修正Agent": "correction", "correction": "correction",
+        "audit_recheck": "audit_recheck",
+    }
+    observed: dict[str, str] = {}
+    for entry in agent_log:
+        raw_name = entry.get("agent", "")
+        key = aliases.get(raw_name)
+        if raw_name == "审核Agent" and "audit" in observed:
+            key = "audit_recheck"
+        if not key or key in observed:
+            continue
+        observed[key] = entry.get("status", entry.get("stage", entry.get("level", ""))) or "完成"
+    return [[*definitions[key], observed[key]] for key in definitions if key in observed]
 
 
 def write_slice_readme(slice_info: dict) -> None:
@@ -284,21 +329,157 @@ def build_example(sample: dict, profiles_meta: dict) -> None:
         (d / "06_预期与实测对照.md").write_text(body, encoding="utf-8")
 
 
+def write_execution_records(samples: list[dict], profiles_meta: dict) -> None:
+    """从原始 API 响应生成可审阅的端到端测试执行记录。"""
+    EXECUTION_DIR.mkdir(parents=True, exist_ok=True)
+    for old in EXECUTION_DIR.glob("E2E-*.md"):
+        old.unlink()
+
+    captured_at = datetime.fromtimestamp(RAW_SAMPLES.stat().st_mtime).astimezone().isoformat(timespec="seconds")
+    raw_hash = _sha256(RAW_SAMPLES)
+    manifest_cases = []
+    summary_rows = []
+
+    for sample in samples:
+        pid = sample["profile_id"]
+        case_id, safe_name, scenario = CASE_META[pid]
+        response = sample.get("response", {})
+        diagnosis = response.get("diagnosis", {})
+        expected = profiles_meta.get(pid, {}).get("expected_profile", {})
+        expected_difficulty = expected.get("expected_difficulty", "")
+        expected_style = expected.get("expected_learning_style", "")
+        actual_difficulty = diagnosis.get("recommended_difficulty", "")
+        actual_style = diagnosis.get("learning_style", "")
+        assertions = [
+            ["难度", expected_difficulty, actual_difficulty, "通过" if expected_difficulty == actual_difficulty else "不通过"],
+            ["学习风格", expected_style, actual_style, "通过" if expected_style == actual_style else "不通过"],
+        ]
+        passed = all(row[3] == "通过" for row in assertions) and sample.get("http_status") == 200
+
+        log_rows = _business_steps(response.get("agent_log", []))
+
+        audit_rows = []
+        for audit in response.get("audit", []):
+            fact_check = audit.get("fact_check", {})
+            audit_rows.append([
+                audit.get("resource_type", ""),
+                audit.get("verdict", ""),
+                fact_check.get("hallucination_count", 0),
+                fact_check.get("unverifiable_count", 0),
+            ])
+
+        resource_rows = []
+        for resource in response.get("resources", []):
+            resource_rows.append([
+                resource.get("resource_type", ""),
+                resource.get("title", ""),
+                resource.get("difficulty_level", ""),
+            ])
+
+        request_json = json.dumps(sample.get("request", {}), ensure_ascii=False, indent=2)
+        body = _md_h1(f"{case_id} 测试执行记录", scenario)
+        body += f"""## 测试身份
+
+| 项 | 值 |
+|---|---|
+| 用例编号 | {case_id} |
+| 测试数据 | `02_学习者画像/learner_profiles.json` 中的 `{pid}` |
+| 原始响应 | `_build/raw_samples.json` 中的 `{pid}` 记录 |
+| 原始响应采集时间 | {captured_at} |
+| HTTP 状态 | {sample.get('http_status', '')} |
+| 结论 | {'通过' if passed else '不通过'} |
+
+## 1 测试输入与请求
+
+测试脚本 `submission_test_data/_build/generate_samples.py` 读取画像真值，向 `POST /api/generate` 发送以下请求：
+
+```json
+{request_json}
+```
+
+## 2 系统生成过程
+
+系统响应先产生学情诊断，再经过检索、生成、审核、辩论和修正等环节。以下业务步骤由本次响应的 `agent_log` 归并而来：同一模块的“执行完成”事件与“状态完成”事件只计为一个步骤；原始 `agent_log` 保留在 `_build/raw_samples.json`。
+
+{_fmt_table(log_rows or [['-', '-', '-', '响应未包含 agent_log']], ['业务步骤', '执行模块', '步骤说明', '实际状态'])}
+
+### 诊断输出
+
+| 推荐难度 | 学习风格 | 整体置信度 |
+|---|---|---|
+| {actual_difficulty} | {actual_style} | {diagnosis.get('overall_confidence', '')} |
+
+### 审核输出
+
+{_fmt_table(audit_rows or [['-', '-', '-', '-']], ['资源类型', '审核结论', '幻觉数', '不可验证数'])}
+
+### 生成资源
+
+{_fmt_table(resource_rows or [['-', '-', '-']], ['资源类型', '标题', '难度'])}
+
+## 3 断言与测试结论
+
+{_fmt_table(assertions, ['断言项', '预期真值', '系统实测', '结果'])}
+
+本用例{'全部断言通过' if passed else '存在未通过断言'}。完整的输入、诊断、协同日志、审核明细和资源正文见 `03_输入输出示例/{safe_name}/`。
+
+## 4 可复现性
+
+```bash
+python submission_test_data/_build/generate_samples.py
+python submission_test_data/_build/build_package.py
+```
+
+本记录的原始响应文件 SHA-256：`{raw_hash}`。
+"""
+        record_file = EXECUTION_DIR / f"{case_id}_{safe_name}.md"
+        record_file.write_text(body, encoding="utf-8")
+        manifest_cases.append({
+            "case_id": case_id,
+            "scenario": scenario,
+            "profile_id": pid,
+            "http_status": sample.get("http_status"),
+            "expected": {"difficulty": expected_difficulty, "learning_style": expected_style},
+            "actual": {"difficulty": actual_difficulty, "learning_style": actual_style},
+            "passed": passed,
+            "record": record_file.name,
+        })
+        summary_rows.append([case_id, scenario, pid, actual_difficulty, actual_style, "通过" if passed else "不通过"])
+
+    manifest = {
+        "source": "_build/raw_samples.json",
+        "source_sha256": raw_hash,
+        "source_captured_at": captured_at,
+        "cases": manifest_cases,
+    }
+    (EXECUTION_DIR / "test_manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    summary = _md_h1("端到端测试执行汇总", "D I K 三组画像的原始 API 调用记录")
+    summary += "本目录将测试数据、原始响应、系统生成过程、断言和结论放在同一条追溯链中。\n\n"
+    summary += _fmt_table(summary_rows, ["用例", "场景", "数据 ID", "实测难度", "实测风格", "结论"])
+    summary += "\n\n每个用例的详细过程见对应 `E2E-*.md`；机器可读清单见 `test_manifest.json`。\n"
+    (EXECUTION_DIR / "测试汇总报告.md").write_text(summary, encoding="utf-8")
+
+
 def main() -> int:
-    print("== 1/3 构建知识库切片 ==")
+    print("== 1/4 构建知识库切片 ==")
     slice_info = build_kb_slice()
     write_slice_readme(slice_info)
     print(f"   core 切片文档 {len(slice_info['copied_files'])} 篇 → {KB_SLICE_DIR}")
 
-    print("== 2/3 复制学习者画像 ==")
+    print("== 2/4 复制学习者画像 ==")
     write_profile_dir()
 
-    print("== 3/3 拆分端到端样例 ==")
+    print("== 3/4 拆分端到端样例 ==")
     samples = load_json(RAW_SAMPLES)["samples"]
     profiles = {p["id"]: p for p in load_json(PROFILES)["profiles"]}
     for s in samples:
         build_example(s, profiles)
         print(f"   {s['profile_id']} → {EXAMPLES_DIR}")
+    print("== 4/4 生成测试执行记录 ==")
+    write_execution_records(samples, profiles)
+    print(f"   D/I/K 执行记录 → {EXECUTION_DIR}")
     print("\n完成。")
     return 0
 
