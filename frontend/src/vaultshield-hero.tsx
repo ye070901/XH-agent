@@ -186,6 +186,30 @@ type GenerationResult = {
   mode?: "demo" | "api";
 };
 
+type DemoSample = {
+  profile_id?: string;
+  label?: string;
+  input?: Record<string, unknown>;
+  request?: Record<string, unknown>;
+  response?: GenerationResult;
+};
+
+const DEMO_SAMPLE_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: "profile-d-zero-basis", label: "D 纯零基础·行业外转行" },
+  { id: "profile-i-skilled-engineer", label: "I 熟练工程师·日常使用" },
+  { id: "profile-k-over-confident", label: "K 过度自信型·自称专家实则零基础" },
+];
+
+const EDUCATION_LEVEL_TO_LABEL: Record<string, string> = {
+  bachelor: "本科",
+  master: "硕士",
+  phd: "博士",
+  high_school: "其他",
+  junior_college: "其他",
+};
+
+const asString = (value: unknown): string => (typeof value === "string" ? value : "");
+
 type QuizAttempt = {
   answers: Record<string, string>;
   submitted: boolean;
@@ -2133,6 +2157,9 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
   const [workYears, setWorkYears] = useState(1);
   const [industry, setIndustry] = useState("");
   const [role, setRole] = useState("");
+  const [demoSampleId, setDemoSampleId] = useState(DEMO_SAMPLE_OPTIONS[0]?.id ?? "profile-d-zero-basis");
+  const [demoSampleLoading, setDemoSampleLoading] = useState(false);
+  const [demoSampleError, setDemoSampleError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
@@ -2476,6 +2503,61 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
     setGenerationError(null);
     setGeneratorOpen(true);
   };
+  const loadDemoSample = async () => {
+    setDemoSampleLoading(true);
+    setDemoSampleError(null);
+    try {
+      const response = await fetch("/samples.json");
+      if (!response.ok) throw new Error(`样例加载失败 HTTP ${response.status}`);
+      const data = (await response.json()) as { samples?: DemoSample[] };
+      const sample = (data.samples ?? []).find((item) => item.profile_id === demoSampleId);
+      if (!sample) throw new Error(`未找到样例：${demoSampleId}`);
+      const result = (sample.response ?? {}) as GenerationResult;
+
+      const input = (sample.input ?? {}) as Record<string, unknown>;
+      const request = (sample.request ?? {}) as Record<string, unknown>;
+
+      const goal = asString(input.learning_goal ?? request.learning_goal);
+      if (goal) {
+        setLearningGoal(goal);
+        setTopic(goal);
+        setConfirmedGoal(goal);
+      }
+      setEducation(EDUCATION_LEVEL_TO_LABEL[asString(input.education_level ?? request.education_level)] ?? "其他");
+      setMajor(asString(input.major ?? request.major));
+      const skillsUsed = input.skills_used ?? request.skills_used;
+      setSkills(Array.isArray(skillsUsed) ? skillsUsed.filter((item): item is string => typeof item === "string").join("、") : "");
+      const workYearsValue = input.work_years ?? request.work_years;
+      setWorkYears(typeof workYearsValue === "number" ? workYearsValue : 0);
+      setIndustry(asString(input.industry ?? request.industry));
+      const positions = input.positions ?? request.positions;
+      setRole(Array.isArray(positions) && typeof positions[0] === "string" ? positions[0] : "");
+      const resourceTypesValue = request.resource_types;
+      if (Array.isArray(resourceTypesValue) && resourceTypesValue.length) {
+        setResourceTypes(resourceTypesValue.filter((item): item is string => typeof item === "string"));
+      }
+
+      setGenerationResult(result);
+      setGenerationSeq((n) => n + 1);
+      setQuizAttempts({});
+      setResourceReady(true);
+      setSelectedResource(result.resources?.[0]?.resource_type ?? null);
+      setIsGenerating(false);
+      setGenerationError(null);
+      setRegenerationNotice(null);
+      setGenerationProgressOpen(false);
+      setWorkflowMode("complete");
+      setWorkflowEvents(initialWorkflowEvents().map((event): WorkflowEvent => ({ ...event, status: "done", message: "已完成" })));
+
+      setWorkspaceExpanded(false);
+      setGeneratorOpen(false);
+      setWorkspaceOpen(true);
+    } catch (error) {
+      setDemoSampleError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDemoSampleLoading(false);
+    }
+  };
   const submitGenerationLegacy = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (confirmedGoal !== learningGoal.trim()) {
@@ -2779,6 +2861,20 @@ export function VaultShieldHero({ variant }: { variant: Variant }) {
                 <div><p className="text-xs font-semibold tracking-[0.12em] text-[#192837]/55">学习画像</p><h2 className="mt-2 font-[var(--font-heading)] text-3xl leading-tight">先了解你的学习需求</h2></div>
                 <button aria-label="关闭" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#192837]/[0.08]" onClick={() => setGeneratorOpen(false)} type="button"><X size={20} strokeWidth={1.8} /></button>
               </div>
+              <section aria-label="演示样例" className="mt-6 rounded-2xl border border-[#7342E2]/20 bg-[#7342E2]/[0.06] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-[#192837]">演示样例（比赛评审快速查看）</p>
+                  <span className="rounded-full bg-[#7342E2]/10 px-2.5 py-1 text-[11px] font-semibold text-[#7342E2]">预生成</span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[#192837]/60">预生成样例，用于快速展示不同背景学习者的差异化生成结果。</p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select className="min-w-0 flex-1 rounded-xl bg-white/70 px-3 py-2.5 text-sm font-medium outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setDemoSampleId(event.target.value)} value={demoSampleId}>
+                    {DEMO_SAMPLE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  </select>
+                  <button className="shrink-0 rounded-full border border-[#7342E2]/40 px-5 py-2.5 text-sm font-semibold text-[#7342E2] transition hover:bg-[#7342E2] hover:text-white disabled:cursor-not-allowed disabled:opacity-50" disabled={demoSampleLoading} onClick={() => void loadDemoSample()} type="button">{demoSampleLoading ? "加载中…" : "加载样例"}</button>
+                </div>
+                {demoSampleError ? <p className="mt-2 text-xs text-red-600">{demoSampleError}</p> : null}
+              </section>
               <form className="mt-7 grid gap-7" onSubmit={submitGeneration} ref={generationFormRef}>
                 <fieldset className="grid gap-3"><legend className="text-lg font-semibold">学习目标</legend><label className="grid gap-2 text-sm font-medium">希望完成什么学习任务<textarea className="min-h-24 resize-y rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => { setLearningGoal(event.target.value); setTopic(event.target.value); }} placeholder="例如：掌握 LangGraph 多智能体 AI 应用开发" required value={learningGoal} /></label></fieldset>
                 <fieldset className="grid gap-4"><legend className="text-lg font-semibold">基本信息</legend><div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-2 text-sm font-medium">学历<select className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setEducation(event.target.value)} value={education}><option>本科</option><option>硕士</option><option>博士</option><option>其他</option></select></label><label className="grid gap-2 text-sm font-medium">专业<input className="rounded-xl bg-white/70 px-3 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setMajor(event.target.value)} placeholder="例如：计算机科学" value={major} /></label></div><label className="grid gap-2 text-sm font-medium">已掌握技能<input className="rounded-xl bg-white/70 px-4 py-3 font-normal outline-none ring-[#7342E2] transition focus:ring-2" onChange={(event) => setSkills(event.target.value)} placeholder="例如：Python、Flask、SQL" value={skills} /></label><div className="grid gap-2"><span className="text-sm font-medium">{"目标机器人品牌（可选）"}</span><div className="flex flex-wrap gap-2">{brandOptions.map((option) => <button aria-pressed={brand === option.id} className={`rounded-full px-3 py-2 text-sm font-medium transition ${brand === option.id ? "bg-[#7342E2] text-white" : "bg-[#192837]/[0.08] hover:bg-[#192837]/[0.14]"}`} key={option.label} onClick={() => setBrand(option.id)} type="button">{option.label}</button>)}</div></div></fieldset>
