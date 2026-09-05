@@ -1962,7 +1962,7 @@ function ExpandedWorkspaceLayout({
   const debateUnresolved = debate?.unresolved_count ?? 0;
   return (
     <div className="workspace-expanded-content mt-8 grid min-h-[calc(100dvh-150px)] min-w-0 w-full max-w-none grid-cols-[230px_minmax(0,1fr)] gap-8 rounded-[2rem] bg-[#192837] p-5 text-white shadow-[0_24px_70px_rgba(25,40,55,0.2)] sm:p-7 lg:grid-cols-[260px_minmax(0,1fr)] lg:gap-10">
-      <nav aria-label="学习工作台目录" className="self-start lg:sticky lg:top-7">
+      <nav aria-label="学习工作台目录" className="self-start lg:sticky lg:top-7 lg:max-h-[calc(100dvh-5rem)] lg:overflow-y-auto lg:pr-2">
         <div className="rounded-2xl bg-white/[0.07] p-4">
           <p className="text-xs font-semibold tracking-[0.14em] text-white/55">资源目录</p>
           <div className="mt-4 grid gap-2">
