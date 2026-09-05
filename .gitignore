@@ -40,6 +40,13 @@ frontend-backup-*/
 deliverables/
 submission/_build/
 
+# 打包产物（由 pack.py 生成，勿提交）
+submission/02_软件模块/
+submission/03_测试数据/
+
+# 本地打包命名配置（含真实姓名/电话，隐私，严禁进公开仓库）
+submission/pack_config_local.py
+
 # 材料文档大文件（视频/压缩包不进 git，本地留档，打包时再放）
 submission/01_材料文档/*.mp4
 submission/01_材料文档/*.mov

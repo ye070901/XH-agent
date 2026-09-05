@@ -33,11 +33,16 @@ SOFT = SUB / "02_软件模块"
 TEST = SUB / "03_测试数据"
 TEST_SRC = REPO / "submission_test_data"
 
-# ── 打包命名（提交前改成真实值）──────────────────────────────
-SCHOOL = "XX大学"
-AUTHOR = "张三"
-TITLE = "领域知识个性化生成与多智能体协同决策系统"
-PHONE = "13800000000"
+# ── 打包命名 ──────────────────────────────────────────────
+# 真实姓名/电话属隐私，放本地文件 `submission/pack_config_local.py`（已 .gitignore，不进公开仓库）。
+# 提交到公开仓库的 pack.py 只含占位符；本地打包时读 pack_config_local.py 得到真实命名。
+try:
+    from pack_config_local import SCHOOL, AUTHOR, TITLE, PHONE  # type: ignore
+except ImportError:
+    SCHOOL = "XX大学"
+    AUTHOR = "张三"
+    TITLE = "领域知识个性化生成与多智能体协同决策系统"
+    PHONE = "13800000000"
 
 # ── 仓库导出时排除的目录（相对 REPO，精确名）───────────────
 EXCLUDE_DIR_NAMES = {
@@ -99,6 +104,33 @@ def export_repo() -> int:
     return 0
 
 
+def export_onnx() -> int:
+    """把 ONNX embedding 模型缓存随包带上（解法 A），评委离线时放到 ~/.cache/... 即可。
+
+    对应 store.py:76 的加载路径：~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz。
+    不带上它，评委离线时 ChromaDB 内置 ONNX Embedding 会尝试联网下载失败，退化为关键词检索。
+    """
+    onnx_src = Path.home() / ".cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz"
+    if not onnx_src.exists():
+        print("  ⚠ 未找到 ONNX 模型缓存（~/.cache/chroma/.../onnx.tar.gz），跳过")
+        return 0
+    dest_dir = SOFT / "models"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(onnx_src, dest_dir / "onnx.tar.gz")
+    mb = onnx_src.stat().st_size // (1024 * 1024)
+    # 放置说明，让评委离线时知道放哪
+    (dest_dir / "README.md").write_text(
+        "# ONNX Embedding 模型缓存（离线必需）\n\n"
+        "首次启动后端前，把本目录的 `onnx.tar.gz` 复制到以下路径：\n\n"
+        "    ~/.cache/chroma/onnx_models/all-MiniLM-L6-v2/onnx.tar.gz\n\n"
+        "（Windows 即 `C:\\Users\\<用户名>\\.cache\\chroma\\onnx_models\\all-MiniLM-L6-v2\\onnx.tar.gz`）\n\n"
+        "不放置该文件，系统在离线环境下会退化为关键词检索（BM25），向量语义检索不可用。\n",
+        encoding="utf-8",
+    )
+    print(f"  02_软件模块/models ← ONNX 模型缓存（{mb}MB）")
+    return 0
+
+
 def export_testdata() -> int:
     """把 submission_test_data 复制到 03_测试数据/（清空后重建）。"""
     if not TEST_SRC.exists():
@@ -149,7 +181,7 @@ def main() -> int:
     if args.only_testdata:
         return export_testdata()
 
-    rc = export_repo() or export_testdata()
+    rc = export_repo() or export_onnx() or export_testdata()
     if rc:
         return rc
     make_zip()
